@@ -188,7 +188,7 @@ export default function CTA() {
 
               {/* Footer */}
               <p className="text-center text-[11.5px] font-sans text-slate-400 dark:text-slate-600 mt-1">
-                50,000+ D2C brands monitored in real time
+                500,000+ D2C brands monitored in real time
               </p>
             </div>
           </div>

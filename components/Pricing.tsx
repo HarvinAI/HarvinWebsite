@@ -23,7 +23,7 @@ const PLANS: Plan[] = [
     billing: '/seat/month',
     desc:    'For individual contributors exploring D2C opportunities.',
     features: [
-      'Full database access (50K+ accounts)',
+      'Full database access (500K+ accounts)',
       'Market Intelligence feed',
       'All 13 filters',
       'Up to 5 watchlists',

@@ -138,7 +138,7 @@ export default function Hero() {
           {/* Stats */}
           <div className="max-w-[1100px] mx-auto mt-10 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
             {[
-              { value: '50K+',  label: 'D2C brands tracked' },
+              { value: '500K+', label: 'D2C brands tracked' },
               { value: '101',   label: 'Tools detected'      },
               { value: '30+',   label: 'Markets covered'     },
               { value: 'Daily', label: 'Signal updates'      },

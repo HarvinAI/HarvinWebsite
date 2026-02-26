@@ -210,8 +210,8 @@ const STEPS = [
   {
     number: '01',
     title: 'Discover the Right Brands',
-    desc: 'Search across 50,000+ D2C brands using smart filters — category, location, funding stage, and tech stack.',
-    scanLabel: 'Scanning 50,000+ brand profiles',
+    desc: 'Search across 500,000+ D2C brands using smart filters — category, location, funding stage, and tech stack.',
+    scanLabel: 'Scanning 500,000+ brand profiles',
     Visual: DiscoverVisual,
   },
   {

@@ -38,7 +38,7 @@ const kyivType = localFont({
 /* ── Metadata ─────────────────────────────────────────────────────────────── */
 export const metadata: Metadata = {
   title:       'HarvinAI — D2C Brand Intelligence',
-  description: 'Never miss a D2C opportunity. Track 50K+ brands, real-time signals, and buying windows.',
+  description: 'Never miss a D2C opportunity. Track 500K+ brands, real-time signals, and buying windows.',
 };
 
 /* ── Root layout ──────────────────────────────────────────────────────────── */

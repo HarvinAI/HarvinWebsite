@@ -21,10 +21,21 @@ export default function EarlyAccessModal({ open, type, onClose }: Props) {
 
   const isSales = type === 'talk-to-sales';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => { setLoading(false); setSubmitted(true); }, 1000);
+    try {
+      await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, type }),
+      });
+    } catch {
+      // Silently fail — still show success to user
+    } finally {
+      setLoading(false);
+      setSubmitted(true);
+    }
   };
 
   const handleClose = () => {

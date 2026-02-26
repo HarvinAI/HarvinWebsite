@@ -49,7 +49,7 @@ const AUTO_MILESTONES: Milestone[] = [
   { month: 65,  label: '100 D2C opportunities / mo',  chip: '100 OPPS'  },
   { month: 184, label: '500 D2C opportunities / mo',  chip: '500 OPPS'  },
   { month: 354, label: '5K D2C opportunities / mo',   chip: '5K OPPS'   },
-  { month: 526, label: '50K D2C opportunities / mo',  chip: '50K OPPS'  },
+  { month: 526, label: '500K D2C opportunities / mo', chip: '500K OPPS' },
   { month: 630, label: '2.5L qualified brands / mo',  chip: '2.5L OPPS' },
   { month: 712, label: '10L qualified brands / mo',   chip: '10L OPPS'  },
 ];
