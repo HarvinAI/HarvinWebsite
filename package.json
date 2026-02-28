@@ -18,6 +18,11 @@
     "react-dom": "19.2.3",
     "tailwindcss": "^3.4.19"
   },
+  "overrides": {
+    "next-auth": {
+      "nodemailer": "$nodemailer"
+    }
+  },
   "devDependencies": {
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.11",
