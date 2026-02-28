@@ -79,8 +79,8 @@ const Navbar = () => {
               <div className="h-8 w-8 overflow-hidden flex-shrink-0">
                 <img src="/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto max-w-none" />
               </div>
-              <span className="font-kyiv font-bold text-[24px] tracking-[-0.02em] text-slate-900 dark:text-white leading-none">
-                Harvin<span className="font-normal opacity-40">AI</span>
+              <span className="font-jakarta font-bold text-[24px] tracking-[-0.02em] text-slate-900 dark:text-white leading-none">
+                Harvin{" "}<span className="font-semibold opacity-40">AI</span>
               </span>
             </Link>
 
@@ -211,8 +211,8 @@ const Navbar = () => {
             <div className="h-7 w-7 overflow-hidden flex-shrink-0">
               <img src="/logo.svg" alt="" aria-hidden="true" className="h-7 w-auto max-w-none" />
             </div>
-            <span className="font-kyiv font-bold text-[18px] tracking-[-0.02em] text-slate-900 dark:text-white leading-none">
-              Harvin<span className="font-normal opacity-40">AI</span>
+            <span className="font-jakarta font-extrabold text-[18px] tracking-[-0.02em] text-slate-900 dark:text-white leading-none">
+              Harvin{" "}<span className="font-normal opacity-40"> AI</span>
             </span>
           </Link>
 
