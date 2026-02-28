@@ -39,6 +39,7 @@ const config: Config = {
         display: ['var(--font-display)', 'Georgia',   'serif'     ],
         mono:    ['var(--font-mono)',    'monospace'               ],
         kyiv:    ['var(--font-kyiv)',    'system-ui', 'sans-serif'],
+        jakarta: ['var(--font-jakarta)', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         btn:   '8px',

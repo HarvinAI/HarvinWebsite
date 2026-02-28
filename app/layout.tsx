@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
-import { DM_Sans, Fraunces, JetBrains_Mono } from 'next/font/google';
+import { DM_Sans, Fraunces, JetBrains_Mono, Plus_Jakarta_Sans } from 'next/font/google';
 import localFont from 'next/font/local';
 import './globals.css';
 import ThemeProvider from '@/components/ThemeProvider';
 import { ModalProvider } from '@/components/ModalContext';
+import SessionWrapper from '@/components/SessionWrapper';
 
 /* ── Google fonts ─────────────────────────────────────────────────────────── */
 const dmSans = DM_Sans({
@@ -21,6 +22,12 @@ const fraunces = Fraunces({
 const jetbrainsMono = JetBrains_Mono({
   subsets:  ['latin'],
   variable: '--font-mono',
+  display:  'swap',
+});
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets:  ['latin'],
+  variable: '--font-jakarta',
   display:  'swap',
 });
 
@@ -50,13 +57,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body
-        className={`${dmSans.variable} ${fraunces.variable} ${jetbrainsMono.variable} ${kyivType.variable}`}
+        className={`${dmSans.variable} ${fraunces.variable} ${jetbrainsMono.variable} ${kyivType.variable} ${plusJakartaSans.variable}`}
       >
-        <ThemeProvider>
-          <ModalProvider>
-            {children}
-          </ModalProvider>
-        </ThemeProvider>
+        <SessionWrapper>
+          <ThemeProvider>
+            <ModalProvider>
+              {children}
+            </ModalProvider>
+          </ThemeProvider>
+        </SessionWrapper>
       </body>
     </html>
   );
