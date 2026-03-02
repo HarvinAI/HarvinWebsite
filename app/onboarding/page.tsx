@@ -717,8 +717,8 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              {/* Revenue Range — shown for outreach & research */}
-              {(answers.goal === 'outreach' || answers.goal === 'research') && (
+              {/* Revenue Range */}
+              {(answers.goal === 'outreach' || answers.goal === 'research' || answers.goal === 'trends') && (
                 <div>
                   <p className="text-[13px] font-semibold text-slate-700 mb-3">Revenue Range</p>
                   <div className="flex flex-wrap gap-2">
