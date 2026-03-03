@@ -20,10 +20,10 @@ type Answers = {
   brandTypes?: BrandType[];
   channelMix?: string[];
   offlineStores?: string;
-  revenueModel?: string;
+  revenueModel?: string[];
   mau?: string;
-  companySize?: string;
-  revenueRange?: string;
+  companySize?: string[];
+  revenueRange?: string[];
   techStackInterest?: boolean;
   techCategories?: string[];
   companiesToTrack?: string;
@@ -64,10 +64,8 @@ const REVENUE_MODELS = ['Subscription', 'Transactional', 'Hybrid', 'Any'];
 
 const COMPANY_SIZES = ['Micro (0\u201310)', 'SMB (11\u201350)', 'Mid-Market (51\u2013500)', 'Enterprise (500+)'];
 const REVENUE_RANGES = ['<$10M', '$10M\u2013$100M', '$100M+', 'All'];
-const TECH_CATEGORIES = [
-  'Shopify', 'WooCommerce', 'Magento', 'BigCommerce', 'Custom Stack',
-  'React / Next.js', 'Node.js', 'Python / Django', 'AWS', 'GCP',
-  'Stripe', 'Razorpay', 'Segment', 'Mixpanel', 'HubSpot',
+const ECOM_PLATFORMS = [
+  'Shopify', 'WooCommerce', 'Magento', 'BigCommerce',
 ];
 
 const STEPS = [
@@ -478,39 +476,53 @@ export default function OnboardingPage() {
                 <div className="p-4 border-r border-slate-200">
                   <p className="text-[13px] font-semibold text-slate-700 mb-2">Target Company Size</p>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {COMPANY_SIZES.map(s => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => set({ companySize: s })}
-                        className={`rounded-lg border px-3 py-2 text-[12px] font-medium text-center transition-all duration-150 ${
-                          answers.companySize === s
-                            ? 'border-ember-500 bg-ember-500 text-white'
-                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
+                    {COMPANY_SIZES.map(s => {
+                      const sel = (answers.companySize ?? []).includes(s);
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => toggleInArray('companySize', s)}
+                          className={`rounded-lg border px-3 py-2 text-[12px] font-medium text-center transition-all duration-150 ${
+                            sel
+                              ? 'border-ember-500 bg-ember-500 text-white'
+                              : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="p-4">
                   <p className="text-[13px] font-semibold text-slate-700 mb-2">Target Revenue</p>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {REVENUE_RANGES.map(r => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => set({ revenueRange: r })}
-                        className={`rounded-lg border px-3 py-2 text-[12px] font-medium text-center transition-all duration-150 ${
-                          answers.revenueRange === r
-                            ? 'border-ember-500 bg-ember-500 text-white'
-                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
-                        }`}
-                      >
-                        {r}
-                      </button>
-                    ))}
+                    {REVENUE_RANGES.map(r => {
+                      const sel = (answers.revenueRange ?? []).includes(r);
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            const cur = answers.revenueRange ?? [];
+                            if (r === 'All') {
+                              set({ revenueRange: cur.includes('All') ? [] : ['All'] });
+                            } else {
+                              const without = cur.filter(x => x !== 'All');
+                              set({ revenueRange: without.includes(r) ? without.filter(x => x !== r) : [...without, r] });
+                            }
+                          }}
+                          className={`rounded-lg border px-3 py-2 text-[12px] font-medium text-center transition-all duration-150 ${
+                            sel
+                              ? 'border-ember-500 bg-ember-500 text-white'
+                              : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -621,8 +633,16 @@ export default function OnboardingPage() {
                       <Chip
                         key={rm}
                         label={rm}
-                        selected={answers.revenueModel === rm}
-                        onClick={() => set({ revenueModel: answers.revenueModel === rm ? undefined : rm })}
+                        selected={(answers.revenueModel ?? []).includes(rm)}
+                        onClick={() => {
+                          const cur = answers.revenueModel ?? [];
+                          if (rm === 'Any') {
+                            set({ revenueModel: cur.includes('Any') ? [] : ['Any'] });
+                          } else {
+                            const without = cur.filter(x => x !== 'Any');
+                            set({ revenueModel: without.includes(rm) ? without.filter(x => x !== rm) : [...without, rm] });
+                          }
+                        }}
                       />
                     ))}
                   </div>
@@ -650,9 +670,9 @@ export default function OnboardingPage() {
                 </div>
               )}
 
-              {/* Tech Stack Interest */}
+              {/* E-commerce Platform Interest */}
               <div>
-                <p className="text-[13px] font-semibold text-slate-700 mb-2">Interested in tech stack data?</p>
+                <p className="text-[13px] font-semibold text-slate-700 mb-2">Need a Tech Stack of E-commerce platform specific?</p>
                 <div className="flex items-center gap-3">
                   <Chip label="Yes" selected={answers.techStackInterest === true} onClick={() => set({ techStackInterest: true })} />
                   <Chip label="No" selected={answers.techStackInterest === false} onClick={() => set({ techStackInterest: false, techCategories: [] })} />
@@ -660,7 +680,7 @@ export default function OnboardingPage() {
 
                 {answers.techStackInterest && (
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {TECH_CATEGORIES.map(t => (
+                    {ECOM_PLATFORMS.map(t => (
                       <Chip
                         key={t}
                         label={t}
@@ -670,22 +690,6 @@ export default function OnboardingPage() {
                     ))}
                   </div>
                 )}
-              </div>
-
-              {/* Companies to Track */}
-              <div>
-                <label className="block text-[13px] font-semibold text-slate-700 mb-2">
-                  Companies to Track <span className="font-normal text-slate-400">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Mamaearth, boAt, Sugar Cosmetics..."
-                  value={answers.companiesToTrack ?? ''}
-                  onChange={e => set({ companiesToTrack: e.target.value })}
-                  className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4
-                             text-[14px] text-slate-800 placeholder:text-slate-400
-                             focus:outline-none focus:border-ember-400 transition-colors"
-                />
               </div>
             </div>
           )}
