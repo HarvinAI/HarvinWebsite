@@ -24,6 +24,7 @@ type Answers = {
   mau?: string;
   companySize?: string[];
   revenueRange?: string[];
+  geoFocus?: string[];
   techStackInterest?: boolean;
   techCategories?: string[];
   companiesToTrack?: string;
@@ -64,6 +65,11 @@ const REVENUE_MODELS = ['Subscription', 'Transactional', 'Hybrid', 'Any'];
 
 const COMPANY_SIZES = ['Micro (0\u201310)', 'SMB (11\u201350)', 'Mid-Market (51\u2013500)', 'Enterprise (500+)'];
 const REVENUE_RANGES = ['<$10M', '$10M\u2013$100M', '$100M+', 'All'];
+const GEO_REGIONS = [
+  'India', 'United States', 'United Kingdom', 'Southeast Asia',
+  'Middle East', 'Europe', 'Australia', 'Canada', 'Latin America', 'Africa', 'Global',
+];
+
 const ECOM_PLATFORMS = [
   'Shopify', 'WooCommerce', 'Magento', 'BigCommerce',
 ];
@@ -669,6 +675,29 @@ export default function OnboardingPage() {
                   />
                 </div>
               )}
+
+              {/* Geographic Focus */}
+              <div>
+                <p className="text-[13px] font-semibold text-slate-700 mb-2">Geographic Focus</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {GEO_REGIONS.map(g => (
+                    <Chip
+                      key={g}
+                      label={g}
+                      selected={(answers.geoFocus ?? []).includes(g)}
+                      onClick={() => {
+                        const cur = answers.geoFocus ?? [];
+                        if (g === 'Global') {
+                          set({ geoFocus: cur.includes('Global') ? [] : ['Global'] });
+                        } else {
+                          const without = cur.filter(x => x !== 'Global');
+                          set({ geoFocus: without.includes(g) ? without.filter(x => x !== g) : [...without, g] });
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
 
               {/* E-commerce Platform Interest */}
               <div>
