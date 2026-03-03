@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ArrowLeft, SkipForward, Check, ChevronDown, Zap, Search, TrendingUp, Building2, Globe, Briefcase, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, ChevronDown, Building2, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers, Package, Wifi, Store, Users } from 'lucide-react';
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 type Persona = 'saas' | 'agency' | 'investor' | 'freelancer' | 'other';
-type Goal = 'outreach' | 'research' | 'trends';
+type BrandType = 'physical' | 'digital';
 
 type Answers = {
   fullName?: string;
@@ -16,12 +16,13 @@ type Answers = {
   companyLink?: string;
   jobRole?: string;
   heardFrom?: string[];
-  goal?: Goal;
-  industries?: string[];
-  geoFocus?: string[];
+  brandTypes?: BrandType[];
+  channelMix?: string[];
+  offlineStores?: string;
+  revenueModel?: string;
+  mau?: string;
   companySize?: string;
   revenueRange?: string;
-  businessModel?: string;
   techStackInterest?: boolean;
   techCategories?: string[];
   companiesToTrack?: string;
@@ -37,9 +38,8 @@ const PERSONAS: { id: Persona; icon: React.ReactNode; label: string; desc: strin
 ];
 
 const JOB_ROLES = [
-  'Founder / CEO', 'Co-Founder / CTO', 'Head of Sales', 'Sales Manager',
-  'Account Executive', 'Business Development', 'Marketing Lead',
-  'Growth Manager', 'Product Manager', 'Consultant', 'Other',
+  'Owner/Founder', 'Marketing', 'Sales',
+  'Growth', 'Other',
 ];
 
 const HEARD_FROM = [
@@ -47,80 +47,22 @@ const HEARD_FROM = [
   'Product Hunt', 'Newsletter', 'YouTube', 'Podcast', 'Other',
 ];
 
-const GOALS: { id: Goal; icon: React.ReactNode; title: string; desc: string; bestFor: string; features: string[] }[] = [
-  {
-    id: 'outreach',
-    icon: <Search size={20} strokeWidth={2} />,
-    title: 'Find Companies to Outreach',
-    desc: 'Build prospect lists, find leads, and discover potential customers or partners in the D2C ecosystem.',
-    bestFor: 'SaaS Companies \u00b7 Marketing Agencies \u00b7 Sales Teams \u00b7 Tech Vendors',
-    features: [
-      'Contact information displayed prominently',
-      'Company size, tech stack & funding details visible',
-      '"Export to CSV" and "Add to List" features enabled',
-      '"Similar Companies" widget on every company profile',
-      'Decision-maker information highlighted',
-    ],
-  },
-  {
-    id: 'research',
-    icon: <Briefcase size={20} strokeWidth={2} />,
-    title: 'Competitive Research',
-    desc: 'Analyze competitors, understand their strategies, and benchmark your performance against the market.',
-    bestFor: 'Freelancers \u00b7 Founders \u00b7 Product Managers \u00b7 Marketing Teams',
-    features: [
-      '"Companies Similar to Yours" section featured',
-      'Tech stack analysis and comparison tools',
-      'Business model and strategy breakdowns',
-      'Growth metrics and funding history tracked',
-      'Side-by-side comparison views available',
-    ],
-  },
-  {
-    id: 'trends',
-    icon: <TrendingUp size={20} strokeWidth={2} />,
-    title: 'Market Trends',
-    desc: 'Track industry trends, spot emerging patterns, and discover market opportunities before the competition.',
-    bestFor: 'Investors \u00b7 Analysts \u00b7 Market Researchers',
-    features: [
-      'Trending categories and segments highlighted',
-      'Growth charts and statistical dashboards',
-      'Funding rounds and valuations tracked',
-      '"Emerging Companies" discovery section',
-      'Advanced data export and reporting tools',
-    ],
-  },
+const BRAND_TYPE_OPTIONS: { id: BrandType; icon: React.ReactNode; label: string; desc: string }[] = [
+  { id: 'physical', icon: <Package size={20} strokeWidth={1.8} />, label: 'Physical Product Brand (D2C)', desc: 'Brands selling physical goods directly to consumers' },
+  { id: 'digital',  icon: <Wifi size={20} strokeWidth={1.8} />,    label: 'Digital Product / Service',     desc: 'SaaS, apps, digital subscriptions & online services' },
 ];
 
-const ECOMMERCE_INDUSTRIES = [
-  'Fashion & Apparel', 'Footwear', 'Fashion Accessories', 'Jewelry',
-  'Beauty & Personal Care', 'Food & Beverage', 'Home & Living',
-  'Health & Wellness', 'Baby & Kids', 'Pet Products',
-  'Electronics & Tech', 'Outdoor & Recreation', 'Office & Stationery',
+const CHANNEL_MIX_OPTIONS = [
+  { id: 'website_only',      label: 'Website Only',                        desc: 'Brands with their own e-commerce website' },
+  { id: 'marketplace_only',  label: 'Marketplace Only',                    desc: 'Brands selling exclusively on marketplaces' },
+  { id: 'omnichannel',       label: 'Website + Marketplace (Omnichannel)', desc: 'Brands present on both channels' },
+  { id: 'offline_retail',    label: 'Offline Retail Presence',              desc: 'Brands with physical store locations' },
 ];
 
-const DIGITAL_INDUSTRIES = [
-  'EdTech', 'FinTech', 'Health & Wellness Services', 'Telecom',
-  'Streaming / OTT', 'Music & Audio Streaming', 'Gaming',
-  'News & Media', 'Insurance', 'Travel & Ticketing',
-  'Food Delivery', 'Transportation Booking',
-];
+const REVENUE_MODELS = ['Subscription', 'Transactional', 'Hybrid', 'Any'];
 
-const GEO_REGIONS = [
-  'United States & Canada', 'Europe', 'India', 'China',
-  'Southeast Asia', 'Global / All Regions', 'Japan',
-  'South Korea', 'Australia & New Zealand', 'Latin America',
-  'Middle East & Africa',
-];
-
-const COMPANY_SIZES = ['0\u201310', '10\u201350', '50\u2013500', '500+'];
-const REVENUE_RANGES = ['<$10M', '$10M\u2013$100M', '$100M+', 'All Sizes'];
-const BUSINESS_MODELS = [
-  'Digital Service / Subscription-Based',
-  'E-Commerce: Transactional Website & Marketplace',
-  'E-Commerce: Transactional Marketplace Only',
-  'E-Commerce: Transactional Website Only',
-];
+const COMPANY_SIZES = ['Micro (0\u201310)', 'SMB (11\u201350)', 'Mid-Market (51\u2013500)', 'Enterprise (500+)'];
+const REVENUE_RANGES = ['<$10M', '$10M\u2013$100M', '$100M+', 'All'];
 const TECH_CATEGORIES = [
   'Shopify', 'WooCommerce', 'Magento', 'BigCommerce', 'Custom Stack',
   'React / Next.js', 'Node.js', 'Python / Django', 'AWS', 'GCP',
@@ -128,19 +70,9 @@ const TECH_CATEGORIES = [
 ];
 
 const STEPS = [
-  { number: '01', title: 'Basic Information',          subtitle: 'Tell us a bit about yourself',                   optional: false },
-  { number: '02', title: 'Primary Goal',               subtitle: 'What will you use HarvinAI for?',                optional: false },
-  { number: '03', title: 'Industry & Geographic Focus', subtitle: 'What sectors and regions interest you?',          optional: false },
-  { number: '04', title: 'Deep Dive & Refinement',     subtitle: 'Fine-tune your preferences (optional)',           optional: true  },
+  { number: '01', title: 'Basic Information',  subtitle: 'Tell us a bit about yourself',                optional: false },
+  { number: '02', title: 'Target Companies',   subtitle: 'Define the D2C brands you want to discover',  optional: false },
 ];
-
-/* ── Persona → Goal mapping ──────────────────────────────────────────────── */
-function defaultGoalForPersona(p?: Persona): Goal | undefined {
-  if (p === 'saas' || p === 'agency') return 'outreach';
-  if (p === 'investor') return 'trends';
-  if (p === 'freelancer') return 'research';
-  return undefined;
-}
 
 /* ── Sub-components ──────────────────────────────────────────────────────── */
 function PersonaCard({ selected, onClick, icon, label, desc }: {
@@ -170,63 +102,6 @@ function PersonaCard({ selected, onClick, icon, label, desc }: {
       }`}>
         {selected && <Check size={10} strokeWidth={3} className="text-white" />}
       </div>
-    </button>
-  );
-}
-
-function GoalCard({ selected, onClick, goal }: {
-  selected: boolean; onClick: () => void;
-  goal: typeof GOALS[number];
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-xl border text-left transition-all duration-200 ${
-        selected
-          ? 'border-ember-500 bg-ember-50/50 shadow-[0_0_0_3px_rgba(201,76,30,0.1)]'
-          : 'border-slate-200 bg-white hover:border-slate-300'
-      }`}
-    >
-      <div className="p-5">
-        <div className="flex items-start gap-3 mb-2">
-          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-            selected ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-500'
-          }`}>
-            {goal.icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className={`text-[15px] font-semibold leading-snug ${selected ? 'text-ember-700' : 'text-slate-900'}`}>
-              {goal.title}
-            </p>
-            <p className="mt-1 text-[13px] text-slate-500 leading-snug">{goal.desc}</p>
-          </div>
-          <div className={`mt-0.5 h-5 w-5 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all ${
-            selected ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
-          }`}>
-            {selected && <Check size={10} strokeWidth={3} className="text-white" />}
-          </div>
-        </div>
-        <div className={`mt-2 text-[11px] font-medium px-2 py-1 rounded-md inline-block ${
-          selected ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-500'
-        }`}>
-          Best For: {goal.bestFor}
-        </div>
-      </div>
-
-      {/* Expanded features */}
-      {selected && (
-        <div className="border-t border-ember-200 px-5 py-4">
-          <ul className="flex flex-col gap-1.5">
-            {goal.features.map(f => (
-              <li key={f} className="flex items-start gap-2 text-[12px] text-ember-700 leading-snug">
-                <Check size={12} strokeWidth={2.5} className="text-ember-500 flex-shrink-0 mt-0.5" />
-                {f}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </button>
   );
 }
@@ -327,35 +202,6 @@ export default function OnboardingPage() {
     if (step > 0) navigate(step - 1);
   };
 
-  const skip = () => {
-    // Apply defaults when skipping step 4
-    const defaulted: Answers = {
-      ...answers,
-      companySize: answers.companySize || '',
-      revenueRange: answers.revenueRange || 'All Sizes',
-      businessModel: answers.businessModel || '',
-      techStackInterest: answers.techStackInterest ?? false,
-      companiesToTrack: answers.companiesToTrack || '',
-    };
-    setAnswers(defaulted);
-    localStorage.setItem('harvin_onboarding', JSON.stringify({ step: STEPS.length, answers: defaulted, completed: true }));
-    router.push('/dashboard');
-  };
-
-  const skipToDashboard = () => {
-    const defaulted: Answers = {
-      ...answers,
-      companySize: '',
-      revenueRange: 'All Sizes',
-      businessModel: '',
-      techStackInterest: false,
-      companiesToTrack: '',
-    };
-    setAnswers(defaulted);
-    localStorage.setItem('harvin_onboarding', JSON.stringify({ step: STEPS.length, answers: defaulted, completed: true }));
-    router.push('/dashboard');
-  };
-
   const set = (patch: Partial<Answers>) => setAnswers(prev => ({ ...prev, ...patch }));
 
   const toggleInArray = (key: keyof Answers, value: string) => {
@@ -363,11 +209,31 @@ export default function OnboardingPage() {
     set({ [key]: arr.includes(value) ? arr.filter(x => x !== value) : [...arr, value] } as Partial<Answers>);
   };
 
+  const toggleBrandType = (bt: BrandType) => {
+    const cur = answers.brandTypes ?? [];
+    const next = cur.includes(bt) ? cur.filter(x => x !== bt) : [...cur, bt];
+    set({
+      brandTypes: next,
+      // Clear sub-options when deselecting
+      ...(bt === 'physical' && cur.includes(bt) ? { channelMix: [], offlineStores: '' } : {}),
+      ...(bt === 'digital' && cur.includes(bt) ? { revenueModel: undefined } : {}),
+    });
+  };
+
+  const toggleChannelMix = (id: string) => {
+    const cur = answers.channelMix ?? [];
+    set({ channelMix: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] });
+  };
+
+  const hasPhysical = (answers.brandTypes ?? []).includes('physical');
+  const hasDigital = (answers.brandTypes ?? []).includes('digital');
+  const showMau = (hasPhysical || hasDigital) &&
+    !((answers.channelMix ?? []).length === 1 && (answers.channelMix ?? []).includes('marketplace_only'));
+
   const canProceed = () => {
     if (step === 0) return !!(answers.fullName?.trim() && answers.email?.trim() && answers.persona);
-    if (step === 1) return !!answers.goal;
-    if (step === 2) return true; // industries/geo are optional
-    return true; // step 4 is optional
+    if (step === 1) return (answers.brandTypes ?? []).length > 0;
+    return false;
   };
 
   const progress = ((step) / STEPS.length) * 100;
@@ -412,7 +278,7 @@ export default function OnboardingPage() {
       {/* Content */}
       <div className="flex-1 flex items-start justify-center px-4 py-6 sm:py-8">
         <div
-          className={`w-full ${step === 0 || step === 2 ? 'max-w-[680px]' : 'max-w-[520px]'}`}
+          className="w-full max-w-[680px]"
           style={{
             opacity: animating ? 0 : 1,
             transform: animating
@@ -491,11 +357,9 @@ export default function OnboardingPage() {
                       key={p.id}
                       selected={answers.persona === p.id}
                       onClick={() => {
-                        const newGoal = defaultGoalForPersona(p.id);
                         set({
                           persona: p.id,
                           jobRole: p.id === 'freelancer' ? 'Freelancer/Independent' : answers.jobRole,
-                          ...(newGoal && !answers.goal ? { goal: newGoal } : {}),
                         });
                       }}
                       icon={p.icon}
@@ -549,7 +413,7 @@ export default function OnboardingPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[13px] font-semibold text-slate-700 mb-2">
-                      Job Role
+                      Job Function
                     </label>
                     <SelectDropdown
                       value={answers.jobRole ?? ''}
@@ -580,253 +444,223 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* ── Step 2: Primary Goal Selection ───────────────────────── */}
+          {/* ── Step 2: Target Companies ─────────────────────────────── */}
           {step === 1 && (
-            <div className="flex flex-col gap-3">
-              <p className="text-[13px] text-slate-500 mb-1">
-                This is the highest-impact decision. It shapes your dashboard layout, data prioritization, and available features.
-              </p>
-              {GOALS.map(g => (
-                <GoalCard
-                  key={g.id}
-                  selected={answers.goal === g.id}
-                  onClick={() => set({ goal: g.id })}
-                  goal={g}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* ── Step 3: Industry & Geographic Focus ──────────────────── */}
-          {step === 2 && (
             <div className="flex flex-col gap-4">
-              {/* E-Commerce Industries */}
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[13px] font-semibold text-slate-800">
-                    <span className="text-ember-500 mr-1.5">&#9632;</span>E-Commerce Brands
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const cur = answers.industries ?? [];
-                      const allSelected = ECOMMERCE_INDUSTRIES.every(i => cur.includes(i));
-                      set({
-                        industries: allSelected
-                          ? cur.filter(i => !ECOMMERCE_INDUSTRIES.includes(i))
-                          : [...new Set([...cur, ...ECOMMERCE_INDUSTRIES])],
-                      });
-                    }}
-                    className="text-[11px] font-medium text-ember-500 hover:text-ember-600 transition-colors"
-                  >
-                    {ECOMMERCE_INDUSTRIES.every(i => (answers.industries ?? []).includes(i)) ? 'Deselect All' : 'Select All'}
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {ECOMMERCE_INDUSTRIES.map(ind => (
-                    <Chip
-                      key={ind}
-                      label={ind}
-                      selected={(answers.industries ?? []).includes(ind)}
-                      onClick={() => toggleInArray('industries', ind)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Digital Service Industries */}
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[13px] font-semibold text-slate-800">
-                    <span className="text-blue-500 mr-1.5">&#9632;</span>Digital Service Brands
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const cur = answers.industries ?? [];
-                      const allSelected = DIGITAL_INDUSTRIES.every(i => cur.includes(i));
-                      set({
-                        industries: allSelected
-                          ? cur.filter(i => !DIGITAL_INDUSTRIES.includes(i))
-                          : [...new Set([...cur, ...DIGITAL_INDUSTRIES])],
-                      });
-                    }}
-                    className="text-[11px] font-medium text-ember-500 hover:text-ember-600 transition-colors"
-                  >
-                    {DIGITAL_INDUSTRIES.every(i => (answers.industries ?? []).includes(i)) ? 'Deselect All' : 'Select All'}
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {DIGITAL_INDUSTRIES.map(ind => (
-                    <Chip
-                      key={ind}
-                      label={ind}
-                      selected={(answers.industries ?? []).includes(ind)}
-                      onClick={() => toggleInArray('industries', ind)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Geographic Focus */}
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="text-[13px] font-semibold text-slate-800 mb-3">
-                  <Globe size={14} strokeWidth={2} className="inline mr-1.5 text-slate-500" />
-                  Geographic Focus
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {GEO_REGIONS.map(r => (
-                    <Chip
-                      key={r}
-                      label={r}
-                      selected={(answers.geoFocus ?? []).includes(r)}
-                      onClick={() => toggleInArray('geoFocus', r)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Step 4: Deep Dive & Refinement ───────────────────────── */}
-          {step === 3 && (
-            <div className="flex flex-col gap-5">
-              {/* Skip banner */}
-              <button
-                type="button"
-                onClick={skipToDashboard}
-                className="w-full flex items-center justify-between rounded-xl border border-ember-200 bg-ember-50 px-5 py-4 text-left hover:bg-ember-100 transition-colors group"
-              >
-                <div className="flex items-center gap-3">
-                  <Zap size={18} strokeWidth={2} className="text-ember-500" />
-                  <div>
-                    <p className="text-[14px] font-semibold text-ember-800">Skip to Dashboard</p>
-                    <p className="text-[12px] text-ember-600/70">We&apos;ll apply sensible defaults. You can refine later in settings.</p>
-                  </div>
-                </div>
-                <ArrowRight size={16} strokeWidth={2} className="text-ember-400 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-
-              {/* Company Size */}
-              <div>
-                <p className="text-[13px] font-semibold text-slate-700 mb-3">Company Size (Employees)</p>
-                <div className="flex flex-wrap gap-2">
-                  {COMPANY_SIZES.map(s => (
-                    <Chip key={s} label={s} selected={answers.companySize === s} onClick={() => set({ companySize: s })} />
-                  ))}
-                </div>
-              </div>
-
-              {/* Revenue Range */}
-              {(answers.goal === 'outreach' || answers.goal === 'research' || answers.goal === 'trends') && (
-                <div>
-                  <p className="text-[13px] font-semibold text-slate-700 mb-3">Revenue Range</p>
-                  <div className="flex flex-wrap gap-2">
-                    {REVENUE_RANGES.map(r => (
-                      <Chip key={r} label={r} selected={answers.revenueRange === r} onClick={() => set({ revenueRange: r })} />
+              {/* Company Size & Revenue Range — top row */}
+              <div className="grid grid-cols-2 gap-0 rounded-xl border border-slate-200 bg-white overflow-hidden">
+                <div className="p-4 border-r border-slate-200">
+                  <p className="text-[13px] font-semibold text-slate-700 mb-2">Target Company Size</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {COMPANY_SIZES.map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => set({ companySize: s })}
+                        className={`rounded-lg border px-3 py-2 text-[12px] font-medium text-center transition-all duration-150 ${
+                          answers.companySize === s
+                            ? 'border-ember-500 bg-ember-500 text-white'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        {s}
+                      </button>
                     ))}
                   </div>
                 </div>
-              )}
+                <div className="p-4">
+                  <p className="text-[13px] font-semibold text-slate-700 mb-2">Target Revenue</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {REVENUE_RANGES.map(r => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => set({ revenueRange: r })}
+                        className={`rounded-lg border px-3 py-2 text-[12px] font-medium text-center transition-all duration-150 ${
+                          answers.revenueRange === r
+                            ? 'border-ember-500 bg-ember-500 text-white'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
-              {/* Business Model */}
+              {/* Brand type selection — can pick both */}
               <div>
-                <p className="text-[13px] font-semibold text-slate-700 mb-3">Business Model</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {BUSINESS_MODELS.map(m => (
+                <p className="text-[13px] text-slate-500 mb-3">
+                  Select one or both — you can target physical and digital brands at the same time.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {BRAND_TYPE_OPTIONS.map(bt => (
                     <button
-                      key={m}
+                      key={bt.id}
                       type="button"
-                      onClick={() => set({ businessModel: m })}
-                      className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left text-[13px] font-medium transition-all duration-150 ${
-                        answers.businessModel === m
-                          ? 'border-ember-500 bg-ember-50 text-ember-700 shadow-[0_0_0_3px_rgba(201,76,30,0.1)]'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      onClick={() => toggleBrandType(bt.id)}
+                      className={`flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all duration-150 ${
+                        (answers.brandTypes ?? []).includes(bt.id)
+                          ? 'border-ember-500 bg-ember-50 shadow-[0_0_0_3px_rgba(201,76,30,0.1)]'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
-                      <div className={`w-4 h-4 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all ${
-                        answers.businessModel === m ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        (answers.brandTypes ?? []).includes(bt.id) ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-500'
                       }`}>
-                        {answers.businessModel === m && <Check size={9} strokeWidth={3} className="text-white" />}
+                        {bt.icon}
                       </div>
-                      {m}
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-[14px] font-semibold leading-snug ${
+                          (answers.brandTypes ?? []).includes(bt.id) ? 'text-ember-700' : 'text-slate-900'
+                        }`}>
+                          {bt.label}
+                        </p>
+                        <p className="mt-0.5 text-[12px] text-slate-500 leading-snug">{bt.desc}</p>
+                      </div>
+                      <div className={`mt-0.5 w-5 h-5 flex-shrink-0 rounded border-2 flex items-center justify-center transition-all ${
+                        (answers.brandTypes ?? []).includes(bt.id) ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
+                      }`}>
+                        {(answers.brandTypes ?? []).includes(bt.id) && <Check size={11} strokeWidth={3} className="text-white" />}
+                      </div>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Tech Stack Interest — shown for outreach & research */}
-              {(answers.goal === 'outreach' || answers.goal === 'research') && (
-                <div>
-                  <p className="text-[13px] font-semibold text-slate-700 mb-3">Interested in tech stack data?</p>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => set({ techStackInterest: true })}
-                      className={`rounded-full border px-4 py-1.5 text-[13px] font-medium transition-all duration-150 ${
-                        answers.techStackInterest === true
-                          ? 'border-ember-500 bg-ember-500 text-white'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                      }`}
-                    >
-                      Yes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => set({ techStackInterest: false, techCategories: [] })}
-                      className={`rounded-full border px-4 py-1.5 text-[13px] font-medium transition-all duration-150 ${
-                        answers.techStackInterest === false
-                          ? 'border-ember-500 bg-ember-500 text-white'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                      }`}
-                    >
-                      No
-                    </button>
+              {/* Physical: Channel Mix */}
+              {hasPhysical && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Package size={15} strokeWidth={2} className="text-ember-500" />
+                    <p className="text-[13px] font-semibold text-slate-800">Which channel mix should the brand have?</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {CHANNEL_MIX_OPTIONS.map(ch => (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => toggleChannelMix(ch.id)}
+                        className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-all duration-150 ${
+                          (answers.channelMix ?? []).includes(ch.id)
+                            ? 'border-ember-500 bg-ember-50 text-ember-700 shadow-[0_0_0_3px_rgba(201,76,30,0.1)]'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 flex-shrink-0 rounded border-2 flex items-center justify-center transition-all ${
+                          (answers.channelMix ?? []).includes(ch.id) ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
+                        }`}>
+                          {(answers.channelMix ?? []).includes(ch.id) && <Check size={9} strokeWidth={3} className="text-white" />}
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-medium leading-snug">{ch.label}</p>
+                          <p className="text-[11px] text-slate-400 leading-snug">{ch.desc}</p>
+                        </div>
+                      </button>
+                    ))}
                   </div>
 
-                  {answers.techStackInterest && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {TECH_CATEGORIES.map(t => (
-                        <Chip
-                          key={t}
-                          label={t}
-                          selected={(answers.techCategories ?? []).includes(t)}
-                          onClick={() => toggleInArray('techCategories', t)}
-                        />
-                      ))}
+                  {/* Offline stores count */}
+                  {(answers.channelMix ?? []).includes('offline_retail') && (
+                    <div className="mt-3">
+                      <label className="block text-[12px] font-semibold text-slate-600 mb-1.5">
+                        <Store size={13} strokeWidth={2} className="inline mr-1 text-slate-400" />
+                        Minimum number of stores
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 10"
+                        value={answers.offlineStores ?? ''}
+                        onChange={e => set({ offlineStores: e.target.value })}
+                        className="w-40 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3
+                                   text-[14px] text-slate-800 placeholder:text-slate-400
+                                   focus:outline-none focus:border-ember-400 transition-colors"
+                      />
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Companies to Track — shown for research & trends */}
-              {(answers.goal === 'research' || answers.goal === 'trends') && (
-                <div>
-                  <label className="block text-[13px] font-semibold text-slate-700 mb-2">
-                    Companies to Track <span className="font-normal text-slate-400">(optional)</span>
-                  </label>
+              {/* Digital: Revenue Model */}
+              {hasDigital && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Wifi size={15} strokeWidth={2} className="text-blue-500" />
+                    <p className="text-[13px] font-semibold text-slate-800">Target revenue model</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {REVENUE_MODELS.map(rm => (
+                      <Chip
+                        key={rm}
+                        label={rm}
+                        selected={answers.revenueModel === rm}
+                        onClick={() => set({ revenueModel: answers.revenueModel === rm ? undefined : rm })}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* MAU — shown for all except marketplace only */}
+              {showMau && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users size={15} strokeWidth={2} className="text-slate-500" />
+                    <p className="text-[13px] font-semibold text-slate-800">
+                      Minimum Monthly Active Users (MAU)
+                    </p>
+                  </div>
                   <input
                     type="text"
-                    placeholder="e.g. Mamaearth, boAt, Sugar Cosmetics..."
-                    value={answers.companiesToTrack ?? ''}
-                    onChange={e => set({ companiesToTrack: e.target.value })}
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4
+                    placeholder="e.g. 50,000"
+                    value={answers.mau ?? ''}
+                    onChange={e => set({ mau: e.target.value })}
+                    className="w-48 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3
                                text-[14px] text-slate-800 placeholder:text-slate-400
                                focus:outline-none focus:border-ember-400 transition-colors"
                   />
                 </div>
               )}
 
-              {/* Bottom skip */}
-              <button
-                type="button"
-                onClick={skipToDashboard}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-slate-200 bg-white
-                           text-[13px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all"
-              >
-                <SkipForward size={14} strokeWidth={2} />
-                Skip and go to Dashboard
-              </button>
+              {/* Tech Stack Interest */}
+              <div>
+                <p className="text-[13px] font-semibold text-slate-700 mb-2">Interested in tech stack data?</p>
+                <div className="flex items-center gap-3">
+                  <Chip label="Yes" selected={answers.techStackInterest === true} onClick={() => set({ techStackInterest: true })} />
+                  <Chip label="No" selected={answers.techStackInterest === false} onClick={() => set({ techStackInterest: false, techCategories: [] })} />
+                </div>
+
+                {answers.techStackInterest && (
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {TECH_CATEGORIES.map(t => (
+                      <Chip
+                        key={t}
+                        label={t}
+                        selected={(answers.techCategories ?? []).includes(t)}
+                        onClick={() => toggleInArray('techCategories', t)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Companies to Track */}
+              <div>
+                <label className="block text-[13px] font-semibold text-slate-700 mb-2">
+                  Companies to Track <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Mamaearth, boAt, Sugar Cosmetics..."
+                  value={answers.companiesToTrack ?? ''}
+                  onChange={e => set({ companiesToTrack: e.target.value })}
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4
+                             text-[14px] text-slate-800 placeholder:text-slate-400
+                             focus:outline-none focus:border-ember-400 transition-colors"
+                />
+              </div>
             </div>
           )}
 
@@ -845,18 +679,6 @@ export default function OnboardingPage() {
             </button>
 
             <div className="flex items-center gap-2">
-              {current.optional && step === 3 && (
-                <button
-                  type="button"
-                  onClick={skip}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-medium
-                             text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-150"
-                >
-                  Skip
-                  <SkipForward size={14} strokeWidth={2} />
-                </button>
-              )}
-
               <button
                 type="button"
                 onClick={goNext}

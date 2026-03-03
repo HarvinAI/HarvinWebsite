@@ -9,12 +9,11 @@ import {
 } from 'lucide-react';
 
 type User    = { type: string; name: string; email: string };
-type Answers = { goal?: 'outreach' | 'research' | 'trends'; jobRole?: string; companyName?: string; persona?: string };
+type Answers = { brandTypes?: string[]; jobRole?: string; companyName?: string; persona?: string };
 
-const GOAL_LABELS: Record<string, string> = {
-  outreach: 'Finding companies to outreach',
-  research: 'Competitive research',
-  trends:   'Tracking market trends',
+const BRAND_TYPE_LABELS: Record<string, string> = {
+  physical: 'Physical Product Brands',
+  digital:  'Digital Products / Services',
 };
 
 const NAV = [
@@ -144,8 +143,8 @@ export default function DashboardPage() {
                 Hi {firstName}, you&apos;re all set!
               </h2>
               <p className="text-[14px] text-white/55 max-w-[500px] leading-relaxed">
-                {answers.goal
-                  ? `Your dashboard is being personalised for ${GOAL_LABELS[answers.goal]?.toLowerCase() ?? 'your goals'}.`
+                {(answers.brandTypes ?? []).length > 0
+                  ? `Your dashboard is being personalised for ${(answers.brandTypes ?? []).map(b => BRAND_TYPE_LABELS[b] ?? b).join(' & ').toLowerCase()}.`
                   : 'Your personalised D2C brand intelligence dashboard is almost ready.'
                 } We&apos;re actively building the platform — you&apos;ll get early access soon.
               </p>
@@ -222,10 +221,10 @@ export default function DashboardPage() {
                 <p className="text-[13px] font-semibold text-slate-900 mb-4">Your profile</p>
                 <div className="flex flex-col gap-2.5">
                   {[
-                    { label: 'Goal',    value: GOAL_LABELS[answers.goal ?? ''] ?? '—' },
-                    { label: 'Role',    value: answers.jobRole    ?? '—' },
-                    { label: 'Company', value: answers.companyName ?? '—' },
-                    { label: 'Type',    value: answers.persona ? answers.persona.charAt(0).toUpperCase() + answers.persona.slice(1) : '—' },
+                    { label: 'Targeting', value: (answers.brandTypes ?? []).map(b => BRAND_TYPE_LABELS[b] ?? b).join(', ') || '—' },
+                    { label: 'Role',      value: answers.jobRole    ?? '—' },
+                    { label: 'Company',   value: answers.companyName ?? '—' },
+                    { label: 'Type',      value: answers.persona ? answers.persona.charAt(0).toUpperCase() + answers.persona.slice(1) : '—' },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex items-start justify-between gap-2">
                       <span className="text-[12px] text-slate-400 flex-shrink-0">{label}</span>
