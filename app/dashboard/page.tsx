@@ -35,18 +35,21 @@ const SIGNAL_PREVIEW = [
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [user,    setUser]    = useState<User | null>(null);
   const [answers, setAnswers] = useState<Answers>({});
   const [ready,   setReady]   = useState(false);
 
   useEffect(() => {
+    // Wait until session is resolved before making auth decisions
+    if (status === 'loading') return;
+
     const u = localStorage.getItem('harvin_user');
     const o = localStorage.getItem('harvin_onboarding');
 
     // Try localStorage first, fall back to session
     if (u) {
-      try { setUser(JSON.parse(u)); } catch { /* ignore */ }
+      try { setUser(JSON.parse(u)); } catch (_e) { /* ignore */ }
     } else if (session?.user) {
       const sessionUser = {
         type: 'google',
@@ -55,17 +58,17 @@ export default function DashboardPage() {
       };
       localStorage.setItem('harvin_user', JSON.stringify(sessionUser));
       setUser(sessionUser);
-    } else if (!session) {
+    } else {
       // No localStorage and no session — redirect to signin
       router.replace('/signin');
       return;
     }
 
     if (o) {
-      try { setAnswers(JSON.parse(o).answers ?? {}); } catch { /* ignore */ }
+      try { setAnswers(JSON.parse(o).answers ?? {}); } catch (_e) { /* ignore */ }
     }
     setReady(true);
-  }, [router, session]);
+  }, [router, session, status]);
 
   const handleLogout = () => {
     localStorage.removeItem('harvin_user');

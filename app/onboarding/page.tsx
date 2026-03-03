@@ -174,9 +174,9 @@ export default function OnboardingPage() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.completed) { router.replace('/dashboard'); return; }
-        if (parsed.step !== undefined) setStep(parsed.step);
+        if (parsed.step !== undefined) setStep(Math.min(parsed.step, STEPS.length - 1));
         if (parsed.answers) setAnswers(parsed.answers);
-      } catch { /* ignore corrupt data */ }
+      } catch (_e) { /* ignore corrupt data */ }
     }
 
     // Pre-fill from localStorage user data or session
@@ -189,7 +189,7 @@ export default function OnboardingPage() {
           fullName: prev.fullName || u.name || '',
           email: prev.email || u.email || '',
         }));
-      } catch { /* ignore */ }
+      } catch (_e) { /* ignore */ }
     } else if (session?.user) {
       setAnswers(prev => ({
         ...prev,
