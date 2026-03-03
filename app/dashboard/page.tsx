@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import {
   Zap, Building2, TrendingUp, Bell, Search,
   LogOut, Settings, LayoutDashboard, BookMarked,
@@ -34,6 +35,7 @@ const SIGNAL_PREVIEW = [
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [user,    setUser]    = useState<User | null>(null);
   const [answers, setAnswers] = useState<Answers>({});
   const [ready,   setReady]   = useState(false);
@@ -41,21 +43,39 @@ export default function DashboardPage() {
   useEffect(() => {
     const u = localStorage.getItem('harvin_user');
     const o = localStorage.getItem('harvin_onboarding');
-    if (!u) { router.replace('/signin'); return; }
-    setUser(JSON.parse(u));
-    if (o) setAnswers(JSON.parse(o).answers ?? {});
+
+    // Try localStorage first, fall back to session
+    if (u) {
+      try { setUser(JSON.parse(u)); } catch { /* ignore */ }
+    } else if (session?.user) {
+      const sessionUser = {
+        type: 'google',
+        name: session.user.name ?? '',
+        email: session.user.email ?? '',
+      };
+      localStorage.setItem('harvin_user', JSON.stringify(sessionUser));
+      setUser(sessionUser);
+    } else if (!session) {
+      // No localStorage and no session — redirect to signin
+      router.replace('/signin');
+      return;
+    }
+
+    if (o) {
+      try { setAnswers(JSON.parse(o).answers ?? {}); } catch { /* ignore */ }
+    }
     setReady(true);
-  }, [router]);
+  }, [router, session]);
 
   const handleLogout = () => {
     localStorage.removeItem('harvin_user');
     localStorage.removeItem('harvin_onboarding');
-    router.push('/signin');
+    signOut({ callbackUrl: '/signin' });
   };
 
   if (!ready) return null;
 
-  const firstName = user?.name?.split(' ')[0] ?? 'there';
+  const firstName = user?.name?.split(' ')[0] || 'there';
 
   return (
     <div className="min-h-screen bg-slate-50 flex">

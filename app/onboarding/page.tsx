@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { ArrowRight, ArrowLeft, Check, ChevronDown, Building2, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers, Package, Wifi, Store, Users } from 'lucide-react';
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
@@ -147,31 +148,56 @@ function SelectDropdown({ value, onChange, options, placeholder }: {
 /* ── Main component ──────────────────────────────────────────────────────── */
 export default function OnboardingPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
   const [animating, setAnimating] = useState(false);
 
+  // Sync Google OAuth session → localStorage
+  useEffect(() => {
+    if (session?.user) {
+      const existing = localStorage.getItem('harvin_user');
+      if (!existing) {
+        localStorage.setItem('harvin_user', JSON.stringify({
+          type: 'google',
+          name: session.user.name ?? '',
+          email: session.user.email ?? '',
+        }));
+      }
+    }
+  }, [session]);
+
   useEffect(() => {
     const saved = localStorage.getItem('harvin_onboarding');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.completed) { router.replace('/dashboard'); return; }
-      if (parsed.step !== undefined) setStep(parsed.step);
-      if (parsed.answers) setAnswers(parsed.answers);
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.completed) { router.replace('/dashboard'); return; }
+        if (parsed.step !== undefined) setStep(parsed.step);
+        if (parsed.answers) setAnswers(parsed.answers);
+      } catch { /* ignore corrupt data */ }
     }
 
-    // Pre-fill from localStorage user data
+    // Pre-fill from localStorage user data or session
     const user = localStorage.getItem('harvin_user');
     if (user) {
-      const u = JSON.parse(user);
+      try {
+        const u = JSON.parse(user);
+        setAnswers(prev => ({
+          ...prev,
+          fullName: prev.fullName || u.name || '',
+          email: prev.email || u.email || '',
+        }));
+      } catch { /* ignore */ }
+    } else if (session?.user) {
       setAnswers(prev => ({
         ...prev,
-        fullName: prev.fullName || u.name || '',
-        email: prev.email || u.email || '',
+        fullName: prev.fullName || session.user?.name || '',
+        email: prev.email || session.user?.email || '',
       }));
     }
-  }, [router]);
+  }, [router, session]);
 
   const save = (newAnswers: Answers, newStep: number) => {
     localStorage.setItem('harvin_onboarding', JSON.stringify({ step: newStep, answers: newAnswers }));
