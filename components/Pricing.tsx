@@ -19,7 +19,7 @@ interface Plan {
 const PLANS: Plan[] = [
   {
     name:    'Starter',
-    price:   '250',
+    price:   '75',
     billing: '/seat/month',
     desc:    'For individual contributors exploring D2C opportunities.',
     features: [
@@ -37,7 +37,7 @@ const PLANS: Plan[] = [
   },
   {
     name:    'Business',
-    price:   '400',
+    price:   '250',
     billing: '/seat/month',
     desc:    'For teams that need real-time alerts and deeper integrations.',
     features: [
