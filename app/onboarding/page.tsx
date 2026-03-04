@@ -701,7 +701,7 @@ export default function OnboardingPage() {
 
               {/* E-commerce Platform Interest */}
               <div>
-                <p className="text-[13px] font-semibold text-slate-700 mb-2">Need a Tech Stack of E-commerce platform specific?</p>
+                <p className="text-[13px] font-semibold text-slate-700 mb-2">Interested in Tracking E-commerce Platform?</p>
                 <div className="flex items-center gap-3">
                   <Chip label="Yes" selected={answers.techStackInterest === true} onClick={() => set({ techStackInterest: true })} />
                   <Chip label="No" selected={answers.techStackInterest === false} onClick={() => set({ techStackInterest: false, techCategories: [] })} />
