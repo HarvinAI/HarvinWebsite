@@ -8,6 +8,7 @@
     "start": "next start -p ${PORT:-3000}"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^143.0.4",
     "autoprefixer": "^10.4.24",
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
