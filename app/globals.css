@@ -7,3 +7,56 @@
     @apply bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased;
   }
 }
+
+/* Dark scrollbar for filter sidebar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.3) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.3);
+  border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.5);
+}
+
+/* Running glowing border for TechScanner card */
+@keyframes border-rotate {
+  0% { --border-angle: 0deg; }
+  100% { --border-angle: 360deg; }
+}
+
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.glow-border {
+  --border-angle: 0deg;
+  animation: border-rotate 3s linear infinite;
+  background: conic-gradient(
+    from var(--border-angle),
+    transparent 40%,
+    #C94C1E 50%,
+    #f59e0b 55%,
+    #C94C1E 60%,
+    transparent 70%
+  );
+  -webkit-mask: none;
+  mask: none;
+}
+
+.glow-border-inner {
+  background: white;
+}
+:is(.dark .glow-border-inner) {
+  background: rgb(15 23 42);
+}
