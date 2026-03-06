@@ -2,17 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSession, signOut } from 'next-auth/react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useModal } from '@/components/ModalContext';
 
 /* ── Icons ──────────────────────────────────────────────────────────────────*/
-const SearchIcon = () => (
-  <svg className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M11 11L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
-
 const SunIcon = () => (
   <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <circle cx="10" cy="10" r="4" stroke="currentColor" strokeWidth="1.5" />
@@ -32,9 +26,15 @@ const MoonIcon = () => (
 const Navbar = () => {
   const { isDark, toggle: onToggleTheme } = useTheme();
   const { openModal } = useModal();
-  const [scrolled,      setScrolled]      = useState(false);
-  const [menuOpen,      setMenuOpen]      = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
+  const { data: session, status } = useSession();
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const isLoggedIn = status === 'authenticated' && !!session?.user;
+  const userName = session?.user?.name || 'User';
+  const userEmail = session?.user?.email || '';
+  const userInitial = userName.charAt(0).toUpperCase();
 
   /* Scroll shadow */
   useEffect(() => {
@@ -49,7 +49,22 @@ const Navbar = () => {
     return () => { document.body.style.overflow = ''; };
   }, [menuOpen]);
 
+  /* Close dropdown on outside click */
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = () => setDropdownOpen(false);
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  }, [dropdownOpen]);
+
   const close = () => setMenuOpen(false);
+
+  const handleLogout = () => {
+    ['harvin_user', 'harvin_onboarding', 'harvin_dashboard_filters'].forEach(k => {
+      try { localStorage.removeItem(k); } catch { /* */ }
+    });
+    signOut({ callbackUrl: '/' });
+  };
 
   const navLinks = [
     { label: 'Product', href: '/product' },
@@ -59,9 +74,7 @@ const Navbar = () => {
 
   return (
     <>
-      {/* ════════════════════════════════════════════════════════════
-          HEADER BAR
-      ════════════════════════════════════════════════════════════ */}
+      {/* ═══ HEADER BAR ═══ */}
       <header
         className={[
           'fixed top-0 inset-x-0 z-50 transition-all duration-200 backdrop-blur-xl',
@@ -73,14 +86,14 @@ const Navbar = () => {
       >
         <div className="max-w-[1280px] mx-auto px-6 h-[64px] flex items-center gap-8">
 
-          {/* LEFT: Logo + divider + Nav links */}
+          {/* LEFT: Logo + Nav links */}
           <div className="flex items-center gap-6 flex-shrink-0">
-            <Link href="/" aria-label="HarvinAI home" className="flex items-center gap-2.5">
-              <div className="h-8 w-8 overflow-hidden flex-shrink-0">
+            <Link href="/" aria-label="HarvinAI home" className="flex items-center gap-0.5">
+              <div className="h-8 w-9 overflow-hidden flex-shrink-0">
                 <img src="/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto max-w-none" />
               </div>
-              <span className="font-jakarta font-bold text-[24px] tracking-normal text-slate-900 dark:text-white leading-none">
-                Harvin<span className="font-semibold opacity-40 ml-[3px]">AI</span>
+              <span className="font-kyiv font-bold text-[24px] tracking-normal text-slate-900 dark:text-white leading-none">
+                Harvin<span className="font-semibold opacity-40">AI</span>
               </span>
             </Link>
 
@@ -99,37 +112,27 @@ const Navbar = () => {
                   </Link>
                 </li>
               ))}
+              {/* Dashboard link — only for logged-in users */}
+              {isLoggedIn && (
+                <li>
+                  <Link href="/dashboard"
+                    className="inline-block px-3 py-1.5 text-[15px] font-medium rounded-md transition-all duration-150
+                               text-slate-600 dark:text-slate-300
+                               hover:text-slate-900 dark:hover:text-white
+                               hover:bg-slate-100 dark:hover:bg-white/[0.07]
+                               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-500 focus-visible:ring-offset-2">
+                    Dashboard
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
 
           {/* SPACER */}
           <div className="flex-1" />
 
-          {/* RIGHT: Search + Theme + Buttons (desktop only) */}
+          {/* RIGHT: Theme + Auth (desktop only) */}
           <div className="hidden md:flex items-center gap-3">
-            {/* Search */}
-            <div
-              onClick={() => document.getElementById('navbar-search')?.focus()}
-              className={[
-                'flex items-center gap-2.5 h-9 px-3.5 rounded-lg cursor-text w-[220px] border transition-all duration-150',
-                searchFocused
-                  ? 'bg-white dark:bg-white/[0.08] border-slate-300 dark:border-white/25 shadow-sm'
-                  : 'bg-slate-100 dark:bg-white/[0.05] border-slate-200 dark:border-white/[0.1] hover:border-slate-300 dark:hover:border-white/20',
-              ].join(' ')}
-            >
-              <SearchIcon />
-              <input id="navbar-search" type="text" placeholder="Search brands..."
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                className="flex-1 min-w-0 bg-transparent text-[13px] outline-none border-none font-sans
-                           text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
-              <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded font-mono text-[11px] flex-shrink-0
-                              border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.05]
-                              text-slate-400 dark:text-slate-500">
-                ⌘K
-              </kbd>
-            </div>
-
             {/* Theme toggle */}
             <button onClick={onToggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               className="w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-150 flex-shrink-0
@@ -138,25 +141,86 @@ const Navbar = () => {
               {isDark ? <SunIcon /> : <MoonIcon />}
             </button>
 
-            {/* Sign in */}
-            <Link href="/signin"
-              className="inline-flex items-center px-4 py-1.5 rounded-btn text-[14px] font-semibold transition-all duration-150
-                         text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-white/[0.18]
-                         hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/40
-                         hover:bg-slate-50 dark:hover:bg-white/[0.06]
-                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-500">
-              Sign in
-            </Link>
+            {isLoggedIn ? (
+              /* ── Logged-in: Avatar dropdown ── */
+              <div className="relative">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setDropdownOpen(!dropdownOpen); }}
+                  className="flex items-center gap-2.5 h-9 pl-1 pr-3 rounded-full transition-all duration-150
+                             border border-slate-200 dark:border-white/[0.1]
+                             hover:bg-slate-50 dark:hover:bg-white/[0.05]
+                             hover:border-slate-300 dark:hover:border-white/20"
+                >
+                  <div className="w-7 h-7 rounded-full bg-[#C94C1E] flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0">
+                    {session?.user?.image ? (
+                      <img src={session.user.image} alt="" className="w-7 h-7 rounded-full object-cover" />
+                    ) : (
+                      userInitial
+                    )}
+                  </div>
+                  <span className="text-[13px] font-medium text-slate-700 dark:text-slate-300 max-w-[120px] truncate">
+                    {userName}
+                  </span>
+                  <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} viewBox="0 0 14 14" fill="none">
+                    <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
 
-            {/* Get early access */}
-            <button
-              onClick={() => openModal('early-access')}
-              className="inline-flex items-center px-4 py-1.5 rounded-btn text-[14px] font-semibold transition-all duration-150
-                         text-white bg-ember-500 shadow-[0_1px_4px_rgba(201,76,30,0.3)]
-                         hover:bg-ember-400 hover:shadow-[0_4px_14px_rgba(201,76,30,0.4)]
-                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-500">
-              Get early access
-            </button>
+                {/* Dropdown */}
+                {dropdownOpen && (
+                  <div className="absolute right-0 top-[calc(100%+6px)] w-[220px] rounded-xl overflow-hidden
+                                  bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/[0.1]
+                                  shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-white/[0.06]">
+                      <p className="text-[13px] font-semibold text-slate-900 dark:text-white truncate">{userName}</p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{userEmail}</p>
+                    </div>
+                    <div className="py-1.5">
+                      <Link href="/dashboard" onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium
+                                   text-slate-600 dark:text-slate-300
+                                   hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors">
+                        <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+                          <rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/>
+                          <rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>
+                        </svg>
+                        Dashboard
+                      </Link>
+                      <button onClick={handleLogout}
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium
+                                   text-red-500 dark:text-red-400
+                                   hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                        <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+                          <path d="M6 14H3.33A1.33 1.33 0 012 12.67V3.33A1.33 1.33 0 013.33 2H6M11 11.33L14 8l-3-3.33M14 8H6"/>
+                        </svg>
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── Not logged in: Sign in + Early access ── */
+              <>
+                <Link href="/signin"
+                  className="inline-flex items-center px-4 py-1.5 rounded-btn text-[14px] font-semibold transition-all duration-150
+                             text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-white/[0.18]
+                             hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/40
+                             hover:bg-slate-50 dark:hover:bg-white/[0.06]
+                             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-500">
+                  Sign in
+                </Link>
+
+                <button
+                  onClick={() => openModal('early-access')}
+                  className="inline-flex items-center px-4 py-1.5 rounded-btn text-[14px] font-semibold transition-all duration-150
+                             text-white bg-ember-500 shadow-[0_1px_4px_rgba(201,76,30,0.3)]
+                             hover:bg-ember-400 hover:shadow-[0_4px_14px_rgba(201,76,30,0.4)]
+                             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-500">
+                  Get early access
+                </button>
+              </>
+            )}
           </div>
 
           {/* Hamburger — mobile / tablet */}
@@ -175,9 +239,7 @@ const Navbar = () => {
         </div>
       </header>
 
-      {/* ════════════════════════════════════════════════════════════
-          BACKDROP — click to close
-      ════════════════════════════════════════════════════════════ */}
+      {/* ═══ BACKDROP ═══ */}
       <div
         onClick={close}
         aria-hidden="true"
@@ -188,9 +250,7 @@ const Navbar = () => {
         ].join(' ')}
       />
 
-      {/* ════════════════════════════════════════════════════════════
-          RIGHT DRAWER
-      ════════════════════════════════════════════════════════════ */}
+      {/* ═══ RIGHT DRAWER (mobile) ═══ */}
       <aside
         aria-label="Navigation menu"
         aria-hidden={!menuOpen}
@@ -216,7 +276,6 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* Close button */}
           <button
             onClick={close}
             aria-label="Close navigation menu"
@@ -234,16 +293,22 @@ const Navbar = () => {
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto flex flex-col px-4 py-4 gap-1">
-
-          {/* Search */}
-          <div className="flex items-center gap-2.5 h-10 px-3.5 rounded-lg mb-3
-                          bg-slate-100 dark:bg-white/[0.06]
-                          border border-slate-200 dark:border-white/[0.1]">
-            <SearchIcon />
-            <input type="text" placeholder="Search brands..."
-              className="flex-1 bg-transparent text-[14px] outline-none font-sans
-                         text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
-          </div>
+          {/* User info (mobile, logged in) */}
+          {isLoggedIn && (
+            <div className="flex items-center gap-3 px-3 py-3 mb-2 rounded-lg bg-slate-50 dark:bg-white/[0.04] border border-slate-100 dark:border-white/[0.06]">
+              <div className="w-9 h-9 rounded-full bg-[#C94C1E] flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0">
+                {session?.user?.image ? (
+                  <img src={session.user.image} alt="" className="w-9 h-9 rounded-full object-cover" />
+                ) : (
+                  userInitial
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-slate-900 dark:text-white truncate">{userName}</p>
+                <p className="text-[11px] text-slate-400 truncate">{userEmail}</p>
+              </div>
+            </div>
+          )}
 
           {/* Nav links */}
           <ul className="list-none m-0 p-0 flex flex-col gap-0.5">
@@ -262,6 +327,21 @@ const Navbar = () => {
                 </Link>
               </li>
             ))}
+            {isLoggedIn && (
+              <li>
+                <Link href="/dashboard" onClick={close}
+                  className="flex items-center justify-between px-3 py-3 rounded-md transition-all duration-150
+                             text-[15px] font-medium
+                             text-slate-700 dark:text-slate-300
+                             hover:text-slate-900 dark:hover:text-white
+                             hover:bg-slate-100 dark:hover:bg-white/[0.07]">
+                  Dashboard
+                  <svg className="w-4 h-4 text-slate-400" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+              </li>
+            )}
           </ul>
 
           {/* Divider */}
@@ -287,21 +367,41 @@ const Navbar = () => {
         {/* Drawer footer — CTA buttons */}
         <div className="flex-shrink-0 px-4 pb-6 pt-3 flex flex-col gap-2.5
                         border-t border-slate-200 dark:border-white/[0.08]">
-          <Link href="/signin" onClick={close}
-            className="w-full text-center py-2.5 rounded-btn text-[14px] font-semibold transition-all duration-150
-                       text-slate-700 dark:text-slate-300
-                       border border-slate-300 dark:border-white/[0.18]
-                       hover:text-slate-900 dark:hover:text-white
-                       hover:bg-slate-50 dark:hover:bg-white/[0.05]">
-            Sign in
-          </Link>
-          <button
-            onClick={() => { close(); openModal('early-access'); }}
-            className="w-full text-center py-2.5 rounded-btn text-[14px] font-semibold transition-all duration-150
-                       text-white bg-ember-500 hover:bg-ember-400
-                       shadow-[0_2px_8px_rgba(201,76,30,0.3)]">
-            Get early access
-          </button>
+          {isLoggedIn ? (
+            <>
+              <Link href="/dashboard" onClick={close}
+                className="w-full text-center py-2.5 rounded-btn text-[14px] font-semibold transition-all duration-150
+                           text-white bg-ember-500 hover:bg-ember-400
+                           shadow-[0_2px_8px_rgba(201,76,30,0.3)]">
+                Go to Dashboard
+              </Link>
+              <button onClick={() => { close(); handleLogout(); }}
+                className="w-full text-center py-2.5 rounded-btn text-[14px] font-semibold transition-all duration-150
+                           text-red-500 dark:text-red-400
+                           border border-red-200 dark:border-red-800/40
+                           hover:bg-red-50 dark:hover:bg-red-500/10">
+                Sign out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/signin" onClick={close}
+                className="w-full text-center py-2.5 rounded-btn text-[14px] font-semibold transition-all duration-150
+                           text-slate-700 dark:text-slate-300
+                           border border-slate-300 dark:border-white/[0.18]
+                           hover:text-slate-900 dark:hover:text-white
+                           hover:bg-slate-50 dark:hover:bg-white/[0.05]">
+                Sign in
+              </Link>
+              <button
+                onClick={() => { close(); openModal('early-access'); }}
+                className="w-full text-center py-2.5 rounded-btn text-[14px] font-semibold transition-all duration-150
+                           text-white bg-ember-500 hover:bg-ember-400
+                           shadow-[0_2px_8px_rgba(201,76,30,0.3)]">
+                Get early access
+              </button>
+            </>
+          )}
         </div>
       </aside>
     </>

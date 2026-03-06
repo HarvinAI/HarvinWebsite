@@ -2,6 +2,7 @@
 'use client';
 
 import { useModal } from '@/components/ModalContext';
+import TechScanner from '@/components/TechScanner';
 
 const TICKER: { brand: string; signal: string }[] = [
   { brand: 'Plum Goodness',   signal: 'got funded for $8.2M in Series B'              },
@@ -53,7 +54,7 @@ export default function Hero() {
       {/* ── Hero ────────────────────────────────────────────────────────── */}
       <main>
         {/* Headline + CTA */}
-        <div className="text-center px-6 pt-16 pb-12">
+        <div className="text-center px-6 pt-16 pb-6">
           <h1 className="font-display font-normal tracking-[-0.02em] leading-[1.08] mb-6
                          text-[clamp(40px,6vw,76px)]
                          text-slate-900 dark:text-slate-50">
@@ -71,6 +72,9 @@ export default function Hero() {
             Get early access
           </button>
         </div>
+
+        {/* ── Tech Scanner ─────────────────────────────────────────────── */}
+        <TechScanner />
 
         {/* Brand cards */}
         <div className="relative px-4 pb-16 overflow-hidden">
