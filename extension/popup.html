@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Harvin AI TechScanner</title>
+  <title>TechScanner by Harvin AI</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
@@ -22,6 +22,12 @@
     </button>
   </div>
 
+  <!-- ── Tab Bar ─────────────────────────────────────────────────────── -->
+  <div class="tab-bar">
+    <button class="tab active" id="tab-details" data-tab="details">More Details</button>
+    <button class="tab" id="tab-tech" data-tab="tech">Tech Stack</button>
+  </div>
+
   <!-- ── Loading State ───────────────────────────────────────────────── -->
   <div class="loading-state" id="loading-state">
     <div class="spinner"></div>
@@ -34,21 +40,17 @@
     <p class="error-text" id="error-text"></p>
   </div>
 
-  <!-- ── Results ─────────────────────────────────────────────────────── -->
-  <div class="results hidden" id="results">
-    <!-- Summary bar -->
-    <div class="summary-bar" id="summary-bar"></div>
-
-    <!-- Company info (collapsible) -->
-    <div class="company-info hidden" id="company-info"></div>
-
-    <!-- Tech categories -->
-    <div class="categories" id="categories"></div>
+  <!-- ── More Details Tab ────────────────────────────────────────────── -->
+  <div class="panel" id="panel-details">
+    <div class="details-content" id="details-content">
+      <p class="details-empty">Scan a site to see details.</p>
+    </div>
   </div>
 
-  <!-- ── Empty State ─────────────────────────────────────────────────── -->
-  <div class="empty-state hidden" id="empty-state">
-    <p>No technologies detected</p>
+  <!-- ── Tech Stack Tab ──────────────────────────────────────────────── -->
+  <div class="panel hidden" id="panel-tech">
+    <div class="tech-summary" id="tech-summary"></div>
+    <div class="categories" id="categories"></div>
   </div>
 
   <!-- ── Footer ──────────────────────────────────────────────────────── -->

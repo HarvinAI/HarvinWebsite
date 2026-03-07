@@ -1,55 +1,29 @@
 // ── Config ───────────────────────────────────────────────────────────────
 const API_BASE = 'https://www.harvin.ai';
 
-// Category colors (Wappalyzer-style)
+// Category colors
 const CATEGORY_COLORS = {
-  'ecommerce': '#8b5cf6',
-  'ecommerce platform': '#8b5cf6',
-  'cms': '#3b82f6',
-  'javascript frameworks': '#f59e0b',
-  'ui frameworks': '#f59e0b',
-  'javascript libraries': '#eab308',
-  'analytics': '#06b6d4',
-  'payment processors': '#10b981',
-  'live chat': '#ec4899',
-  'customer support': '#ec4899',
-  'customer engagement': '#ec4899',
-  'wordpress plugins': '#3b82f6',
-  'shopify apps': '#8b5cf6',
-  'reviews': '#f97316',
-  'loyalty & rewards': '#f97316',
-  'buy now, pay later': '#10b981',
-  'cdn': '#6366f1',
-  'web servers': '#64748b',
-  'seo': '#22c55e',
-  'tag managers': '#06b6d4',
-  'marketing automation': '#e11d48',
-  'advertising': '#ef4444',
-  'retargeting': '#ef4444',
-  'a/b testing': '#a855f7',
-  'cart abandonment': '#f97316',
-  'personalisation': '#a855f7',
-  'push notifications': '#f43f5e',
-  'email': '#0ea5e9',
-  'surveys': '#14b8a6',
-  'booking & scheduling': '#0891b2',
-  'accessibility': '#22c55e',
-  'cookie compliance': '#84cc16',
-  'security': '#ef4444',
-  'ssl/tls certificate authorities': '#ef4444',
-  'performance': '#f59e0b',
-  'hosting': '#6366f1',
-  'font scripts': '#8b5cf6',
-  'maps': '#22c55e',
-  'video players': '#dc2626',
-  'search engines': '#3b82f6',
-  'caching': '#f59e0b',
-  'programming languages': '#64748b',
-  'databases': '#0ea5e9',
+  'ecommerce': '#8b5cf6', 'ecommerce platform': '#8b5cf6', 'cms': '#3b82f6',
+  'javascript frameworks': '#f59e0b', 'ui frameworks': '#f59e0b',
+  'javascript libraries': '#eab308', 'analytics': '#06b6d4',
+  'payment processors': '#10b981', 'live chat': '#ec4899',
+  'customer support': '#ec4899', 'customer engagement': '#ec4899',
+  'wordpress plugins': '#3b82f6', 'shopify apps': '#8b5cf6',
+  'reviews': '#f97316', 'loyalty & rewards': '#f97316',
+  'buy now, pay later': '#10b981', 'cdn': '#6366f1', 'web servers': '#64748b',
+  'seo': '#22c55e', 'tag managers': '#06b6d4', 'marketing automation': '#e11d48',
+  'advertising': '#ef4444', 'retargeting': '#ef4444', 'a/b testing': '#a855f7',
+  'cart abandonment': '#f97316', 'personalisation': '#a855f7',
+  'push notifications': '#f43f5e', 'email': '#0ea5e9', 'surveys': '#14b8a6',
+  'booking & scheduling': '#0891b2', 'accessibility': '#22c55e',
+  'cookie compliance': '#84cc16', 'security': '#ef4444',
+  'ssl/tls certificate authorities': '#ef4444', 'performance': '#f59e0b',
+  'hosting': '#6366f1', 'font scripts': '#8b5cf6', 'maps': '#22c55e',
+  'video players': '#dc2626', 'search engines': '#3b82f6', 'caching': '#f59e0b',
+  'programming languages': '#64748b', 'databases': '#0ea5e9',
   'operating systems': '#475569',
 };
 
-// Category display order
 const CATEGORY_PRIORITY = [
   'Ecommerce', 'Ecommerce Platform', 'CMS', 'JavaScript frameworks', 'UI frameworks',
   'JavaScript libraries', 'Analytics', 'Payment processors', 'Live chat',
@@ -65,7 +39,7 @@ const CATEGORY_PRIORITY = [
 ];
 const CATEGORY_SET = new Set(CATEGORY_PRIORITY.map(c => c.toLowerCase()));
 
-// ── Tech name → domain mapping for favicons ─────────────────────────────
+// Tech name → favicon domain
 const ICON_DOMAINS = {
   'shopify': 'shopify.com', 'woocommerce': 'woocommerce.com', 'bigcommerce': 'bigcommerce.com',
   'magento': 'magento.com', 'prestashop': 'prestashop.com', 'wix': 'wix.com',
@@ -152,18 +126,21 @@ const ICON_DOMAINS = {
 };
 
 // ── DOM refs ────────────────────────────────────────────────────────────
-const siteUrlEl    = document.getElementById('site-url');
-const refreshBtn   = document.getElementById('refresh-btn');
-const loadingState = document.getElementById('loading-state');
-const errorState   = document.getElementById('error-state');
-const errorText    = document.getElementById('error-text');
-const resultsEl    = document.getElementById('results');
-const summaryBar   = document.getElementById('summary-bar');
-const companyInfo  = document.getElementById('company-info');
-const categoriesEl = document.getElementById('categories');
-const emptyState   = document.getElementById('empty-state');
+const siteUrlEl      = document.getElementById('site-url');
+const refreshBtn     = document.getElementById('refresh-btn');
+const loadingState   = document.getElementById('loading-state');
+const errorState     = document.getElementById('error-state');
+const errorText      = document.getElementById('error-text');
+const panelDetails   = document.getElementById('panel-details');
+const panelTech      = document.getElementById('panel-tech');
+const detailsContent = document.getElementById('details-content');
+const techSummary    = document.getElementById('tech-summary');
+const categoriesEl   = document.getElementById('categories');
+const tabDetails     = document.getElementById('tab-details');
+const tabTech        = document.getElementById('tab-tech');
 
 let currentUrl = '';
+let lastResult = null;
 
 // ── Init ────────────────────────────────────────────────────────────────
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -182,6 +159,17 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   }
 });
 
+// ── Tabs ────────────────────────────────────────────────────────────────
+tabDetails.addEventListener('click', () => switchTab('details'));
+tabTech.addEventListener('click', () => switchTab('tech'));
+
+function switchTab(tab) {
+  tabDetails.classList.toggle('active', tab === 'details');
+  tabTech.classList.toggle('active', tab === 'tech');
+  panelDetails.classList.toggle('hidden', tab !== 'details');
+  panelTech.classList.toggle('hidden', tab !== 'tech');
+}
+
 refreshBtn.addEventListener('click', doScan);
 
 // ── Scan ────────────────────────────────────────────────────────────────
@@ -190,8 +178,8 @@ async function doScan() {
 
   loadingState.classList.remove('hidden');
   errorState.classList.add('hidden');
-  resultsEl.classList.add('hidden');
-  emptyState.classList.add('hidden');
+  panelDetails.classList.add('hidden');
+  panelTech.classList.add('hidden');
 
   try {
     const res = await fetch(`${API_BASE}/api/detect?url=${encodeURIComponent(currentUrl)}&refresh=1`);
@@ -202,12 +190,10 @@ async function doScan() {
     try { data = JSON.parse(text); } catch { throw new Error('Unexpected server response'); }
     if (!res.ok) throw new Error(data.error || 'Detection failed');
 
-    if (!data.technologies || data.technologies.length === 0) {
-      emptyState.classList.remove('hidden');
-    } else {
-      renderResults(data);
-      resultsEl.classList.remove('hidden');
-    }
+    lastResult = data;
+    renderDetails(data);
+    renderTechStack(data);
+    switchTab('details');
   } catch (err) {
     errorText.textContent = err.message || 'Something went wrong';
     errorState.classList.remove('hidden');
@@ -216,40 +202,48 @@ async function doScan() {
   }
 }
 
-// ── Render Results ──────────────────────────────────────────────────────
-function renderResults(data) {
-  const { technologies, companyMeta } = data;
+// ── Render: More Details ────────────────────────────────────────────────
+function renderDetails(data) {
+  const { url, technologies, companyMeta } = data;
+  const grouped = groupByCategory(technologies);
+
+  let html = '<div class="details-grid">';
+
+  // URL
+  html += `<div class="detail-card full"><div class="detail-label">Website</div><div class="detail-url">${esc(url)}</div></div>`;
+
+  if (companyMeta) {
+    // Category
+    html += `<div class="detail-card"><div class="detail-label">Category</div><div class="detail-value">${esc(companyMeta.category)}</div></div>`;
+
+    // Sub-category
+    html += `<div class="detail-card"><div class="detail-label">Sub-Category</div><div class="detail-value">${esc(companyMeta.subCategory || 'General')}</div></div>`;
+
+    // Region
+    html += `<div class="detail-card"><div class="detail-label">Region</div><div class="detail-value">${esc(companyMeta.region)}</div></div>`;
+
+    // Store count
+    const stores = companyMeta.offlineStores || 'Unknown';
+    const badgeClass = stores === 'Online only' ? 'online-only' :
+                       stores === 'Unknown' ? 'unknown' : 'has-stores';
+    html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span></div></div>`;
+  }
+
+  // Tech summary
+  html += `<div class="detail-card full"><div class="detail-label">Technologies</div><div class="detail-value small">${technologies.length} detected across ${Object.keys(grouped).length} categories</div></div>`;
+
+  html += '</div>';
+  detailsContent.innerHTML = html;
+}
+
+// ── Render: Tech Stack ──────────────────────────────────────────────────
+function renderTechStack(data) {
+  const { technologies } = data;
   const grouped = groupByCategory(technologies);
   const catCount = Object.keys(grouped).length;
 
-  // Summary
-  summaryBar.innerHTML = `
-    <span class="summary-count">${technologies.length}</span> technologies detected in
-    <span class="summary-count">${catCount}</span> categories
-  `;
+  techSummary.innerHTML = `<span class="count">${technologies.length}</span> technologies in <span class="count">${catCount}</span> categories`;
 
-  // Company info
-  if (companyMeta && companyMeta.category !== 'Unknown') {
-    companyInfo.classList.remove('hidden');
-    let infoHtml = '';
-
-    infoHtml += makeInfoRow('Industry', companyMeta.category);
-    if (companyMeta.subCategory && companyMeta.subCategory !== 'General') {
-      infoHtml += makeInfoRow('Type', companyMeta.subCategory);
-    }
-    infoHtml += makeInfoRow('Region', companyMeta.region);
-
-    const stores = companyMeta.offlineStores || 'Unknown';
-    const storeClass = stores === 'Online only' ? 'stores online-only' :
-                       stores === 'Unknown' ? 'stores unknown' : 'stores';
-    infoHtml += `<div class="company-info-row"><span class="company-info-label">Stores</span><span class="company-info-value ${storeClass}">${esc(stores)}</span></div>`;
-
-    companyInfo.innerHTML = infoHtml;
-  } else {
-    companyInfo.classList.add('hidden');
-  }
-
-  // Categories
   categoriesEl.innerHTML = '';
   const sortedCats = sortCategories(grouped);
 
@@ -298,7 +292,6 @@ function renderResults(data) {
     header.addEventListener('click', () => {
       expanded = !expanded;
       techsEl.style.display = expanded ? '' : 'none';
-      header.querySelector('.category-badge').textContent = expanded ? techs.length : `${techs.length} +`;
     });
 
     catEl.appendChild(header);
@@ -308,10 +301,6 @@ function renderResults(data) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
-function makeInfoRow(label, value) {
-  return `<div class="company-info-row"><span class="company-info-label">${esc(label)}</span><span class="company-info-value">${esc(value)}</span></div>`;
-}
-
 function getIconUrl(techName) {
   const domain = ICON_DOMAINS[techName.toLowerCase()];
   return domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null;

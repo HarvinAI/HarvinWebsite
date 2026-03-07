@@ -2,7 +2,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  width: 380px;
+  width: 400px;
   min-height: 200px;
   max-height: 600px;
   overflow-y: auto;
@@ -62,7 +62,7 @@ body::-webkit-scrollbar-thumb:hover { background: #aaa; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 260px;
+  max-width: 270px;
 }
 
 .refresh-btn {
@@ -83,7 +83,35 @@ body::-webkit-scrollbar-thumb:hover { background: #aaa; }
 .refresh-btn:hover {
   background: #f0f0f0;
   color: #333;
-  border-color: #ccc;
+}
+
+/* ── Tab Bar ─────────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  color: #999;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.tab:hover { color: #666; }
+
+.tab.active {
+  color: #6366f1;
+  border-bottom-color: #6366f1;
 }
 
 /* ── Loading ─────────────────────────────────────────────────────────── */
@@ -129,11 +157,86 @@ body::-webkit-scrollbar-thumb:hover { background: #aaa; }
   line-height: 1.4;
 }
 
-/* ── Summary Bar ─────────────────────────────────────────────────────── */
-.summary-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* ── More Details Panel ──────────────────────────────────────────────── */
+.details-empty {
+  text-align: center;
+  color: #aaa;
+  padding: 40px 0;
+  font-size: 13px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 16px;
+}
+
+.detail-card {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+}
+
+.detail-card.full {
+  grid-column: 1 / -1;
+}
+
+.detail-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.detail-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.detail-value.small {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Store badge */
+.store-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.store-badge.has-stores {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.store-badge.online-only {
+  background: #f0f0f0;
+  color: #888;
+}
+
+.store-badge.unknown {
+  background: #f5f5f5;
+  color: #bbb;
+}
+
+/* URL card */
+.detail-url {
+  font-size: 12px;
+  color: #6366f1;
+  word-break: break-all;
+  font-weight: 500;
+}
+
+/* ── Tech Summary ────────────────────────────────────────────────────── */
+.tech-summary {
   padding: 10px 16px;
   background: #fff;
   border-bottom: 1px solid #e5e5e5;
@@ -141,64 +244,9 @@ body::-webkit-scrollbar-thumb:hover { background: #aaa; }
   color: #666;
 }
 
-.summary-count {
+.tech-summary .count {
   font-weight: 700;
   color: #6366f1;
-}
-
-.summary-sep {
-  color: #ddd;
-}
-
-/* ── Company Info ────────────────────────────────────────────────────── */
-.company-info {
-  background: #fff;
-  border-bottom: 1px solid #e5e5e5;
-  padding: 0 16px;
-}
-
-.company-info-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.company-info-row:last-child {
-  border-bottom: none;
-}
-
-.company-info-label {
-  font-size: 11px;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  font-weight: 600;
-}
-
-.company-info-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: #333;
-}
-
-.company-info-value.stores {
-  background: #f0fdf4;
-  color: #16a34a;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-}
-
-.company-info-value.stores.online-only {
-  background: #f5f5f5;
-  color: #888;
-}
-
-.company-info-value.stores.unknown {
-  background: #f5f5f5;
-  color: #aaa;
 }
 
 /* ── Categories ──────────────────────────────────────────────────────── */
@@ -236,13 +284,13 @@ body::-webkit-scrollbar-thumb:hover { background: #aaa; }
 }
 
 .category-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   color: #fff;
   flex-shrink: 0;
@@ -261,20 +309,26 @@ body::-webkit-scrollbar-thumb:hover { background: #aaa; }
   background: #f0f0f0;
   padding: 2px 7px;
   border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
 }
 
+/* ── Tech Grid (2 columns) ───────────────────────────────────────────── */
 .category-techs {
-  padding: 0 16px 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 8px;
+  padding: 0 12px 10px;
 }
 
-/* ── Tech Row ────────────────────────────────────────────────────────── */
 .tech-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
+  gap: 8px;
+  padding: 5px 6px;
   border-radius: 6px;
   transition: background 0.1s;
+  min-width: 0;
 }
 
 .tech-row:hover {
@@ -282,8 +336,8 @@ body::-webkit-scrollbar-thumb:hover { background: #aaa; }
 }
 
 .tech-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -300,30 +354,25 @@ body::-webkit-scrollbar-thumb:hover { background: #aaa; }
 }
 
 .tech-icon-letter {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #fff;
 }
 
 .tech-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: #333;
-}
-
-/* ── Empty State ─────────────────────────────────────────────────────── */
-.empty-state {
-  text-align: center;
-  padding: 48px 24px;
-  color: #999;
-  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────── */
