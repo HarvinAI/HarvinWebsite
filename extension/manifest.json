@@ -17,7 +17,7 @@
   },
   "permissions": ["activeTab"],
   "host_permissions": [
-    "http://localhost:3000/*",
+    "https://www.harvin.ai/*",
     "https://harvin.ai/*"
   ]
 }

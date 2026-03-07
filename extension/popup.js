@@ -1,5 +1,5 @@
 // ── Config ───────────────────────────────────────────────────────────────
-const API_BASE = 'http://localhost:3000';
+const API_BASE = 'https://www.harvin.ai';
 
 // Category display order
 const CATEGORY_PRIORITY = [
