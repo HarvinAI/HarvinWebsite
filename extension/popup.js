@@ -128,6 +128,7 @@ const ICON_DOMAINS = {
 // ── DOM refs ────────────────────────────────────────────────────────────
 const siteUrlEl      = document.getElementById('site-url');
 const refreshBtn     = document.getElementById('refresh-btn');
+const themeBtn       = document.getElementById('theme-btn');
 const loadingState   = document.getElementById('loading-state');
 const errorState     = document.getElementById('error-state');
 const errorText      = document.getElementById('error-text');
@@ -142,6 +143,18 @@ const tabTech        = document.getElementById('tab-tech');
 let currentUrl = '';
 let lastResult = null;
 
+// ── Theme ───────────────────────────────────────────────────────────────
+function loadTheme() {
+  const saved = localStorage.getItem('techscanner-theme');
+  if (saved === 'dark') document.body.classList.add('dark');
+}
+loadTheme();
+
+themeBtn.addEventListener('click', () => {
+  document.body.classList.toggle('dark');
+  localStorage.setItem('techscanner-theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+});
+
 // ── Init ────────────────────────────────────────────────────────────────
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   if (tabs[0]?.url) {
@@ -153,7 +166,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       siteUrlEl.textContent = tabs[0].url;
       currentUrl = tabs[0].url;
     }
-    doScan();
+    doScan(false);
   } else {
     siteUrlEl.textContent = 'Unable to detect';
   }
@@ -170,10 +183,10 @@ function switchTab(tab) {
   panelTech.classList.toggle('hidden', tab !== 'tech');
 }
 
-refreshBtn.addEventListener('click', doScan);
+refreshBtn.addEventListener('click', () => doScan(true));
 
 // ── Scan ────────────────────────────────────────────────────────────────
-async function doScan() {
+async function doScan(forceRefresh = false) {
   if (!currentUrl) return;
 
   loadingState.classList.remove('hidden');
@@ -182,7 +195,8 @@ async function doScan() {
   panelTech.classList.add('hidden');
 
   try {
-    const res = await fetch(`${API_BASE}/api/detect?url=${encodeURIComponent(currentUrl)}&refresh=1`);
+    const refreshParam = forceRefresh ? '&refresh=1' : '';
+    const res = await fetch(`${API_BASE}/api/detect?url=${encodeURIComponent(currentUrl)}${refreshParam}`);
     const text = await res.text();
     if (!text) throw new Error('Empty response from server');
 
