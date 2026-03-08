@@ -6,12 +6,15 @@ const CATEGORY_COLORS = {
   'ecommerce': '#8b5cf6', 'ecommerce platform': '#8b5cf6', 'cms': '#3b82f6',
   'javascript frameworks': '#f59e0b', 'ui frameworks': '#f59e0b',
   'javascript libraries': '#eab308', 'analytics': '#06b6d4',
-  'payment processors': '#10b981', 'live chat': '#ec4899',
-  'customer support': '#ec4899', 'customer engagement': '#ec4899',
+  'analytics & behavior': '#06b6d4', 'analytics & optimization platform': '#06b6d4',
+  'payment processors': '#10b981', 'payments': '#10b981',
+  'live chat': '#ec4899', 'customer support': '#ec4899',
+  'customer engagement': '#ec4899', 'customer engagement / crm': '#ec4899',
   'wordpress plugins': '#3b82f6', 'shopify apps': '#8b5cf6',
   'reviews': '#f97316', 'loyalty & rewards': '#f97316',
   'buy now, pay later': '#10b981', 'cdn': '#6366f1', 'web servers': '#64748b',
-  'seo': '#22c55e', 'tag managers': '#06b6d4', 'marketing automation': '#e11d48',
+  'seo': '#22c55e', 'tag managers': '#06b6d4', 'tag manager': '#06b6d4',
+  'marketing automation': '#e11d48',
   'advertising': '#ef4444', 'retargeting': '#ef4444', 'a/b testing': '#a855f7',
   'cart abandonment': '#f97316', 'personalisation': '#a855f7',
   'push notifications': '#f43f5e', 'email': '#0ea5e9', 'surveys': '#14b8a6',
@@ -22,107 +25,353 @@ const CATEGORY_COLORS = {
   'video players': '#dc2626', 'search engines': '#3b82f6', 'caching': '#f59e0b',
   'programming languages': '#64748b', 'databases': '#0ea5e9',
   'operating systems': '#475569', 'store locator': '#f97316',
+  'paas': '#6366f1', 'static site generators': '#3b82f6',
+  'web frameworks': '#f59e0b', 'miscellaneous': '#9ca3af',
 };
 
 const CATEGORY_PRIORITY = [
   'Ecommerce', 'Ecommerce Platform', 'CMS', 'JavaScript frameworks', 'UI frameworks',
-  'JavaScript libraries', 'Analytics', 'Payment processors', 'Live chat',
-  'Customer support', 'Customer engagement', 'WordPress plugins',
-  'Shopify apps', 'Reviews', 'Loyalty & rewards', 'Buy now, pay later',
-  'CDN', 'Web servers', 'SEO', 'Tag managers', 'Marketing automation',
-  'Advertising', 'Retargeting', 'A/B testing', 'Cart abandonment',
-  'Personalisation', 'Push notifications', 'Email', 'Surveys',
+  'JavaScript libraries', 'Analytics', 'Analytics & Behavior', 'Analytics & Optimization Platform',
+  'Payment processors', 'Payments', 'Live chat',
+  'Customer support', 'Customer engagement', 'Customer Engagement / CRM',
+  'WordPress plugins', 'Shopify apps', 'Reviews', 'Loyalty & rewards',
+  'Buy now, pay later', 'CDN', 'Web servers', 'SEO', 'Tag managers', 'Tag Manager',
+  'Marketing automation', 'Advertising', 'Retargeting', 'A/B testing',
+  'Cart abandonment', 'Personalisation', 'Push notifications', 'Email', 'Surveys',
   'Booking & scheduling', 'Accessibility', 'Cookie compliance',
   'Security', 'SSL/TLS certificate authorities', 'Performance',
-  'Hosting', 'Font scripts', 'Maps', 'Video players', 'Search engines',
+  'Hosting', 'PaaS', 'Static site generators', 'Web frameworks',
+  'Font scripts', 'Maps', 'Video players', 'Search engines',
   'Caching', 'Programming languages', 'Databases', 'Operating systems',
+  'Miscellaneous',
 ];
 const CATEGORY_SET = new Set(CATEGORY_PRIORITY.map(c => c.toLowerCase()));
 
-// Tech name → favicon domain
+// Tech name → favicon domain (comprehensive mapping for all 594 techs)
 const ICON_DOMAINS = {
-  'shopify': 'shopify.com', 'woocommerce': 'woocommerce.com', 'bigcommerce': 'bigcommerce.com',
-  'magento': 'magento.com', 'prestashop': 'prestashop.com', 'wix': 'wix.com',
-  'squarespace': 'squarespace.com', 'salesforce commerce cloud': 'salesforce.com',
-  'sap commerce cloud': 'sap.com', 'opencart': 'opencart.com', 'vtex': 'vtex.com',
-  'ecwid': 'ecwid.com', 'shopware': 'shopware.com', 'dukaan': 'mydukaan.io',
-  'shopline': 'shopline.com', 'volusion': 'volusion.com', 'weebly': 'weebly.com',
-  'wordpress': 'wordpress.org', 'drupal': 'drupal.org', 'joomla': 'joomla.org',
-  'ghost': 'ghost.org', 'webflow': 'webflow.com', 'contentful': 'contentful.com',
-  'strapi': 'strapi.io', 'react': 'react.dev', 'next.js': 'nextjs.org',
-  'nuxt.js': 'nuxt.com', 'vue.js': 'vuejs.org', 'angular': 'angular.io',
-  'svelte': 'svelte.dev', 'gatsby': 'gatsbyjs.com', 'remix': 'remix.run',
-  'astro': 'astro.build', 'jquery': 'jquery.com', 'bootstrap': 'getbootstrap.com',
-  'tailwind css': 'tailwindcss.com', 'material ui': 'mui.com', 'chakra ui': 'chakra-ui.com',
+  // Ecommerce Platforms
+  'shopify': 'shopify.com', 'shopify checkout': 'shopify.com', 'shopify payments': 'shopify.com', 'shop pay': 'shopify.com',
+  'woocommerce': 'woocommerce.com', 'bigcommerce': 'bigcommerce.com', 'magento': 'magento.com',
+  'prestashop': 'prestashop.com', 'wix': 'wix.com', 'squarespace': 'squarespace.com',
+  'salesforce commerce cloud': 'salesforce.com', 'sap commerce cloud': 'sap.com',
+  'opencart': 'opencart.com', 'vtex': 'vtex.com', 'ecwid': 'ecwid.com',
+  'commercetools': 'commercetools.com', 'shopware': 'shopware.com',
+  'dukaan': 'mydukaan.io', 'shopline': 'shopline.com', 'nuvemshop': 'nuvemshop.com',
+  'volusion': 'volusion.com', 'shift4shop': 'shift4shop.com', 'weebly': 'weebly.com',
+  'zen cart': 'zen-cart.com', 'nopcommerce': 'nopcommerce.com',
+  'medusa': 'medusajs.com', 'bagisto': 'bagisto.com', 'cs-cart': 'cs-cart.com',
+  'fynd': 'fynd.com', 'shopflo': 'shopflo.com',
+  // CMS
+  'wordpress': 'wordpress.org', 'drupal': 'drupal.org', 'ghost': 'ghost.org',
+  'contentful': 'contentful.com', 'joomla': 'joomla.org', 'webflow': 'webflow.com',
+  'strapi': 'strapi.io', 'sanity': 'sanity.io', 'prismic': 'prismic.io',
+  'storyblok': 'storyblok.com', 'sitecore': 'sitecore.com',
+  'adobe experience manager': 'adobe.com', 'typo3': 'typo3.org', 'umbraco': 'umbraco.com',
+  'kentico': 'kentico.com', 'hugo': 'gohugo.io', 'jekyll': 'jekyllrb.com',
+  'blogger': 'blogger.com', 'tilda': 'tilda.cc', 'tumblr': 'tumblr.com',
+  'medium': 'medium.com', 'hexo': 'hexo.io', 'craft cms': 'craftcms.com',
+  'duda': 'duda.co', 'jimdo': 'jimdo.com', 'strikingly': 'strikingly.com',
+  'notion': 'notion.so', 'wagtail': 'wagtail.org', 'liferay': 'liferay.com',
+  'pimcore': 'pimcore.com', 'october cms': 'octobercms.com', 'statamic': 'statamic.com',
+  'keystonejs': 'keystonejs.com', 'datocms': 'datocms.com', 'directus': 'directus.io',
+  'grav': 'getgrav.org', 'plone': 'plone.org', 'silverstripe': 'silverstripe.org',
+  'concrete cms': 'concretecms.com', 'processwire': 'processwire.com',
+  'contao': 'contao.org', 'odoo': 'odoo.com', 'bloomreach': 'bloomreach.com',
+  'magnolia': 'magnolia-cms.com', 'hubspot cms hub': 'hubspot.com',
+  'google sites': 'sites.google.com',
+  // Frameworks & Libraries
+  'react': 'react.dev', 'next.js': 'nextjs.org', 'nuxt.js': 'nuxt.com',
+  'vue.js': 'vuejs.org', 'angular': 'angular.dev', 'angularjs': 'angularjs.org',
+  'svelte': 'svelte.dev', 'sveltekit': 'kit.svelte.dev', 'gatsby': 'gatsbyjs.com',
+  'remix': 'remix.run', 'astro': 'astro.build', 'jquery': 'jquery.com',
+  'backbone.js': 'backbonejs.org', 'ember.js': 'emberjs.com', 'alpine.js': 'alpinejs.dev',
+  'preact': 'preactjs.com', 'solid.js': 'solidjs.com', 'qwik': 'qwik.dev',
+  'lit': 'lit.dev', 'polymer': 'polymer-project.org', 'inferno': 'infernojs.org',
+  'mithril': 'mithril.js.org', 'marko': 'markojs.com', 'aurelia': 'aurelia.io',
+  'knockout.js': 'knockoutjs.com', 'meteor': 'meteor.com', 'fresh': 'fresh.deno.dev',
+  'stencil': 'stenciljs.com', 'htmx': 'htmx.org', 'hotwire': 'hotwired.dev',
+  'turbo': 'turbo.hotwired.dev', 'turbolinks': 'turbo.hotwired.dev',
+  'stimulus': 'stimulus.hotwired.dev', 'ext js': 'sencha.com',
+  // UI Frameworks
+  'bootstrap': 'getbootstrap.com', 'tailwind css': 'tailwindcss.com',
+  'material ui': 'mui.com', 'chakra ui': 'chakra-ui.com', 'ant design': 'ant.design',
+  'bulma': 'bulma.io', 'foundation': 'get.foundation', 'semantic ui': 'semantic-ui.com',
+  'vuetify': 'vuetifyjs.com', 'quasar': 'quasar.dev',
+  'element ui': 'element.eleme.io', 'primevue': 'primevue.org',
+  'primereact': 'primereact.org', 'primeng': 'primeng.org',
+  'mantine': 'mantine.dev', 'daisyui': 'daisyui.com', 'flowbite': 'flowbite.com',
+  'materialize': 'materializecss.com', 'shoelace': 'shoelace.style',
+  'uikit': 'getuikit.com', 'fluent ui': 'fluent2.microsoft.design',
+  'carbon design system': 'carbondesignsystem.com', 'primer css': 'primer.style',
+  'tachyons': 'tachyons.io',
+  // JS Libraries
+  'lodash': 'lodash.com', 'underscore.js': 'underscorejs.org',
+  'moment.js': 'momentjs.com', 'axios': 'axios-http.com', 'rxjs': 'rxjs.dev',
+  'redux': 'redux.js.org', 'vuex': 'vuex.vuejs.org', 'pinia': 'pinia.vuejs.org',
+  'd3.js': 'd3js.org', 'chart.js': 'chartjs.org', 'three.js': 'threejs.org',
+  'gsap': 'gsap.com', 'anime.js': 'animejs.com', 'lottie': 'airbnb.io',
+  'swiper': 'swiperjs.com', 'slick': 'kenwheeler.github.io',
+  'flickity': 'flickity.metafizzy.co', 'masonry': 'masonry.desandro.com',
+  'isotope': 'isotope.metafizzy.co', 'fancybox': 'fancyapps.com',
+  'scrollmagic': 'scrollmagic.io', 'particles.js': 'vincentgarreau.com',
+  'fullpage.js': 'alvarotrigo.com', 'lazysizes': 'afarkas.github.io',
+  'modernizr': 'modernizr.com', 'hammer.js': 'hammerjs.github.io',
+  'clipboard.js': 'clipboardjs.com', 'dropzone.js': 'dropzone.dev',
+  'highlight.js': 'highlightjs.org', 'prism': 'prismjs.com',
+  'aos': 'michalsnik.github.io', 'typed.js': 'mattboldt.com',
+  'tippy.js': 'atomiks.github.io', 'popper.js': 'popper.js.org',
+  'handlebars': 'handlebarsjs.com', 'requirejs': 'requirejs.org',
+  'sweetalert': 'sweetalert2.github.io', 'socket.io': 'socket.io',
+  'pdf.js': 'mozilla.github.io', 'katex': 'katex.org', 'mathjax': 'mathjax.org',
+  'pixijs': 'pixijs.com', 'howler.js': 'howlerjs.com',
+  'core-js': 'github.com/nicolo-ribaudo', // generic fallback
+  // Build Tools
+  'webpack': 'webpack.js.org', 'vite': 'vitejs.dev', 'babel': 'babeljs.io',
+  'typescript': 'typescriptlang.org',
+  // Backend Frameworks
+  'express': 'expressjs.com', 'django': 'djangoproject.com', 'laravel': 'laravel.com',
+  'rails': 'rubyonrails.org', 'spring': 'spring.io',
+  // Analytics & Tracking
   'google analytics': 'analytics.google.com', 'google tag manager': 'tagmanager.google.com',
   'google ads': 'ads.google.com', 'google adsense': 'adsense.google.com',
-  'google maps': 'maps.google.com', 'google fonts': 'fonts.google.com',
-  'google optimize': 'optimize.google.com', 'facebook pixel': 'facebook.com',
-  'facebook sdk': 'facebook.com', 'meta pixel': 'facebook.com', 'instagram': 'instagram.com',
-  'twitter': 'twitter.com', 'x pixel': 'x.com', 'tiktok pixel': 'tiktok.com',
-  'pinterest tag': 'pinterest.com', 'snapchat pixel': 'snapchat.com',
-  'linkedin insight tag': 'linkedin.com', 'hotjar': 'hotjar.com', 'mixpanel': 'mixpanel.com',
-  'amplitude': 'amplitude.com', 'segment': 'segment.com', 'heap': 'heap.io',
-  'plausible': 'plausible.io', 'matomo': 'matomo.org', 'posthog': 'posthog.com',
-  'microsoft clarity': 'clarity.microsoft.com', 'contentsquare': 'contentsquare.com',
-  'stripe': 'stripe.com', 'paypal': 'paypal.com', 'razorpay': 'razorpay.com',
-  'cashfree': 'cashfree.com', 'payu': 'payu.in', 'klarna': 'klarna.com',
-  'afterpay': 'afterpay.com', 'affirm': 'affirm.com', 'sezzle': 'sezzle.com',
-  'braintree': 'braintreepayments.com', 'adyen': 'adyen.com', 'square': 'squareup.com',
-  'intercom': 'intercom.com', 'zendesk': 'zendesk.com', 'freshdesk': 'freshdesk.com',
+  'google optimize': 'optimize.google.com', 'google remarketing': 'ads.google.com',
+  'google search console': 'search.google.com', 'google ad manager': 'admanager.google.com',
+  'facebook pixel': 'facebook.com', 'facebook ads': 'facebook.com',
+  'facebook retargeting': 'facebook.com', 'meta pixel': 'facebook.com',
+  'microsoft clarity': 'clarity.microsoft.com', 'microsoft advertising': 'ads.microsoft.com',
+  'linkedin insight tag': 'linkedin.com', 'pinterest tag': 'pinterest.com',
+  'tiktok pixel': 'tiktok.com', 'snapchat pixel': 'snapchat.com',
+  'twitter pixel': 'twitter.com', 'reddit pixel': 'reddit.com',
+  'quora pixel': 'quora.com', 'bing webmaster': 'bing.com',
+  'hotjar': 'hotjar.com', 'mixpanel': 'mixpanel.com', 'amplitude': 'amplitude.com',
+  'segment': 'segment.com', 'heap': 'heap.io', 'posthog': 'posthog.com',
+  'matomo': 'matomo.org', 'plausible analytics': 'plausible.io',
+  'contentsquare': 'contentsquare.com', 'fullstory': 'fullstory.com',
+  'logrocket': 'logrocket.com', 'smartlook': 'smartlook.com',
+  'crazy egg': 'crazyegg.com', 'mouseflow': 'mouseflow.com',
+  'lucky orange': 'luckyorange.com', 'inspectlet': 'inspectlet.com',
+  'sessioncam': 'sessioncam.com', 'usertesting': 'usertesting.com',
+  'optimizely': 'optimizely.com', 'vwo': 'vwo.com', 'vwo engage': 'vwo.com',
+  'ab tasty': 'abtasty.com', 'dynamic yield': 'dynamicyield.com',
+  'kameleoon': 'kameleoon.com', 'sitespect': 'sitespect.com',
+  'monetate': 'monetate.com', 'convert experiences': 'convert.com',
+  'evergage': 'evergage.com', 'growthbook': 'growthbook.io',
+  'launchdarkly': 'launchdarkly.com', 'split.io': 'split.io',
+  'statsig': 'statsig.com', 'unbounce': 'unbounce.com',
+  'instapage': 'instapage.com', 'leadpages': 'leadpages.com',
+  'landingi': 'landingi.com', 'clickfunnels': 'clickfunnels.com',
+  'convertflow': 'convertflow.com', 'lander': 'landerapp.com',
+  'quantum metric': 'quantummetric.com', 'glassbox': 'glassbox.com',
+  'appsflyer': 'appsflyer.com', 'adjust': 'adjust.com', 'branch': 'branch.io',
+  'flurry': 'flurry.com', 'countly': 'countly.com',
+  'monsterinsights': 'monsterinsights.com', 'pixelyoursite': 'pixelyoursite.com',
+  // Customer Engagement / CRM
+  'clevertap': 'clevertap.com', 'webengage': 'webengage.com',
+  'moengage': 'moengage.com', 'onesignal': 'onesignal.com',
+  'braze': 'braze.com', 'omnisend': 'omnisend.com', 'brevo': 'brevo.com',
+  'pushwoosh': 'pushwoosh.com', 'izooto': 'izooto.com', 'contlo': 'contlo.com',
+  'wigzo': 'wigzo.com', 'netcore': 'netcorecloud.com', 'iterable': 'iterable.com',
+  'lemnisk': 'lemnisk.co', 'appier': 'appier.com', 'airship': 'airship.com',
+  'klaviyo': 'klaviyo.com', 'mailchimp': 'mailchimp.com', 'hubspot': 'hubspot.com',
+  'marketo': 'marketo.com', 'activecampaign': 'activecampaign.com',
+  'bitespeed': 'bitespeed.co', 'salesforce': 'salesforce.com',
+  'zoho crm': 'zoho.com', 'pipedrive': 'pipedrive.com',
+  'freshsales': 'freshworks.com', 'microsoft dynamics 365': 'dynamics.microsoft.com',
+  'sugarcrm': 'sugarcrm.com', 'insightly': 'insightly.com',
+  'agile crm': 'agilecrm.com', 'bitrix24': 'bitrix24.com',
+  'copper': 'copper.com', 'apollo.io': 'apollo.io',
+  'leadsquared': 'leadsquared.com', 'nimble': 'nimble.com',
+  'close crm': 'close.com', 'nutshell': 'nutshell.com',
+  'folk crm': 'folk.app', 'attio': 'attio.com',
+  'monday crm': 'monday.com', 'streak': 'streak.com',
+  'convertkit': 'convertkit.com', 'getresponse': 'getresponse.com',
+  'drip': 'drip.com', 'aweber': 'aweber.com',
+  'campaign monitor': 'campaignmonitor.com', 'constant contact': 'constantcontact.com',
+  'sendinblue': 'brevo.com', 'elastic email': 'elasticemail.com',
+  'mailerlite': 'mailerlite.com', 'mailjet': 'mailjet.com',
+  'mailmodo': 'mailmodo.com', 'moosend': 'moosend.com',
+  'sendgrid': 'sendgrid.com', 'sendpulse': 'sendpulse.com',
+  'customer.io': 'customer.io', 'ortto': 'ortto.com',
+  'autopilot': 'ortto.com', 'sharpspring': 'sharpspring.com',
+  'responsys': 'oracle.com', 'sailthru': 'sailthru.com',
+  'listrak': 'listrak.com', 'dotdigital': 'dotdigital.com',
+  'emarsys': 'emarsys.com', 'cordial': 'cordial.com',
+  'bluecore': 'bluecore.com', 'wunderkind': 'wunderkind.co',
+  'postscript': 'postscript.io', 'attentive': 'attentivemobile.com',
+  'bloomreach engagement': 'bloomreach.com',
+  // Chat & Support
+  'intercom': 'intercom.com', 'intercom marketing': 'intercom.com',
+  'zendesk': 'zendesk.com', 'freshdesk': 'freshworks.com',
+  'freshservice': 'freshworks.com', 'freshmarketer': 'freshworks.com',
   'drift': 'drift.com', 'crisp': 'crisp.chat', 'tidio': 'tidio.com',
-  'tawk.to': 'tawk.to', 'livechat': 'livechat.com', 'hubspot': 'hubspot.com',
-  'mailchimp': 'mailchimp.com', 'klaviyo': 'klaviyo.com', 'sendgrid': 'sendgrid.com',
-  'brevo': 'brevo.com', 'activecampaign': 'activecampaign.com',
-  'convertkit': 'convertkit.com', 'moengage': 'moengage.com', 'clevertap': 'clevertap.com',
-  'webengage': 'webengage.com', 'onesignal': 'onesignal.com', 'pushowl': 'pushowl.com',
-  'cloudflare': 'cloudflare.com', 'fastly': 'fastly.com', 'akamai': 'akamai.com',
-  'amazon cloudfront': 'aws.amazon.com', 'aws': 'aws.amazon.com',
-  'amazon s3': 'aws.amazon.com', 'google cloud': 'cloud.google.com',
-  'firebase': 'firebase.google.com', 'azure': 'azure.microsoft.com',
-  'vercel': 'vercel.com', 'netlify': 'netlify.com', 'heroku': 'heroku.com',
-  'digitalocean': 'digitalocean.com', 'nginx': 'nginx.com', 'apache': 'apache.org',
-  'node.js': 'nodejs.org', 'php': 'php.net', 'python': 'python.org',
-  'ruby': 'ruby-lang.org', 'java': 'java.com', 'mysql': 'mysql.com',
-  'postgresql': 'postgresql.org', 'mongodb': 'mongodb.com', 'redis': 'redis.io',
-  'elasticsearch': 'elastic.co', 'varnish': 'varnish-cache.org',
-  'optimizely': 'optimizely.com', 'vwo': 'vwo.com', 'abtasty': 'abtasty.com',
-  'yotpo': 'yotpo.com', 'judge.me': 'judge.me', 'stamped.io': 'stamped.io',
-  'trustpilot': 'trustpilot.com', 'bazaarvoice': 'bazaarvoice.com',
-  'loox': 'loox.io', 'smile.io': 'smile.io', 'loyaltylion': 'loyaltylion.com',
-  'recaptcha': 'google.com', 'hcaptcha': 'hcaptcha.com', 'sentry': 'sentry.io',
-  'datadog': 'datadoghq.com', 'new relic': 'newrelic.com',
-  'typekit': 'fonts.adobe.com', 'adobe fonts': 'fonts.adobe.com',
-  'adobe analytics': 'adobe.com', 'adobe experience manager': 'adobe.com',
-  'youtube': 'youtube.com', 'vimeo': 'vimeo.com', 'wistia': 'wistia.com',
-  'mapbox': 'mapbox.com', 'leaflet': 'leafletjs.com', 'algolia': 'algolia.com',
-  'outbrain': 'outbrain.com', 'taboola': 'taboola.com', 'criteo': 'criteo.com',
-  'doubleclick floodlight': 'google.com', 'google publisher tag': 'google.com',
-  'typeform': 'typeform.com', 'recart': 'recart.com', 'privy': 'privy.com',
-  'sumo': 'sumo.com', 'wisepops': 'wisepops.com', 'nosto': 'nosto.com',
-  'dynamic yield': 'dynamicyield.com', 'freshchat': 'freshworks.com',
+  'tawk.to': 'tawk.to', 'livechat': 'livechat.com',
   'gorgias': 'gorgias.com', 'reamaze': 'reamaze.com',
-  'recharge': 'rechargepayments.com', 'bold subscriptions': 'boldcommerce.com',
-  'yoast seo': 'yoast.com', 'rank math': 'rankmath.com', 'schema.org': 'schema.org',
-  'open graph': 'ogp.me', 'twitter cards': 'twitter.com',
-  'cookiebot': 'cookiebot.com', 'onetrust': 'onetrust.com', 'osano': 'osano.com',
-  'accessibe': 'accessibe.com', 'userway': 'userway.org',
-  'calendly': 'calendly.com', 'acuity scheduling': 'acuityscheduling.com',
-  'simpl': 'getsimpl.com', 'lazypay': 'lazypay.in', 'shiprocket': 'shiprocket.in',
-  'delhivery': 'delhivery.com', 'instamojo': 'instamojo.com', 'paytm': 'paytm.com',
-  'phonepe': 'phonepe.com', 'gsap': 'gsap.com', 'three.js': 'threejs.org',
-  'lodash': 'lodash.com', 'moment.js': 'momentjs.com', 'axios': 'axios-http.com',
-  'webpack': 'webpack.js.org', 'vite': 'vitejs.dev', 'babel': 'babeljs.io',
-  'typescript': 'typescriptlang.org', 'express': 'expressjs.com',
-  'django': 'djangoproject.com', 'laravel': 'laravel.com', 'rails': 'rubyonrails.org',
-  'spring': 'spring.io', 'swiper': 'swiperjs.com', 'slick': 'kenwheeler.github.io',
-  'recaptcha v3': 'google.com', 'google recaptcha': 'google.com',
-  'cloudflare browser insights': 'cloudflare.com', 'cloudflare rocket loader': 'cloudflare.com',
-  'amazon pay': 'pay.amazon.com', 'apple pay': 'apple.com', 'google pay': 'pay.google.com',
+  'jivochat': 'jivochat.com', 'chatra': 'chatra.com',
+  'chatwoot': 'chatwoot.com', 'helpcrunch': 'helpcrunch.com',
+  'smartsupp': 'smartsupp.com', 'userlike': 'userlike.com',
+  'snapengage': 'snapengage.com', 'kayako': 'kayako.com',
+  'pure chat': 'purechat.com', 'customerly': 'customerly.io',
+  'dixa': 'dixa.com', 'sleeknote': 'sleeknote.com',
+  'kommunicate': 'kommunicate.io', 'genesys cloud': 'genesys.com',
+  'salesforce live agent': 'salesforce.com', 'trengo': 'trengo.com',
+  'sprinklr': 'sprinklr.com', 'zoho salesiq': 'zoho.com',
+  'zoho desk': 'zoho.com', 'zoho campaigns': 'zoho.com',
+  // Payments
+  'stripe': 'stripe.com', 'paypal': 'paypal.com', 'razorpay': 'razorpay.com',
+  'cashfree': 'cashfree.com', 'payu': 'payu.in', 'paytm pg': 'paytm.com',
+  'phonepe pg': 'phonepe.com', 'phonepe switch': 'phonepe.com',
+  'klarna': 'klarna.com', 'afterpay': 'afterpay.com', 'clearpay': 'clearpay.com',
+  'affirm': 'affirm.com', 'sezzle': 'sezzle.com', 'braintree': 'braintreepayments.com',
+  'adyen': 'adyen.com', 'square': 'squareup.com', 'mollie': 'mollie.com',
+  'worldpay': 'worldpay.com', 'authorize.net': 'authorize.net',
+  'checkout.com': 'checkout.com', 'bluesnap': 'bluesnap.com',
+  '2checkout (verifone)': 'verifone.com', 'paddle': 'paddle.com',
+  'flutterwave': 'flutterwave.com', 'paystack': 'paystack.com',
+  'payfast': 'payfast.co.za', 'wepay': 'wepay.com', 'payoneer': 'payoneer.com',
+  'amazon pay': 'pay.amazon.com', 'apple pay': 'apple.com',
+  'google pay': 'pay.google.com', 'visa': 'visa.com',
+  'mastercard': 'mastercard.com', 'american express': 'americanexpress.com',
+  'simpl': 'getsimpl.com', 'lazypay': 'lazypay.in', 'snapmint': 'snapmint.com',
+  'instamojo': 'instamojo.com', 'ccavenue': 'ccavenue.com',
+  'billdesk': 'billdesk.com', 'juspay': 'juspay.in',
+  'juspay express checkout': 'juspay.in', 'paynimo': 'paynimo.com',
+  'hdfc payment gateway': 'hdfcbank.com', 'icici eazypay': 'icicibank.com',
+  'axis bank payment gateway': 'axisbank.com', 'easebuzz': 'easebuzz.in',
+  'zaakpay': 'zaakpay.com', 'open financial': 'open.money',
+  'decentro': 'decentro.tech', 'mangopay': 'mangopay.com',
+  'cred pay': 'cred.club', 'uni cards': 'uni.cards',
+  'airpay': 'airpay.co.in', 'mobikwik pg': 'mobikwik.com',
+  'pine labs': 'pinelabs.com', 'direcpay': 'direcpay.com',
+  'capital float': 'capitalfloat.com', 'zestmoney': 'zestmoney.in',
+  'kissht': 'kissht.com', 'epaylater': 'epaylater.in',
+  'flexipay': 'flexipay.com', 'postpe': 'postpe.com',
+  'laybuy': 'laybuy.com', 'tabby': 'tabby.ai', 'tamara': 'tamara.co',
+  'alma': 'almapay.com', 'scalapay': 'scalapay.com',
+  'splitit': 'splitit.com', 'atome': 'atome.sg', 'kredivo': 'kredivo.com',
+  'zip': 'zip.co', 'kiwi checkout': 'kiwi.com',
+  'paykun': 'paykun.com', 'magicpin pay': 'magicpin.in',
+  // BNPL
+  'shiprocket': 'shiprocket.in', 'shiprocket checkout': 'shiprocket.in',
+  'shipstation': 'shipstation.com', 'aftership': 'aftership.com',
+  'narvar': 'narvar.com', 'delhivery': 'delhivery.com',
+  // Reviews & Loyalty
+  'yotpo': 'yotpo.com', 'yotpo loyalty': 'yotpo.com',
+  'judge.me': 'judge.me', 'stamped.io': 'stamped.io',
+  'trustpilot': 'trustpilot.com', 'bazaarvoice': 'bazaarvoice.com',
+  'loox': 'loox.io', 'junip': 'junip.co', 'okendo': 'okendo.io',
+  'reviews.io': 'reviews.io', 'shopper approved': 'shopperapproved.com',
+  'powerreviews': 'powerreviews.com', 'birdeye': 'birdeye.com',
+  'feefo': 'feefo.com', 'fera.ai': 'fera.ai', 'trusted shops': 'trustedshops.com',
+  'smile.io': 'smile.io', 'loyaltylion': 'loyaltylion.com',
+  'annex cloud': 'annexcloud.com', 'antavo': 'antavo.com',
+  'kangaroo rewards': 'kangaroorewards.com', 'loyalty gator': 'loyaltygator.com',
+  'open loyalty': 'openloyalty.io', 'zinrelo': 'zinrelo.com',
+  'bon loyalty': 'bonloyalty.com', 'joy loyalty': 'joyrewards.io',
+  'growave': 'growave.io', 'wployalty': 'wployalty.net',
+  'rise.ai': 'rise.ai', 'talon.one': 'talon.one',
+  // SEO & Marketing
+  'yoast seo': 'yoast.com', 'rank math': 'rankmath.com',
+  'all in one seo': 'aioseo.com', 'seopress': 'seopress.org',
+  'schema pro': 'wpschema.com', 'json-ld schema': 'schema.org',
+  'open graph': 'ogp.me', 'twitter cards': 'twitter.com', 'indexnow': 'indexnow.org',
+  'ahrefs': 'ahrefs.com', 'semrush': 'semrush.com',
+  // Popups & Conversion
+  'privy': 'privy.com', 'sumo': 'sumo.com', 'wisepops': 'wisepops.com',
+  'optinmonster': 'optinmonster.com', 'optimonk': 'optimonk.com',
+  'justuno': 'justuno.com', 'hello bar': 'hellobar.com',
+  'recart': 'recart.com', 'nosto': 'nosto.com', 'barilliance': 'barilliance.com',
+  'fresh relevance': 'freshrelevance.com', 'clerk.io': 'clerk.io',
+  'salecycle': 'salecycle.com', 'cartstack': 'cartstack.com',
+  'wunderkind': 'wunderkind.co', 'subscribers': 'subscribers.com',
+  'pushengage': 'pushengage.com', 'reconvert': 'reconvert.io',
+  // Advertising
+  'criteo': 'criteo.com', 'criteo retargeting': 'criteo.com',
+  'outbrain': 'outbrain.com', 'taboola': 'taboola.com',
+  'adroll': 'adroll.com', 'amazon advertising': 'advertising.amazon.com',
+  'the trade desk': 'thetradedesk.com', 'rtb house': 'rtbhouse.com',
+  'carbon ads': 'carbonads.net', 'inmobi': 'inmobi.com',
+  'mediavine': 'mediavine.com', 'ezoic': 'ezoic.com',
+  'doubleclick': 'google.com', 'doubleclick floodlight': 'google.com',
+  'google publisher tag': 'google.com', 'mediamath': 'mediamath.com',
+  // CDN & Infrastructure
+  'cloudflare': 'cloudflare.com', 'cloudflare browser insights': 'cloudflare.com',
+  'cloudflare rocket loader': 'cloudflare.com',
+  'fastly': 'fastly.com', 'akamai': 'akamai.com',
+  'aws cloudfront': 'aws.amazon.com', 'amazon cloudfront': 'aws.amazon.com',
+  'bunny cdn': 'bunny.net', 'keycdn': 'keycdn.com',
+  'vercel': 'vercel.com', 'netlify': 'netlify.com',
+  'firebase': 'firebase.google.com', 'firebase cloud messaging': 'firebase.google.com',
+  'heroku': 'heroku.com', 'digitalocean': 'digitalocean.com',
+  'google cloud': 'cloud.google.com', 'azure': 'azure.microsoft.com',
+  'aws': 'aws.amazon.com', 'amazon s3': 'aws.amazon.com',
+  // Web Servers
+  'nginx': 'nginx.com', 'apache': 'apache.org', 'iis': 'iis.net',
+  'litespeed': 'litespeedtech.com', 'caddy': 'caddyserver.com',
+  'openresty': 'openresty.org',
+  // Languages & Databases
+  'node.js': 'nodejs.org', 'php': 'php.net', 'python': 'python.org',
+  'ruby': 'ruby-lang.org', 'java': 'java.com',
+  'mysql': 'mysql.com', 'postgresql': 'postgresql.org',
+  'mongodb': 'mongodb.com', 'redis': 'redis.io',
+  'elasticsearch': 'elastic.co',
+  // Caching
+  'varnish': 'varnish-cache.org', 'litespeed cache': 'litespeedtech.com',
+  'w3 total cache': 'boldgrid.com', 'wp rocket': 'wp-rocket.me',
+  'wp super cache': 'wordpress.org', 'autoptimize': 'autoptimize.com',
+  // Security
+  'recaptcha': 'google.com', 'recaptcha v3': 'google.com',
+  'google recaptcha': 'google.com', 'hcaptcha': 'hcaptcha.com',
+  'sucuri': 'sucuri.net', 'wordfence': 'wordfence.com',
+  'cookiebot': 'cookiebot.com', 'onetrust': 'onetrust.com',
+  'osano': 'osano.com', 'accessibe': 'accessibe.com', 'userway': 'userway.org',
+  // Monitoring
+  'sentry': 'sentry.io', 'datadog': 'datadoghq.com', 'new relic': 'newrelic.com',
+  // Fonts & Media
+  'typekit': 'fonts.adobe.com', 'adobe fonts': 'fonts.adobe.com',
+  'google fonts': 'fonts.google.com', 'google maps': 'maps.google.com',
+  'mapbox': 'mapbox.com', 'leaflet': 'leafletjs.com',
+  'youtube': 'youtube.com', 'vimeo': 'vimeo.com', 'wistia': 'wistia.com',
+  'algolia': 'algolia.com', 'algolia recommend': 'algolia.com',
+  // WordPress / Shopify Plugins
+  'elementor': 'elementor.com', 'wpbakery': 'wpbakery.com',
+  'divi builder': 'elegantthemes.com', 'beaver builder': 'wpbeaverbuilder.com',
+  'advanced custom fields': 'advancedcustomfields.com',
+  'gravity forms': 'gravityforms.com', 'wpforms': 'wpforms.com',
+  'contact form 7': 'contactform7.com', 'jetpack': 'jetpack.com',
+  'polylang': 'polylang.pro', 'wpml': 'wpml.org',
+  'weglot': 'weglot.com', 'smush': 'wpmudev.com',
+  'gempages': 'gempages.net', 'pagefly': 'pagefly.io',
+  'vitals': 'vitals.co', 'shogun': 'getshogun.com',
+  'bold commerce': 'boldcommerce.com', 'bold store locator': 'boldcommerce.com',
+  'recharge': 'rechargepayments.com', 'marsello': 'marsello.com',
+  // Communications
   'twilio': 'twilio.com', 'twilio segment': 'segment.com',
-  'ahrefs': 'ahrefs.com', 'semrush': 'semrush.com', 'crazy egg': 'crazyegg.com',
-  'fullstory': 'fullstory.com', 'lucky orange': 'luckyorange.com',
-  'mouseflow': 'mouseflow.com',
+  'msg91': 'msg91.com', 'exotel': 'exotel.com',
+  'kaleyra': 'kaleyra.com', 'knowlarity': 'knowlarity.com',
+  'route mobile': 'routemobile.com', 'gupshup': 'gupshup.io',
+  'messagebird': 'messagebird.com', 'cm.com': 'cm.com',
+  'haptik': 'haptik.ai', 'gallabox': 'gallabox.com',
+  'interakt': 'interakt.shop', 'wati': 'wati.io',
+  'zoko': 'zoko.io', 'aisensy': 'aisensy.com',
+  'delightchat': 'delightchat.io', 'rapchat': 'rapchat.com',
+  'verloop': 'verloop.io', 'whatsapp business chat': 'whatsapp.com',
+  // Scheduling
+  'calendly': 'calendly.com', 'acuity scheduling': 'acuityscheduling.com',
+  // Store Locators
+  'storemapper': 'storemapper.com', 'storepoint': 'storepoint.co',
+  'stockist': 'stockist.co', 'bullseye locations': 'bullseyelocations.com',
+  'yext': 'yext.com', 'locally.io': 'locally.io',
+  'store locator plus': 'storelocatorplus.com', 'storerocket': 'storerocket.io',
+  'secomapp store locator': 'secomapp.com', 'progus commerce locator': 'progus.com',
+  // Misc
+  'typeform': 'typeform.com', 'adobe experience cloud': 'adobe.com',
+  'adobe target': 'adobe.com', 'adobe analytics': 'adobe.com',
+  'insider': 'useinsider.com', 'engage360': 'engage360.io',
+  'superagi': 'superagi.com', 'pardot': 'salesforce.com',
+  'keap': 'keap.com', 'acoustic': 'acoustic.com',
+  'loop returns': 'loopreturns.com', 'referralcandy': 'referralcandy.com',
+  'gokwik': 'gokwik.co', 'grprogram': 'grprogram.com',
+  'mesoka': 'mesoka.com', 'pinnacle': 'pinnacle.com',
 };
 
 // ── DOM refs ────────────────────────────────────────────────────────────
@@ -238,7 +487,7 @@ function renderDetails(data) {
 
     // Store count with confidence indicator
     const stores = companyMeta.offlineStores || 'Unknown';
-    const badgeClass = stores === 'Online only' ? 'online-only' :
+    const badgeClass = stores === 'Online' ? 'online-only' :
                        stores === 'Unknown' ? 'unknown' : 'has-stores';
     const conf = companyMeta.storeConfidence;
     const confDot = conf ? `<span class="confidence-dot confidence-${conf.tier}" title="Confidence: ${conf.score}/100 (${conf.source})"></span>` : '';
@@ -263,63 +512,76 @@ function renderTechStack(data) {
   categoriesEl.innerHTML = '';
   const sortedCats = sortCategories(grouped);
 
-  sortedCats.forEach((catName) => {
+  // Build category blocks, then distribute into two balanced columns
+  const catBlocks = sortedCats.map((catName) => {
     const techs = grouped[catName];
     const color = CATEGORY_COLORS[catName.toLowerCase()] || '#6b7280';
 
-    const catEl = document.createElement('div');
-    catEl.className = 'category';
-
-    const header = document.createElement('div');
-    header.className = 'category-header';
-    header.innerHTML = `
-      <div class="category-left">
-        <span class="category-icon" style="background:${color}">${catName.charAt(0)}</span>
-        <span class="category-name">${esc(catName)}</span>
-      </div>
-      <span class="category-badge">${techs.length}</span>
-    `;
-
-    const techsEl = document.createElement('div');
-    techsEl.className = 'category-techs';
+    let blockHtml = `<div class="category">`;
+    blockHtml += `<div class="category-header"><span class="category-name">${esc(catName)}</span></div>`;
+    blockHtml += `<div class="category-techs">`;
 
     techs.forEach((t) => {
-      const row = document.createElement('div');
-      row.className = 'tech-row';
-
       const iconUrl = getIconUrl(t.name);
       const techColor = t.color || color;
+      const versionHtml = t.version ? `<span class="tech-version">${esc(t.version)}</span>` : '';
 
       if (iconUrl) {
-        row.innerHTML = `
-          <span class="tech-icon"><img src="${iconUrl}" alt="" onerror="this.parentElement.outerHTML='<span class=\\'tech-icon-letter\\' style=\\'background:${techColor}\\'>${t.name.charAt(0).toUpperCase()}</span>'" /></span>
-          <span class="tech-name">${esc(t.name)}</span>
-        `;
+        blockHtml += `
+          <div class="tech-row">
+            <span class="tech-icon"><img src="${iconUrl}" alt="" onerror="this.parentElement.outerHTML='<span class=\\'tech-icon-letter\\' style=\\'background:${techColor}\\'>${t.name.charAt(0).toUpperCase()}</span>'" /></span>
+            <span class="tech-info"><span class="tech-name">${esc(t.name)}</span>${versionHtml}</span>
+          </div>`;
       } else {
-        row.innerHTML = `
-          <span class="tech-icon-letter" style="background:${techColor}">${t.name.charAt(0).toUpperCase()}</span>
-          <span class="tech-name">${esc(t.name)}</span>
-        `;
+        blockHtml += `
+          <div class="tech-row">
+            <span class="tech-icon-letter" style="background:${techColor}">${t.name.charAt(0).toUpperCase()}</span>
+            <span class="tech-info"><span class="tech-name">${esc(t.name)}</span>${versionHtml}</span>
+          </div>`;
       }
-      techsEl.appendChild(row);
     });
 
-    let expanded = true;
-    header.addEventListener('click', () => {
-      expanded = !expanded;
-      techsEl.style.display = expanded ? '' : 'none';
-    });
-
-    catEl.appendChild(header);
-    catEl.appendChild(techsEl);
-    categoriesEl.appendChild(catEl);
+    blockHtml += `</div></div>`;
+    // Weight = header (1) + tech items count
+    return { html: blockHtml, weight: 1 + techs.length };
   });
+
+  // Distribute into two columns, balancing total weight
+  const col1 = [];
+  const col2 = [];
+  let w1 = 0, w2 = 0;
+  for (const block of catBlocks) {
+    if (w1 <= w2) {
+      col1.push(block.html);
+      w1 += block.weight;
+    } else {
+      col2.push(block.html);
+      w2 += block.weight;
+    }
+  }
+
+  categoriesEl.innerHTML = `
+    <div class="categories-col">${col1.join('')}</div>
+    <div class="categories-col">${col2.join('')}</div>
+  `;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 function getIconUrl(techName) {
-  const domain = ICON_DOMAINS[techName.toLowerCase()];
-  return domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : null;
+  const key = techName.toLowerCase();
+  const domain = ICON_DOMAINS[key];
+  if (domain) return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+
+  // Smart domain guess: strip common suffixes and try .com
+  const cleaned = key
+    .replace(/\s+(pg|pixel|tag|sdk|retargeting|ads|checkout|payments|switch|engage)$/i, '')
+    .replace(/\s+/g, '')
+    .replace(/\.js$/i, '');
+  if (cleaned.length >= 3 && !/^(open|json|twitter|google|facebook|the|core)/.test(cleaned)) {
+    return `https://www.google.com/s2/favicons?domain=${cleaned}.com&sz=64`;
+  }
+
+  return null;
 }
 
 function groupByCategory(techs) {

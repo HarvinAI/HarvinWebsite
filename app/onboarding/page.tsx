@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ArrowRight, ArrowLeft, Check, ChevronDown, Building2, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers, Package, Wifi, Store, Users } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, ChevronDown, Building2, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers, Package, Wifi, Shirt, Sparkles, UtensilsCrossed, Heart, Sofa, Cpu, Baby, PawPrint, Gem, Dumbbell, Bath, LayoutGrid, Globe, Tag, Sprout, TrendingUp } from 'lucide-react';
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 type Persona = 'saas' | 'agency' | 'investor' | 'freelancer' | 'other';
@@ -17,6 +17,9 @@ type Answers = {
   companyLink?: string;
   jobRole?: string;
   heardFrom?: string[];
+  categories?: string[];
+  geoFocus?: string[];
+  brandSize?: string[];
   brandTypes?: BrandType[];
   channelMix?: string[];
   offlineStores?: string;
@@ -24,7 +27,6 @@ type Answers = {
   mau?: string;
   companySize?: string[];
   revenueRange?: string[];
-  geoFocus?: string[];
   techStackInterest?: boolean;
   techCategories?: string[];
   companiesToTrack?: string;
@@ -49,29 +51,35 @@ const HEARD_FROM = [
   'Product Hunt', 'Newsletter', 'YouTube', 'Podcast', 'Other',
 ];
 
-const BRAND_TYPE_OPTIONS: { id: BrandType; icon: React.ReactNode; label: string; desc: string }[] = [
-  { id: 'physical', icon: <Package size={20} strokeWidth={1.8} />, label: 'Physical Product Brand (D2C)', desc: 'Brands selling physical goods directly to consumers' },
-  { id: 'digital',  icon: <Wifi size={20} strokeWidth={1.8} />,    label: 'Digital Product / Service',     desc: 'SaaS, apps, digital subscriptions & online services' },
-];
-
-const CHANNEL_MIX_OPTIONS = [
-  { id: 'website_only',      label: 'Website Only',                        desc: 'Brands with their own e-commerce website' },
-  { id: 'marketplace_only',  label: 'Marketplace Only',                    desc: 'Brands selling exclusively on marketplaces' },
-  { id: 'omnichannel',       label: 'Website + Marketplace (Omnichannel)', desc: 'Brands present on both channels' },
-  { id: 'offline_retail',    label: 'Offline Retail Presence',              desc: 'Brands with physical store locations' },
-];
-
-const REVENUE_MODELS = ['Subscription', 'Transactional', 'Hybrid', 'Any'];
-
-const COMPANY_SIZES = ['Micro (0\u201310)', 'SMB (11\u201350)', 'Mid-Market (51\u2013500)', 'Enterprise (500+)'];
-const REVENUE_RANGES = ['<$10M', '$10M\u2013$100M', '$100M+', 'All'];
 const GEO_REGIONS = [
   'India', 'United States', 'United Kingdom', 'Southeast Asia',
   'Middle East', 'Europe', 'Australia', 'Canada', 'Latin America', 'Africa', 'Global',
 ];
 
-const ECOM_PLATFORMS = [
-  'Shopify', 'WooCommerce', 'Magento', 'BigCommerce',
+const D2C_CATEGORIES: { label: string; icon: React.ReactNode; color: string }[] = [
+  { label: 'Fashion & Apparel',      icon: <Shirt size={14} strokeWidth={2} />,              color: 'text-pink-500' },
+  { label: 'Beauty & Skincare',      icon: <Sparkles size={14} strokeWidth={2} />,            color: 'text-rose-500' },
+  { label: 'Food & Beverage',        icon: <UtensilsCrossed size={14} strokeWidth={2} />,     color: 'text-orange-500' },
+  { label: 'Health & Wellness',      icon: <Heart size={14} strokeWidth={2} />,               color: 'text-emerald-500' },
+  { label: 'Home & Living',          icon: <Sofa size={14} strokeWidth={2} />,                color: 'text-amber-600' },
+  { label: 'Electronics & Gadgets',  icon: <Cpu size={14} strokeWidth={2} />,                 color: 'text-blue-500' },
+  { label: 'Baby & Kids',            icon: <Baby size={14} strokeWidth={2} />,                color: 'text-yellow-500' },
+  { label: 'Pet Care',               icon: <PawPrint size={14} strokeWidth={2} />,            color: 'text-teal-500' },
+  { label: 'Jewelry & Accessories',  icon: <Gem size={14} strokeWidth={2} />,                 color: 'text-violet-500' },
+  { label: 'Fitness & Sports',       icon: <Dumbbell size={14} strokeWidth={2} />,            color: 'text-red-500' },
+  { label: 'Personal Care',          icon: <Bath size={14} strokeWidth={2} />,                color: 'text-cyan-500' },
+  { label: 'All Categories',         icon: <LayoutGrid size={14} strokeWidth={2} />,          color: 'text-slate-500' },
+];
+
+const BRAND_TYPE_OPTIONS: { id: BrandType; icon: React.ReactNode; label: string; desc: string }[] = [
+  { id: 'physical', icon: <Package size={22} strokeWidth={1.6} />, label: 'Physical Product Brand',  desc: 'D2C brands selling physical goods directly to consumers' },
+  { id: 'digital',  icon: <Wifi size={22} strokeWidth={1.6} />,    label: 'Digital Product / Service', desc: 'SaaS, apps, subscriptions & online services' },
+];
+
+const BRAND_SIZES: { id: string; icon: React.ReactNode; label: string; desc: string }[] = [
+  { id: 'emerging',    icon: <Sprout size={24} strokeWidth={1.6} />,     label: 'Emerging Brands',     desc: 'Smaller brands, early stage (under 200K MAU)' },
+  { id: 'growing',     icon: <TrendingUp size={24} strokeWidth={1.6} />, label: 'Growing Brands',      desc: 'Mid-size, scaling fast (200K \u2013 2M MAU)' },
+  { id: 'established', icon: <Building2 size={24} strokeWidth={1.6} />,  label: 'Established Brands',  desc: 'Large brands, market leaders (2M+ MAU)' },
 ];
 
 const STEPS = [
@@ -157,6 +165,7 @@ export default function OnboardingPage() {
   const [answers, setAnswers] = useState<Answers>({});
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
   const [animating, setAnimating] = useState(false);
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
 
   // Sync Google OAuth session → localStorage
   useEffect(() => {
@@ -188,6 +197,7 @@ export default function OnboardingPage() {
     if (user) {
       try {
         const u = JSON.parse(user);
+        if (u.type === 'google') setIsGoogleUser(true);
         setAnswers(prev => ({
           ...prev,
           fullName: prev.fullName || u.name || '',
@@ -195,6 +205,7 @@ export default function OnboardingPage() {
         }));
       } catch (_e) { /* ignore */ }
     } else if (session?.user) {
+      setIsGoogleUser(true);
       setAnswers(prev => ({
         ...prev,
         fullName: prev.fullName || session.user?.name || '',
@@ -241,28 +252,15 @@ export default function OnboardingPage() {
 
   const toggleBrandType = (bt: BrandType) => {
     const cur = answers.brandTypes ?? [];
-    const next = cur.includes(bt) ? cur.filter(x => x !== bt) : [...cur, bt];
-    set({
-      brandTypes: next,
-      // Clear sub-options when deselecting
-      ...(bt === 'physical' && cur.includes(bt) ? { channelMix: [], offlineStores: '' } : {}),
-      ...(bt === 'digital' && cur.includes(bt) ? { revenueModel: undefined } : {}),
-    });
+    set({ brandTypes: cur.includes(bt) ? cur.filter(x => x !== bt) : [...cur, bt] });
   };
-
-  const toggleChannelMix = (id: string) => {
-    const cur = answers.channelMix ?? [];
-    set({ channelMix: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] });
-  };
-
-  const hasPhysical = (answers.brandTypes ?? []).includes('physical');
-  const hasDigital = (answers.brandTypes ?? []).includes('digital');
-  const showMau = (hasPhysical || hasDigital) &&
-    !((answers.channelMix ?? []).length === 1 && (answers.channelMix ?? []).includes('marketplace_only'));
 
   const canProceed = () => {
-    if (step === 0) return !!(answers.fullName?.trim() && answers.email?.trim() && answers.persona);
-    if (step === 1) return (answers.brandTypes ?? []).length > 0;
+    if (step === 0) {
+      if (isGoogleUser) return !!(answers.fullName?.trim() && answers.email?.trim() && answers.persona);
+      return !!answers.persona;
+    }
+    if (step === 1) return (answers.categories ?? []).length > 0 && (answers.geoFocus ?? []).length > 0;
     return false;
   };
 
@@ -338,45 +336,87 @@ export default function OnboardingPage() {
           {/* ── Step 1: Basic Information ────────────────────────────── */}
           {step === 0 && (
             <div className="flex flex-col gap-4">
-              {/* Name & Email */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[13px] font-semibold text-slate-700 mb-2">
-                    Full Name <span className="text-ember-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <User size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="John Doe"
-                      value={answers.fullName ?? ''}
-                      onChange={e => set({ fullName: e.target.value })}
-                      className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-4
-                                 text-[14px] text-slate-800 placeholder:text-slate-400
-                                 focus:outline-none focus:border-ember-400 transition-colors"
-                    />
+              {/* Name & Email — only for Google users (credentials users filled these at signup) */}
+              {isGoogleUser && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[13px] font-semibold text-slate-700 mb-2">
+                        Full Name <span className="text-ember-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <User size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="John Doe"
+                          value={answers.fullName ?? ''}
+                          onChange={e => set({ fullName: e.target.value })}
+                          className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-4
+                                     text-[14px] text-slate-800 placeholder:text-slate-400
+                                     focus:outline-none focus:border-ember-400 transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[13px] font-semibold text-slate-700 mb-2">
+                        Email <span className="text-ember-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Mail size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="email"
+                          placeholder="john@company.com"
+                          value={answers.email ?? ''}
+                          onChange={e => set({ email: e.target.value })}
+                          className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-4
+                                     text-[14px] text-slate-800 placeholder:text-slate-400
+                                     focus:outline-none focus:border-ember-400 transition-colors"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-[13px] font-semibold text-slate-700 mb-2">
-                    Email <span className="text-ember-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Mail size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="email"
-                      placeholder="john@company.com"
-                      value={answers.email ?? ''}
-                      onChange={e => set({ email: e.target.value })}
-                      className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-4
-                                 text-[14px] text-slate-800 placeholder:text-slate-400
-                                 focus:outline-none focus:border-ember-400 transition-colors"
-                    />
-                  </div>
-                </div>
-              </div>
 
-              {/* Persona selection */}
+                  {/* Company Name & Link — only for Google users */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[13px] font-semibold text-slate-700 mb-2">
+                        Company Name <span className="font-normal text-slate-400">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <Building2 size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="e.g. Acme Inc."
+                          value={answers.companyName ?? ''}
+                          onChange={e => set({ companyName: e.target.value })}
+                          className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-4
+                                     text-[14px] text-slate-800 placeholder:text-slate-400
+                                     focus:outline-none focus:border-ember-400 transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[13px] font-semibold text-slate-700 mb-2">
+                        Company Website <span className="font-normal text-slate-400">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <Link2 size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="url"
+                          placeholder="https://yourcompany.com"
+                          value={answers.companyLink ?? ''}
+                          onChange={e => set({ companyLink: e.target.value })}
+                          className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-4
+                                     text-[14px] text-slate-800 placeholder:text-slate-400
+                                     focus:outline-none focus:border-ember-400 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Persona selection — shown for all users */}
               <div>
                 <label className="block text-[13px] font-semibold text-slate-700 mb-3">
                   What Describes You Best <span className="text-ember-500">*</span>
@@ -400,325 +440,230 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              {/* Company Name & Link */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[13px] font-semibold text-slate-700 mb-2">
-                    Company Name <span className="font-normal text-slate-400">(optional)</span>
-                  </label>
-                  <div className="relative">
-                    <Building2 size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="e.g. Acme Inc."
-                      value={answers.companyName ?? ''}
-                      onChange={e => set({ companyName: e.target.value })}
-                      className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-4
-                                 text-[14px] text-slate-800 placeholder:text-slate-400
-                                 focus:outline-none focus:border-ember-400 transition-colors"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[13px] font-semibold text-slate-700 mb-2">
-                    Company Website <span className="font-normal text-slate-400">(optional)</span>
-                  </label>
-                  <div className="relative">
-                    <Link2 size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="url"
-                      placeholder="https://yourcompany.com"
-                      value={answers.companyLink ?? ''}
-                      onChange={e => set({ companyLink: e.target.value })}
-                      className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-4
-                                 text-[14px] text-slate-800 placeholder:text-slate-400
-                                 focus:outline-none focus:border-ember-400 transition-colors"
-                    />
-                  </div>
-                </div>
-              </div>
+              {/* Job Role & How Did You Hear — only for Google users */}
+              {isGoogleUser && (
+                <>
+                  {answers.persona && answers.persona !== 'freelancer' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[13px] font-semibold text-slate-700 mb-2">
+                          Job Function
+                        </label>
+                        <SelectDropdown
+                          value={answers.jobRole ?? ''}
+                          onChange={v => set({ jobRole: v })}
+                          options={JOB_ROLES}
+                          placeholder="Select your role..."
+                        />
+                      </div>
+                    </div>
+                  )}
 
-              {/* Job Role — hidden when freelancer */}
-              {answers.persona && answers.persona !== 'freelancer' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[13px] font-semibold text-slate-700 mb-2">
-                      Job Function
+                      How Did You Hear About Us? <span className="font-normal text-slate-400">(optional)</span>
                     </label>
-                    <SelectDropdown
-                      value={answers.jobRole ?? ''}
-                      onChange={v => set({ jobRole: v })}
-                      options={JOB_ROLES}
-                      placeholder="Select your role..."
-                    />
+                    <div className="flex flex-wrap gap-2">
+                      {HEARD_FROM.map(s => (
+                        <Chip
+                          key={s}
+                          label={s}
+                          selected={(answers.heardFrom ?? []).includes(s)}
+                          onClick={() => toggleInArray('heardFrom', s)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
-
-              {/* How Did You Hear */}
-              <div>
-                <label className="block text-[13px] font-semibold text-slate-700 mb-2">
-                  How Did You Hear About Us? <span className="font-normal text-slate-400">(optional)</span>
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {HEARD_FROM.map(s => (
-                    <Chip
-                      key={s}
-                      label={s}
-                      selected={(answers.heardFrom ?? []).includes(s)}
-                      onClick={() => toggleInArray('heardFrom', s)}
-                    />
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
           {/* ── Step 2: Target Companies ─────────────────────────────── */}
           {step === 1 && (
-            <div className="flex flex-col gap-4">
-              {/* Company Size & Revenue Range — top row */}
-              <div className="grid grid-cols-2 gap-0 rounded-xl border border-slate-200 bg-white overflow-hidden">
-                <div className="p-4 border-r border-slate-200">
-                  <p className="text-[13px] font-semibold text-slate-700 mb-2">Target Company Size</p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {COMPANY_SIZES.map(s => {
-                      const sel = (answers.companySize ?? []).includes(s);
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => toggleInArray('companySize', s)}
-                          className={`rounded-lg border px-3 py-2 text-[12px] font-medium text-center transition-all duration-150 ${
-                            sel
-                              ? 'border-ember-500 bg-ember-500 text-white'
-                              : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <p className="text-[13px] font-semibold text-slate-700 mb-2">Target Revenue</p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {REVENUE_RANGES.map(r => {
-                      const sel = (answers.revenueRange ?? []).includes(r);
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => {
-                            const cur = answers.revenueRange ?? [];
-                            if (r === 'All') {
-                              set({ revenueRange: cur.includes('All') ? [] : ['All'] });
-                            } else {
-                              const without = cur.filter(x => x !== 'All');
-                              set({ revenueRange: without.includes(r) ? without.filter(x => x !== r) : [...without, r] });
-                            }
-                          }}
-                          className={`rounded-lg border px-3 py-2 text-[12px] font-medium text-center transition-all duration-150 ${
-                            sel
-                              ? 'border-ember-500 bg-ember-500 text-white'
-                              : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
-                          }`}
-                        >
-                          {r}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Brand type selection — can pick both */}
+            <div className="flex flex-col gap-7">
+              {/* Which categories? */}
               <div>
-                <p className="text-[13px] text-slate-500 mb-3">
-                  Select one or both — you can target physical and digital brands at the same time.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {BRAND_TYPE_OPTIONS.map(bt => (
-                    <button
-                      key={bt.id}
-                      type="button"
-                      onClick={() => toggleBrandType(bt.id)}
-                      className={`flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all duration-150 ${
-                        (answers.brandTypes ?? []).includes(bt.id)
-                          ? 'border-ember-500 bg-ember-50 shadow-[0_0_0_3px_rgba(201,76,30,0.1)]'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        (answers.brandTypes ?? []).includes(bt.id) ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        {bt.icon}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-[14px] font-semibold leading-snug ${
-                          (answers.brandTypes ?? []).includes(bt.id) ? 'text-ember-700' : 'text-slate-900'
-                        }`}>
-                          {bt.label}
-                        </p>
-                        <p className="mt-0.5 text-[12px] text-slate-500 leading-snug">{bt.desc}</p>
-                      </div>
-                      <div className={`mt-0.5 w-5 h-5 flex-shrink-0 rounded border-2 flex items-center justify-center transition-all ${
-                        (answers.brandTypes ?? []).includes(bt.id) ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
-                      }`}>
-                        {(answers.brandTypes ?? []).includes(bt.id) && <Check size={11} strokeWidth={3} className="text-white" />}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Physical: Channel Mix */}
-              {hasPhysical && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Package size={15} strokeWidth={2} className="text-ember-500" />
-                    <p className="text-[13px] font-semibold text-slate-800">Which channel mix should the brand have?</p>
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
+                    <Package size={15} strokeWidth={2} className="text-amber-600" />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {CHANNEL_MIX_OPTIONS.map(ch => (
+                  <h3 className="text-[16px] font-bold text-slate-900 tracking-[-0.01em]">
+                    Which categories? <span className="text-ember-500 text-[13px]">*</span>
+                  </h3>
+                </div>
+                <p className="text-[13px] text-slate-400 mb-3.5 ml-[38px]">
+                  Pick the D2C categories you care about. Select as many as you want.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {D2C_CATEGORIES.map(cat => {
+                    const sel = (answers.categories ?? []).includes(cat.label);
+                    const isAll = cat.label === 'All Categories';
+                    return (
                       <button
-                        key={ch.id}
+                        key={cat.label}
                         type="button"
-                        onClick={() => toggleChannelMix(ch.id)}
-                        className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-all duration-150 ${
-                          (answers.channelMix ?? []).includes(ch.id)
-                            ? 'border-ember-500 bg-ember-50 text-ember-700 shadow-[0_0_0_3px_rgba(201,76,30,0.1)]'
+                        onClick={() => {
+                          if (isAll) {
+                            const cur = answers.categories ?? [];
+                            set({ categories: cur.includes('All Categories') ? [] : ['All Categories'] });
+                          } else {
+                            const cur = (answers.categories ?? []).filter(x => x !== 'All Categories');
+                            set({ categories: cur.includes(cat.label) ? cur.filter(x => x !== cat.label) : [...cur, cat.label] });
+                          }
+                        }}
+                        className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px] font-medium transition-all duration-150 ${
+                          sel
+                            ? 'border-ember-500 bg-ember-50 text-ember-700 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
                             : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                         }`}
                       >
-                        <div className={`w-4 h-4 flex-shrink-0 rounded border-2 flex items-center justify-center transition-all ${
-                          (answers.channelMix ?? []).includes(ch.id) ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
-                        }`}>
-                          {(answers.channelMix ?? []).includes(ch.id) && <Check size={9} strokeWidth={3} className="text-white" />}
-                        </div>
-                        <div>
-                          <p className="text-[13px] font-medium leading-snug">{ch.label}</p>
-                          <p className="text-[11px] text-slate-400 leading-snug">{ch.desc}</p>
-                        </div>
+                        <span className={sel ? 'text-ember-500' : cat.color}>{cat.icon}</span>
+                        {cat.label}
                       </button>
-                    ))}
-                  </div>
-
-                  {/* Offline stores count */}
-                  {(answers.channelMix ?? []).includes('offline_retail') && (
-                    <div className="mt-3">
-                      <label className="block text-[12px] font-semibold text-slate-600 mb-1.5">
-                        <Store size={13} strokeWidth={2} className="inline mr-1 text-slate-400" />
-                        Minimum number of stores
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="e.g. 10"
-                        value={answers.offlineStores ?? ''}
-                        onChange={e => set({ offlineStores: e.target.value })}
-                        className="w-40 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3
-                                   text-[14px] text-slate-800 placeholder:text-slate-400
-                                   focus:outline-none focus:border-ember-400 transition-colors"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Digital: Revenue Model */}
-              {hasDigital && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Wifi size={15} strokeWidth={2} className="text-blue-500" />
-                    <p className="text-[13px] font-semibold text-slate-800">Target revenue model</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {REVENUE_MODELS.map(rm => (
-                      <Chip
-                        key={rm}
-                        label={rm}
-                        selected={(answers.revenueModel ?? []).includes(rm)}
-                        onClick={() => {
-                          const cur = answers.revenueModel ?? [];
-                          if (rm === 'Any') {
-                            set({ revenueModel: cur.includes('Any') ? [] : ['Any'] });
-                          } else {
-                            const without = cur.filter(x => x !== 'Any');
-                            set({ revenueModel: without.includes(rm) ? without.filter(x => x !== rm) : [...without, rm] });
-                          }
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* MAU — shown for all except marketplace only */}
-              {showMau && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Users size={15} strokeWidth={2} className="text-slate-500" />
-                    <p className="text-[13px] font-semibold text-slate-800">
-                      Minimum Monthly Active Users (MAU)
-                    </p>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="e.g. 50,000"
-                    value={answers.mau ?? ''}
-                    onChange={e => set({ mau: e.target.value })}
-                    className="w-48 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3
-                               text-[14px] text-slate-800 placeholder:text-slate-400
-                               focus:outline-none focus:border-ember-400 transition-colors"
-                  />
-                </div>
-              )}
-
-              {/* Geographic Focus */}
-              <div>
-                <p className="text-[13px] font-semibold text-slate-700 mb-2">Geographic Focus</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {GEO_REGIONS.map(g => (
-                    <Chip
-                      key={g}
-                      label={g}
-                      selected={(answers.geoFocus ?? []).includes(g)}
-                      onClick={() => {
-                        const cur = answers.geoFocus ?? [];
-                        if (g === 'Global') {
-                          set({ geoFocus: cur.includes('Global') ? [] : ['Global'] });
-                        } else {
-                          const without = cur.filter(x => x !== 'Global');
-                          set({ geoFocus: without.includes(g) ? without.filter(x => x !== g) : [...without, g] });
-                        }
-                      }}
-                    />
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* E-commerce Platform Interest */}
+              {/* Brand type */}
               <div>
-                <p className="text-[13px] font-semibold text-slate-700 mb-2">Interested in Tracking E-commerce Platform?</p>
-                <div className="flex items-center gap-3">
-                  <Chip label="Yes" selected={answers.techStackInterest === true} onClick={() => set({ techStackInterest: true })} />
-                  <Chip label="No" selected={answers.techStackInterest === false} onClick={() => set({ techStackInterest: false, techCategories: [] })} />
-                </div>
-
-                {answers.techStackInterest && (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {ECOM_PLATFORMS.map(t => (
-                      <Chip
-                        key={t}
-                        label={t}
-                        selected={(answers.techCategories ?? []).includes(t)}
-                        onClick={() => toggleInArray('techCategories', t)}
-                      />
-                    ))}
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                    <Tag size={15} strokeWidth={2} className="text-violet-600" />
                   </div>
-                )}
+                  <h3 className="text-[16px] font-bold text-slate-900 tracking-[-0.01em]">
+                    Brand type
+                  </h3>
+                </div>
+                <p className="text-[13px] text-slate-400 mb-3.5 ml-[38px]">
+                  Select one or both — you can target physical and digital brands at the same time.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {BRAND_TYPE_OPTIONS.map(bt => {
+                    const sel = (answers.brandTypes ?? []).includes(bt.id);
+                    return (
+                      <button
+                        key={bt.id}
+                        type="button"
+                        onClick={() => toggleBrandType(bt.id)}
+                        className={`flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all duration-150 ${
+                          sel
+                            ? 'border-ember-500 bg-ember-50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          sel ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {bt.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-[14px] font-semibold leading-snug ${sel ? 'text-ember-700' : 'text-slate-900'}`}>
+                            {bt.label}
+                          </p>
+                          <p className="mt-0.5 text-[12px] text-slate-400 leading-snug">{bt.desc}</p>
+                        </div>
+                        <div className={`mt-1 w-5 h-5 flex-shrink-0 rounded-md border-2 flex items-center justify-center transition-all ${
+                          sel ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
+                        }`}>
+                          {sel && <Check size={11} strokeWidth={3} className="text-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* What size of brands? */}
+              <div>
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                    <TrendingUp size={15} strokeWidth={2} className="text-emerald-600" />
+                  </div>
+                  <h3 className="text-[16px] font-bold text-slate-900 tracking-[-0.01em]">
+                    What size of brands?
+                  </h3>
+                </div>
+                <p className="text-[13px] text-slate-400 mb-3.5 ml-[38px]">
+                  This helps us rank brands in your feed. You&apos;ll still see all sizes — this just puts your preferred size on top.
+                </p>
+                <div className="flex flex-col gap-2.5">
+                  {BRAND_SIZES.map(bs => {
+                    const sel = (answers.brandSize ?? []).includes(bs.id);
+                    return (
+                      <button
+                        key={bs.id}
+                        type="button"
+                        onClick={() => toggleInArray('brandSize', bs.id)}
+                        className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all duration-150 ${
+                          sel
+                            ? 'border-ember-500 bg-ember-50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          sel ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {bs.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-[14px] font-semibold leading-snug ${sel ? 'text-ember-700' : 'text-slate-900'}`}>
+                            {bs.label}
+                          </p>
+                          <p className="mt-0.5 text-[12px] text-slate-400 leading-snug">{bs.desc}</p>
+                        </div>
+                        <div className={`w-5 h-5 flex-shrink-0 rounded-md border-2 flex items-center justify-center transition-all ${
+                          sel ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
+                        }`}>
+                          {sel && <Check size={11} strokeWidth={3} className="text-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Which markets? */}
+              <div>
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <Globe size={15} strokeWidth={2} className="text-blue-600" />
+                  </div>
+                  <h3 className="text-[16px] font-bold text-slate-900 tracking-[-0.01em]">
+                    Which markets? <span className="text-ember-500 text-[13px]">*</span>
+                  </h3>
+                </div>
+                <p className="text-[13px] text-slate-400 mb-3.5 ml-[38px]">
+                  Where are the brands you want to track? We&apos;ll prioritize data from these regions.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {GEO_REGIONS.map(g => {
+                    const sel = (answers.geoFocus ?? []).includes(g);
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => {
+                          const cur = answers.geoFocus ?? [];
+                          if (g === 'Global') {
+                            set({ geoFocus: cur.includes('Global') ? [] : ['Global'] });
+                          } else {
+                            const without = cur.filter(x => x !== 'Global');
+                            set({ geoFocus: without.includes(g) ? without.filter(x => x !== g) : [...without, g] });
+                          }
+                        }}
+                        className={`rounded-xl border px-3.5 py-2 text-[13px] font-medium transition-all duration-150 ${
+                          sel
+                            ? 'border-ember-500 bg-ember-50 text-ember-700 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Eye, EyeOff, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, ShieldCheck, ChevronDown } from 'lucide-react';
+
+const JOB_ROLES = ['Owner/Founder', 'Marketing', 'Sales', 'Growth', 'Other'];
+const HEARD_FROM = [
+  'LinkedIn', 'Twitter / X', 'Google Search', 'Friend / Colleague',
+  'Product Hunt', 'Newsletter', 'YouTube', 'Podcast', 'Other',
+];
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -14,11 +20,19 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [companyLink, setCompanyLink] = useState('');
+  const [jobRole, setJobRole] = useState('');
+  const [heardFrom, setHeardFrom] = useState<string[]>([]);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState<'google' | 'credentials' | 'otp' | 'resend' | null>(null);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const toggleHeardFrom = (value: string) => {
+    setHeardFrom(prev => prev.includes(value) ? prev.filter(x => x !== value) : [...prev, value]);
+  };
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -87,6 +101,18 @@ export default function SignUpPage() {
       const signInRes = await signIn('credentials', { email: email.trim(), password, redirect: false });
       if (signInRes?.error) { router.push('/signin'); return; }
       localStorage.setItem('harvin_user', JSON.stringify({ type: 'credentials', name: name.trim(), email: email.trim() }));
+      const onboardingData = {
+        step: 0,
+        answers: {
+          fullName: name.trim(),
+          email: email.trim(),
+          ...(companyName.trim() && { companyName: companyName.trim() }),
+          ...(companyLink.trim() && { companyLink: companyLink.trim() }),
+          ...(jobRole && { jobRole }),
+          ...(heardFrom.length > 0 && { heardFrom }),
+        },
+      };
+      localStorage.setItem('harvin_onboarding', JSON.stringify(onboardingData));
       router.push('/onboarding');
     } catch { setError('Something went wrong.'); setLoading(null); }
   };
@@ -124,6 +150,11 @@ export default function SignUpPage() {
   const pwColors = ['', 'bg-red-400', 'bg-amber-400', 'bg-emerald-400'];
   const pwLabels = ['', 'Weak', 'Good', 'Strong'];
 
+  const inputCls = `w-full h-[40px] px-3.5 rounded-[10px] border border-gray-200 bg-white
+                     text-[13px] text-gray-900 placeholder:text-gray-300
+                     focus:border-gray-400 focus:ring-[2px] focus:ring-gray-100
+                     outline-none transition-all`;
+
   return (
     <div className="min-h-screen bg-[#f5f3f0] relative overflow-hidden flex items-center justify-center p-3 sm:p-6">
       {/* Background decoration */}
@@ -139,7 +170,7 @@ export default function SignUpPage() {
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-[1060px] grid lg:grid-cols-[1.05fr_1fr] rounded-[28px] overflow-hidden shadow-[0_20px_70px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] bg-white">
+      <div className="relative z-10 w-full max-w-[1140px] max-h-[calc(100vh-48px)] grid lg:grid-cols-[1fr_1.15fr] rounded-[28px] overflow-hidden shadow-[0_20px_70px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] bg-white">
 
         {/* ── Left ── */}
         <div className="hidden lg:flex relative overflow-hidden bg-gradient-to-br from-[#1a1520] via-[#1e1028] to-[#0f1a2e]">
@@ -201,8 +232,9 @@ export default function SignUpPage() {
         </div>
 
         {/* ── Right ── */}
-        <div className="bg-white flex flex-col min-h-[640px]">
-          <div className="flex justify-between items-center px-8 pt-8 lg:px-10 lg:pt-9">
+        <div className="bg-white flex flex-col min-h-[640px] max-h-[calc(100vh-48px)]">
+          {/* Sticky header */}
+          <div className="flex justify-between items-center px-8 pt-6 pb-0 lg:px-10 flex-shrink-0">
             <Link href="/" className="flex items-center gap-2 lg:hidden">
               <Image src="/logo.svg" alt="HarvinAI" width={28} height={28} className="rounded-lg" />
               <span className="font-bold text-[18px] tracking-tight text-gray-900">HarvinAI</span>
@@ -213,23 +245,24 @@ export default function SignUpPage() {
             </Link>
           </div>
 
-          <div className="flex-1 flex items-center justify-center px-8 py-6 lg:px-10">
-            <div className="w-full max-w-[340px]">
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto px-8 py-5 lg:px-10">
+            <div className="w-full max-w-[420px] mx-auto">
 
               {step === 'form' ? (
                 <>
-                  <div className="mb-8">
-                    <h1 className="text-[28px] font-extrabold text-gray-900 tracking-[-0.03em] leading-tight">
+                  <div className="mb-6">
+                    <h1 className="text-[26px] font-extrabold text-gray-900 tracking-[-0.03em] leading-tight">
                       Create account
                     </h1>
-                    <p className="text-[14px] text-gray-400 mt-1.5">
+                    <p className="text-[13px] text-gray-400 mt-1">
                       Get started with free brand intelligence
                     </p>
                   </div>
 
                   {/* Google */}
                   <button type="button" onClick={handleGoogle} disabled={loading !== null}
-                    className="w-full flex items-center justify-center gap-2.5 h-[44px] rounded-[10px]
+                    className="w-full flex items-center justify-center gap-2.5 h-[42px] rounded-[10px]
                                border border-gray-200 bg-white text-gray-700
                                text-[13px] font-semibold
                                hover:bg-gray-50 hover:border-gray-300
@@ -247,73 +280,133 @@ export default function SignUpPage() {
                     Continue with Google
                   </button>
 
-                  <div className="flex items-center gap-3 my-5">
+                  <div className="flex items-center gap-3 my-4">
                     <div className="flex-1 h-px bg-gray-100" />
                     <span className="text-[11px] font-medium text-gray-300 uppercase tracking-widest">or</span>
                     <div className="flex-1 h-px bg-gray-100" />
                   </div>
 
-                  <form onSubmit={handleSendOtp} className="space-y-3.5">
-                    <div>
-                      <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Full Name</label>
-                      <input type="text" value={name} onChange={e => setName(e.target.value)}
-                        placeholder="John Doe" required autoComplete="name"
-                        className="w-full h-[42px] px-3.5 rounded-[10px] border border-gray-200 bg-white
-                                   text-[14px] text-gray-900 placeholder:text-gray-300
-                                   focus:border-gray-400 focus:ring-[2px] focus:ring-gray-100
-                                   outline-none transition-all" />
+                  <form onSubmit={handleSendOtp} className="space-y-3">
+                    {/* Name & Email — side by side */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Full Name</label>
+                        <input type="text" value={name} onChange={e => setName(e.target.value)}
+                          placeholder="John Doe" required autoComplete="name"
+                          className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Work Email</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                          placeholder="name@company.com" required autoComplete="email"
+                          className={inputCls} />
+                      </div>
                     </div>
 
+                    {/* Password */}
                     <div>
-                      <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Work Email</label>
-                      <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                        placeholder="name@company.com" required autoComplete="email"
-                        className="w-full h-[42px] px-3.5 rounded-[10px] border border-gray-200 bg-white
-                                   text-[14px] text-gray-900 placeholder:text-gray-300
-                                   focus:border-gray-400 focus:ring-[2px] focus:ring-gray-100
-                                   outline-none transition-all" />
-                    </div>
-
-                    <div>
-                      <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Password</label>
+                      <label className="block text-[12px] font-semibold text-gray-700 mb-1">Password</label>
                       <div className="relative">
                         <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
                           placeholder="Min. 6 characters" required minLength={6} autoComplete="new-password"
-                          className="w-full h-[42px] px-3.5 pr-11 rounded-[10px] border border-gray-200 bg-white
-                                     text-[14px] text-gray-900 placeholder:text-gray-300
-                                     focus:border-gray-400 focus:ring-[2px] focus:ring-gray-100
-                                     outline-none transition-all" />
+                          className={`${inputCls} !pr-10`} />
                         <button type="button" onClick={() => setShowPw(!showPw)}
                           className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors">
-                          {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                          {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                         </button>
                       </div>
                       {password.length > 0 && (
-                        <div className="mt-2 flex items-center gap-2">
+                        <div className="mt-1.5 flex items-center gap-2">
                           <div className="flex gap-1 flex-1">
                             {[1, 2, 3].map(i => (
-                              <div key={i} className={`h-[3px] flex-1 rounded-full transition-colors ${i <= pwStrength ? pwColors[pwStrength] : 'bg-gray-100'}`} />
+                              <div key={i} className={`h-[2.5px] flex-1 rounded-full transition-colors ${i <= pwStrength ? pwColors[pwStrength] : 'bg-gray-100'}`} />
                             ))}
                           </div>
-                          <span className={`text-[11px] font-medium ${pwStrength === 1 ? 'text-red-500' : pwStrength === 2 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                          <span className={`text-[10px] font-medium ${pwStrength === 1 ? 'text-red-500' : pwStrength === 2 ? 'text-amber-500' : 'text-emerald-500'}`}>
                             {pwLabels[pwStrength]}
                           </span>
                         </div>
                       )}
                     </div>
 
+                    {/* Divider — About You */}
+                    <div className="pt-1">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex-1 h-px bg-gray-100" />
+                        <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-[0.1em]">About you</span>
+                        <div className="flex-1 h-px bg-gray-100" />
+                      </div>
+                    </div>
+
+                    {/* Company Name & Website — side by side */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[12px] font-semibold text-gray-700 mb-1">
+                          Company <span className="font-normal text-gray-300">(optional)</span>
+                        </label>
+                        <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)}
+                          placeholder="Acme Inc." autoComplete="organization"
+                          className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] font-semibold text-gray-700 mb-1">
+                          Website <span className="font-normal text-gray-300">(optional)</span>
+                        </label>
+                        <input type="url" value={companyLink} onChange={e => setCompanyLink(e.target.value)}
+                          placeholder="yourcompany.com" autoComplete="url"
+                          className={inputCls} />
+                      </div>
+                    </div>
+
+                    {/* Job Function */}
+                    <div>
+                      <label className="block text-[12px] font-semibold text-gray-700 mb-1">
+                        Job Function <span className="font-normal text-gray-300">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <select value={jobRole} onChange={e => setJobRole(e.target.value)}
+                          className={`w-full h-[40px] px-3.5 pr-10 rounded-[10px] border border-gray-200 bg-white
+                                     text-[13px] appearance-none cursor-pointer
+                                     focus:border-gray-400 focus:ring-[2px] focus:ring-gray-100
+                                     outline-none transition-all ${jobRole ? 'text-gray-900' : 'text-gray-300'}`}>
+                          <option value="" disabled>Select your role...</option>
+                          {JOB_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* How Did You Hear */}
+                    <div>
+                      <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
+                        How did you hear about us? <span className="font-normal text-gray-300">(optional)</span>
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {HEARD_FROM.map(s => (
+                          <button key={s} type="button" onClick={() => toggleHeardFrom(s)}
+                            className={`rounded-full border px-2.5 py-[3px] text-[11px] font-medium transition-all duration-150 ${
+                              heardFrom.includes(s)
+                                ? 'border-[#C94C1E] bg-[#C94C1E] text-white'
+                                : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                            }`}>
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {error && (
-                      <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-[10px] bg-red-50 border border-red-100">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-[10px] bg-red-50 border border-red-100">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
                           <circle cx="8" cy="8" r="8" fill="#FEE2E2"/>
                           <path d="M8 5v3M8 10h.01" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/>
                         </svg>
-                        <p className="text-[13px] text-red-600 font-medium">{error}</p>
+                        <p className="text-[12px] text-red-600 font-medium">{error}</p>
                       </div>
                     )}
 
                     <button type="submit" disabled={loading !== null || !name || !email || password.length < 6}
-                      className="w-full h-[42px] rounded-[10px] bg-[#C94C1E] text-white text-[14px] font-semibold
+                      className="w-full h-[42px] rounded-[10px] bg-[#C94C1E] text-white text-[13px] font-semibold
                                  flex items-center justify-center gap-2
                                  hover:bg-[#b5431a] active:scale-[0.995]
                                  shadow-[0_1px_3px_rgba(201,76,30,0.2),0_4px_12px_rgba(201,76,30,0.15)]
@@ -323,7 +416,7 @@ export default function SignUpPage() {
                     </button>
                   </form>
 
-                  <p className="text-center text-[11px] text-gray-300 mt-4 leading-relaxed">
+                  <p className="text-center text-[11px] text-gray-300 mt-3 leading-relaxed">
                     By creating an account, you agree to our{' '}
                     <span className="text-gray-400 hover:text-gray-600 cursor-pointer transition-colors">Terms</span>
                     {' '}and{' '}
@@ -332,9 +425,9 @@ export default function SignUpPage() {
                 </>
               ) : (
                 /* ── OTP Step ── */
-                <>
+                <div className="flex flex-col items-center justify-center min-h-[400px]">
                   <button onClick={() => { setStep('form'); setError(''); setOtp(['', '', '', '', '', '']); }}
-                    className="flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-gray-600 font-medium mb-8 transition-colors">
+                    className="self-start flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-gray-600 font-medium mb-8 transition-colors">
                     <ArrowLeft size={14} /> Back
                   </button>
 
@@ -372,7 +465,7 @@ export default function SignUpPage() {
                   </div>
 
                   {error && (
-                    <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-[10px] bg-red-50 border border-red-100 mb-4">
+                    <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-[10px] bg-red-50 border border-red-100 mb-4 w-full">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
                         <circle cx="8" cy="8" r="8" fill="#FEE2E2"/>
                         <path d="M8 5v3M8 10h.01" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/>
@@ -404,13 +497,14 @@ export default function SignUpPage() {
                       )}
                     </p>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="px-8 pb-7 lg:px-10 text-center">
-            <p className="text-[13px] text-gray-400">
+          {/* Sticky footer */}
+          <div className="px-8 pb-5 lg:px-10 text-center flex-shrink-0">
+            <p className="text-[12px] text-gray-400">
               Already have an account?{' '}
               <Link href="/signin" className="font-semibold text-[#C94C1E] hover:underline transition-colors">Sign In</Link>
             </p>
