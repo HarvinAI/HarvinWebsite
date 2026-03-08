@@ -490,8 +490,8 @@ function renderDetails(data) {
     const badgeClass = stores === 'Online' ? 'online-only' :
                        stores === 'Unknown' ? 'unknown' : 'has-stores';
     const conf = companyMeta.storeConfidence;
-    const confDot = conf ? `<span class="confidence-dot confidence-${conf.tier}" title="Confidence: ${conf.score}/100 (${conf.source})"></span>` : '';
-    html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span>${confDot}</div></div>`;
+    const confTag = conf ? `<span class="confidence-tag confidence-${conf.tier}" title="${conf.source} &middot; ${conf.score}/100">${conf.tier === 'high' ? 'High' : conf.tier === 'medium' ? 'Medium' : 'Low'} confidence</span>` : '';
+    html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span>${confTag}</div></div>`;
   }
 
   // Tech summary
