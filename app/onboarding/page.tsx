@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ArrowRight, ArrowLeft, Check, ChevronDown, Building2, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers, Package, Wifi, Shirt, Sparkles, UtensilsCrossed, Heart, Sofa, Cpu, Baby, PawPrint, Gem, Dumbbell, Bath, LayoutGrid, Globe, Tag, Sprout, TrendingUp } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, ChevronDown, Building2, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers, Package, Wifi, Shirt, Sparkles, UtensilsCrossed, Heart, Sofa, Cpu, Baby, PawPrint, Gem, Dumbbell, Bath, LayoutGrid, Globe, Tag, Sprout, TrendingUp, Store, Users } from 'lucide-react';
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 type Persona = 'saas' | 'agency' | 'investor' | 'freelancer' | 'other';
@@ -81,6 +81,15 @@ const BRAND_SIZES: { id: string; icon: React.ReactNode; label: string; desc: str
   { id: 'growing',     icon: <TrendingUp size={24} strokeWidth={1.6} />, label: 'Growing Brands',      desc: 'Mid-size, scaling fast (200K \u2013 2M MAU)' },
   { id: 'established', icon: <Building2 size={24} strokeWidth={1.6} />,  label: 'Established Brands',  desc: 'Large brands, market leaders (2M+ MAU)' },
 ];
+
+const CHANNEL_MIX_OPTIONS = [
+  { id: 'website_only',      label: 'Website Only',                        desc: 'Brands with their own e-commerce website' },
+  { id: 'marketplace_only',  label: 'Marketplace Only',                    desc: 'Brands selling exclusively on marketplaces' },
+  { id: 'omnichannel',       label: 'Website + Marketplace (Omnichannel)', desc: 'Brands present on both channels' },
+  { id: 'offline_retail',    label: 'Offline Retail Presence',              desc: 'Brands with physical store locations' },
+];
+
+const REVENUE_MODELS = ['Subscription', 'Transactional', 'Hybrid', 'Any'];
 
 const STEPS = [
   { number: '01', title: 'Basic Information',  subtitle: 'Tell us a bit about yourself',                optional: false },
@@ -252,8 +261,23 @@ export default function OnboardingPage() {
 
   const toggleBrandType = (bt: BrandType) => {
     const cur = answers.brandTypes ?? [];
-    set({ brandTypes: cur.includes(bt) ? cur.filter(x => x !== bt) : [...cur, bt] });
+    const next = cur.includes(bt) ? cur.filter(x => x !== bt) : [...cur, bt];
+    set({
+      brandTypes: next,
+      ...(bt === 'physical' && cur.includes(bt) ? { channelMix: [], offlineStores: '' } : {}),
+      ...(bt === 'digital' && cur.includes(bt) ? { revenueModel: undefined } : {}),
+    });
   };
+
+  const toggleChannelMix = (id: string) => {
+    const cur = answers.channelMix ?? [];
+    set({ channelMix: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] });
+  };
+
+  const hasPhysical = (answers.brandTypes ?? []).includes('physical');
+  const hasDigital = (answers.brandTypes ?? []).includes('digital');
+  const showMau = (hasPhysical || hasDigital) &&
+    !((answers.channelMix ?? []).length === 1 && (answers.channelMix ?? []).includes('marketplace_only'));
 
   const canProceed = () => {
     if (step === 0) {
@@ -574,6 +598,108 @@ export default function OnboardingPage() {
                   })}
                 </div>
               </div>
+
+              {/* Physical: Channel Mix */}
+              {hasPhysical && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Package size={15} strokeWidth={2} className="text-ember-500" />
+                    <p className="text-[13px] font-semibold text-slate-800">Which channel mix should the brand have?</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {CHANNEL_MIX_OPTIONS.map(ch => (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => toggleChannelMix(ch.id)}
+                        className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-all duration-150 ${
+                          (answers.channelMix ?? []).includes(ch.id)
+                            ? 'border-ember-500 bg-ember-50 text-ember-700 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 flex-shrink-0 rounded border-2 flex items-center justify-center transition-all ${
+                          (answers.channelMix ?? []).includes(ch.id) ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
+                        }`}>
+                          {(answers.channelMix ?? []).includes(ch.id) && <Check size={9} strokeWidth={3} className="text-white" />}
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-medium leading-snug">{ch.label}</p>
+                          <p className="text-[11px] text-slate-400 leading-snug">{ch.desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {(answers.channelMix ?? []).includes('offline_retail') && (
+                    <div className="mt-3">
+                      <label className="block text-[12px] font-semibold text-slate-600 mb-1.5">
+                        <Store size={13} strokeWidth={2} className="inline mr-1 text-slate-400" />
+                        Minimum number of stores
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 10"
+                        value={answers.offlineStores ?? ''}
+                        onChange={e => set({ offlineStores: e.target.value })}
+                        className="w-40 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3
+                                   text-[14px] text-slate-800 placeholder:text-slate-400
+                                   focus:outline-none focus:border-ember-400 transition-colors"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Digital: Revenue Model */}
+              {hasDigital && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Wifi size={15} strokeWidth={2} className="text-blue-500" />
+                    <p className="text-[13px] font-semibold text-slate-800">Target revenue model</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {REVENUE_MODELS.map(rm => (
+                      <Chip
+                        key={rm}
+                        label={rm}
+                        selected={(answers.revenueModel ?? []).includes(rm)}
+                        onClick={() => {
+                          const cur = answers.revenueModel ?? [];
+                          if (rm === 'Any') {
+                            set({ revenueModel: cur.includes('Any') ? [] : ['Any'] });
+                          } else {
+                            const without = cur.filter(x => x !== 'Any');
+                            set({ revenueModel: without.includes(rm) ? without.filter(x => x !== rm) : [...without, rm] });
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* MAU */}
+              {showMau && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users size={15} strokeWidth={2} className="text-slate-500" />
+                    <p className="text-[13px] font-semibold text-slate-800">
+                      Minimum Monthly Active Users (MAU)
+                    </p>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. 50,000"
+                    value={answers.mau ?? ''}
+                    onChange={e => set({ mau: e.target.value })}
+                    className="w-48 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3
+                               text-[14px] text-slate-800 placeholder:text-slate-400
+                               focus:outline-none focus:border-ember-400 transition-colors"
+                  />
+                </div>
+              )}
 
               {/* What size of brands? */}
               <div>
