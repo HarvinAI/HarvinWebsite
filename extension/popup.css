@@ -291,6 +291,19 @@ body.dark .sun-icon { display: none; }
   color: var(--text-muted);
 }
 
+.confidence-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.confidence-dot.confidence-high { background: #22c55e; }
+.confidence-dot.confidence-medium { background: #f59e0b; }
+.confidence-dot.confidence-low { background: #ef4444; }
+
 .detail-url {
   font-size: 12px;
   color: var(--accent);

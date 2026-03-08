@@ -21,7 +21,7 @@ const CATEGORY_COLORS = {
   'hosting': '#6366f1', 'font scripts': '#8b5cf6', 'maps': '#22c55e',
   'video players': '#dc2626', 'search engines': '#3b82f6', 'caching': '#f59e0b',
   'programming languages': '#64748b', 'databases': '#0ea5e9',
-  'operating systems': '#475569',
+  'operating systems': '#475569', 'store locator': '#f97316',
 };
 
 const CATEGORY_PRIORITY = [
@@ -236,11 +236,13 @@ function renderDetails(data) {
     // Region
     html += `<div class="detail-card"><div class="detail-label">Region</div><div class="detail-value">${esc(companyMeta.region)}</div></div>`;
 
-    // Store count
+    // Store count with confidence indicator
     const stores = companyMeta.offlineStores || 'Unknown';
     const badgeClass = stores === 'Online only' ? 'online-only' :
                        stores === 'Unknown' ? 'unknown' : 'has-stores';
-    html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span></div></div>`;
+    const conf = companyMeta.storeConfidence;
+    const confDot = conf ? `<span class="confidence-dot confidence-${conf.tier}" title="Confidence: ${conf.score}/100 (${conf.source})"></span>` : '';
+    html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span>${confDot}</div></div>`;
   }
 
   // Tech summary
