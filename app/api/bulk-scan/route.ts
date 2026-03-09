@@ -23,7 +23,11 @@ async function processBulkJob(jobId: string, urls: string[]) {
         try {
           return await scanSingleUrl(url);
         } catch (err: unknown) {
-          return { url, technologies: [], count: 0, error: (err as Error).message };
+          const rawMsg = (err as Error).message || 'Scan failed';
+          const safeMsg = /puppeteer|chromium|browser engine|runtime/i.test(rawMsg)
+            ? 'Could not fully scan this site'
+            : rawMsg;
+          return { url, technologies: [], count: 0, error: safeMsg };
         }
       })
     );

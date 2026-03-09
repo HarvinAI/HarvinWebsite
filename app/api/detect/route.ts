@@ -27,15 +27,12 @@ export async function GET(req: NextRequest) {
     const result = await scanSingleUrl(url, { forceRefresh });
     return NextResponse.json(result, { headers: corsHeaders });
   } catch (err: unknown) {
-    const error = err as { response?: { status?: number }; code?: string; message?: string };
-    const status = error.response?.status;
-    const msg = status
-      ? `Target returned HTTP ${status}`
-      : error.code === 'ECONNABORTED'
-        ? 'Request timed out — the site took too long to respond'
-        : error.code === 'ENOTFOUND'
-          ? 'Domain not found — check the URL and try again'
-          : error.message || 'Failed to fetch URL';
-    return NextResponse.json({ error: msg }, { status: 502, headers: corsHeaders });
+    const error = err as { message?: string };
+    const msg = error.message || 'Failed to scan this website';
+    // Safety net: never expose internal infrastructure errors to users
+    const safeMsg = /puppeteer|chromium|browser engine|runtime/i.test(msg)
+      ? 'Could not fully scan this site — try again later'
+      : msg;
+    return NextResponse.json({ error: safeMsg }, { status: 502, headers: corsHeaders });
   }
 }
