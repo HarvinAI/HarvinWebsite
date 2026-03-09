@@ -179,7 +179,7 @@ function PlanCard({ plan, index, active, onCtaClick }: CardProps) {
       <div className="flex items-end gap-1 mb-3">
         {plan.billing ? (
           <>
-            <span className="font-display font-normal leading-none tracking-[-0.03em]
+            <span className="font-sans font-normal leading-none tracking-[-0.03em]
                               text-[clamp(40px,4vw,52px)] text-slate-900 dark:text-white">
               ${plan.price}
             </span>
@@ -188,7 +188,7 @@ function PlanCard({ plan, index, active, onCtaClick }: CardProps) {
             </span>
           </>
         ) : (
-          <span className="font-display font-normal leading-none tracking-[-0.03em]
+          <span className="font-sans font-normal leading-none tracking-[-0.03em]
                             text-[clamp(40px,4vw,52px)] text-slate-900 dark:text-white">
             {plan.price}
           </span>
@@ -318,7 +318,7 @@ export default function Pricing() {
             </p>
           </div>
 
-          <h2 className="font-display font-normal leading-[1.05] tracking-[-0.025em] mb-4
+          <h2 className="font-sans font-normal leading-[1.05] tracking-[-0.025em] mb-4
                           text-[clamp(30px,4vw,52px)]
                           text-slate-900 dark:text-white">
             Start with one seat.<br className="hidden sm:block" /> Scale when ready.

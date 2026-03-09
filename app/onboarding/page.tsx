@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ArrowRight, ArrowLeft, Check, ChevronDown, Building2, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers, Package, Wifi, Shirt, Sparkles, UtensilsCrossed, Heart, Sofa, Cpu, Baby, PawPrint, Gem, Dumbbell, Bath, LayoutGrid, Globe, Tag, Sprout, TrendingUp, Store, Users } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, ChevronDown, Building2, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers, Package, Wifi, Shirt, Sparkles, UtensilsCrossed, Heart, Sofa, Cpu, Baby, PawPrint, Gem, Dumbbell, Bath, LayoutGrid, Globe, Tag, Sprout, Rocket, Store, Users, ShoppingBag, Link as LinkIcon } from 'lucide-react';
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 type Persona = 'saas' | 'agency' | 'investor' | 'freelancer' | 'other';
@@ -77,23 +77,23 @@ const BRAND_TYPE_OPTIONS: { id: BrandType; icon: React.ReactNode; label: string;
 ];
 
 const BRAND_SIZES: { id: string; icon: React.ReactNode; label: string; desc: string }[] = [
-  { id: 'emerging',    icon: <Sprout size={24} strokeWidth={1.6} />,     label: 'Emerging Brands',     desc: 'Smaller brands, early stage (under 200K MAU)' },
-  { id: 'growing',     icon: <TrendingUp size={24} strokeWidth={1.6} />, label: 'Growing Brands',      desc: 'Mid-size, scaling fast (200K \u2013 2M MAU)' },
-  { id: 'established', icon: <Building2 size={24} strokeWidth={1.6} />,  label: 'Established Brands',  desc: 'Large brands, market leaders (2M+ MAU)' },
+  { id: 'emerging',    icon: <Sprout size={22} strokeWidth={1.6} />,    label: 'Emerging Brands',     desc: 'Smaller brands, early stage (under 200K MAU)' },
+  { id: 'growing',     icon: <Rocket size={22} strokeWidth={1.6} />,    label: 'Growing Brands',      desc: 'Mid-size, scaling fast (200K \u2013 2M MAU)' },
+  { id: 'established', icon: <Building2 size={22} strokeWidth={1.6} />, label: 'Established Brands',  desc: 'Large brands, market leaders (2M+ MAU)' },
 ];
 
-const CHANNEL_MIX_OPTIONS = [
-  { id: 'website_only',      label: 'Website Only',                        desc: 'Brands with their own e-commerce website' },
-  { id: 'marketplace_only',  label: 'Marketplace Only',                    desc: 'Brands selling exclusively on marketplaces' },
-  { id: 'omnichannel',       label: 'Website + Marketplace (Omnichannel)', desc: 'Brands present on both channels' },
-  { id: 'offline_retail',    label: 'Offline Retail Presence',              desc: 'Brands with physical store locations' },
+const CHANNEL_MIX_OPTIONS: { id: string; icon: React.ReactNode; label: string; desc: string }[] = [
+  { id: 'website_only',      icon: <Globe size={18} strokeWidth={1.6} />,      label: 'Own Website',            desc: 'Brands with their own online store' },
+  { id: 'marketplace_only',  icon: <ShoppingBag size={18} strokeWidth={1.6} />,label: 'Marketplace',            desc: 'Brands selling on Amazon, Flipkart, etc.' },
+  { id: 'omnichannel',       icon: <LinkIcon size={18} strokeWidth={1.6} />,   label: 'Website + Marketplace',  desc: 'Brands present on both channels' },
+  { id: 'offline_retail',    icon: <Store size={18} strokeWidth={1.6} />,      label: 'Offline Retail',         desc: 'Brands with physical store locations' },
 ];
 
 const REVENUE_MODELS = ['Subscription', 'Transactional', 'Hybrid', 'Any'];
 
 const STEPS = [
-  { number: '01', title: 'Basic Information',  subtitle: 'Tell us a bit about yourself',                optional: false },
-  { number: '02', title: 'Target Companies',   subtitle: 'Define the D2C brands you want to discover',  optional: false },
+  { number: '01', title: 'Basic Information',                       subtitle: 'Tell us a bit about yourself',                                                          optional: false },
+  { number: '02', title: 'What D2C brands do you want to track?',  subtitle: 'Tell us what matters to you. We\u2019ll fill your dashboard with relevant brands and signals.', optional: false },
 ];
 
 /* ── Sub-components ──────────────────────────────────────────────────────── */
@@ -298,7 +298,7 @@ export default function OnboardingPage() {
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <img src="/logo.svg" alt="" className="h-7 w-7" />
-          <span className="font-jakarta font-bold text-[18px] tracking-[-0.02em] text-slate-900 leading-none">
+          <span className="font-sans font-bold text-[18px] tracking-[-0.02em] text-slate-900 leading-none">
             Harvin<span className="font-normal opacity-35">AI</span>
           </span>
         </div>
@@ -505,10 +505,11 @@ export default function OnboardingPage() {
 
           {/* ── Step 2: Target Companies ─────────────────────────────── */}
           {step === 1 && (
-            <div className="flex flex-col gap-7">
-              {/* Which categories? */}
+            <div className="flex flex-col gap-8">
+
+              {/* ─── Which categories? ─── */}
               <div>
-                <div className="flex items-center gap-2.5 mb-1.5">
+                <div className="flex items-center gap-2.5 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
                     <Package size={15} strokeWidth={2} className="text-amber-600" />
                   </div>
@@ -516,7 +517,7 @@ export default function OnboardingPage() {
                     Which categories? <span className="text-ember-500 text-[13px]">*</span>
                   </h3>
                 </div>
-                <p className="text-[13px] text-slate-400 mb-3.5 ml-[38px]">
+                <p className="text-[13px] text-slate-500 mb-3.5 ml-[38px]">
                   Pick the D2C categories you care about. Select as many as you want.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -550,209 +551,9 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              {/* Brand type */}
+              {/* ─── Which markets? ─── */}
               <div>
-                <div className="flex items-center gap-2.5 mb-1.5">
-                  <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
-                    <Tag size={15} strokeWidth={2} className="text-violet-600" />
-                  </div>
-                  <h3 className="text-[16px] font-bold text-slate-900 tracking-[-0.01em]">
-                    Brand type
-                  </h3>
-                </div>
-                <p className="text-[13px] text-slate-400 mb-3.5 ml-[38px]">
-                  Select one or both — you can target physical and digital brands at the same time.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {BRAND_TYPE_OPTIONS.map(bt => {
-                    const sel = (answers.brandTypes ?? []).includes(bt.id);
-                    return (
-                      <button
-                        key={bt.id}
-                        type="button"
-                        onClick={() => toggleBrandType(bt.id)}
-                        className={`flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all duration-150 ${
-                          sel
-                            ? 'border-ember-500 bg-ember-50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                          sel ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          {bt.icon}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-[14px] font-semibold leading-snug ${sel ? 'text-ember-700' : 'text-slate-900'}`}>
-                            {bt.label}
-                          </p>
-                          <p className="mt-0.5 text-[12px] text-slate-400 leading-snug">{bt.desc}</p>
-                        </div>
-                        <div className={`mt-1 w-5 h-5 flex-shrink-0 rounded-md border-2 flex items-center justify-center transition-all ${
-                          sel ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
-                        }`}>
-                          {sel && <Check size={11} strokeWidth={3} className="text-white" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Physical: Channel Mix */}
-              {hasPhysical && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Package size={15} strokeWidth={2} className="text-ember-500" />
-                    <p className="text-[13px] font-semibold text-slate-800">Which channel mix should the brand have?</p>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {CHANNEL_MIX_OPTIONS.map(ch => (
-                      <button
-                        key={ch.id}
-                        type="button"
-                        onClick={() => toggleChannelMix(ch.id)}
-                        className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-all duration-150 ${
-                          (answers.channelMix ?? []).includes(ch.id)
-                            ? 'border-ember-500 bg-ember-50 text-ember-700 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className={`w-4 h-4 flex-shrink-0 rounded border-2 flex items-center justify-center transition-all ${
-                          (answers.channelMix ?? []).includes(ch.id) ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
-                        }`}>
-                          {(answers.channelMix ?? []).includes(ch.id) && <Check size={9} strokeWidth={3} className="text-white" />}
-                        </div>
-                        <div>
-                          <p className="text-[13px] font-medium leading-snug">{ch.label}</p>
-                          <p className="text-[11px] text-slate-400 leading-snug">{ch.desc}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {(answers.channelMix ?? []).includes('offline_retail') && (
-                    <div className="mt-3">
-                      <label className="block text-[12px] font-semibold text-slate-600 mb-1.5">
-                        <Store size={13} strokeWidth={2} className="inline mr-1 text-slate-400" />
-                        Minimum number of stores
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="e.g. 10"
-                        value={answers.offlineStores ?? ''}
-                        onChange={e => set({ offlineStores: e.target.value })}
-                        className="w-40 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3
-                                   text-[14px] text-slate-800 placeholder:text-slate-400
-                                   focus:outline-none focus:border-ember-400 transition-colors"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Digital: Revenue Model */}
-              {hasDigital && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Wifi size={15} strokeWidth={2} className="text-blue-500" />
-                    <p className="text-[13px] font-semibold text-slate-800">Target revenue model</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {REVENUE_MODELS.map(rm => (
-                      <Chip
-                        key={rm}
-                        label={rm}
-                        selected={(answers.revenueModel ?? []).includes(rm)}
-                        onClick={() => {
-                          const cur = answers.revenueModel ?? [];
-                          if (rm === 'Any') {
-                            set({ revenueModel: cur.includes('Any') ? [] : ['Any'] });
-                          } else {
-                            const without = cur.filter(x => x !== 'Any');
-                            set({ revenueModel: without.includes(rm) ? without.filter(x => x !== rm) : [...without, rm] });
-                          }
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* MAU */}
-              {showMau && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Users size={15} strokeWidth={2} className="text-slate-500" />
-                    <p className="text-[13px] font-semibold text-slate-800">
-                      Minimum Monthly Active Users (MAU)
-                    </p>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="e.g. 50,000"
-                    value={answers.mau ?? ''}
-                    onChange={e => set({ mau: e.target.value })}
-                    className="w-48 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3
-                               text-[14px] text-slate-800 placeholder:text-slate-400
-                               focus:outline-none focus:border-ember-400 transition-colors"
-                  />
-                </div>
-              )}
-
-              {/* What size of brands? */}
-              <div>
-                <div className="flex items-center gap-2.5 mb-1.5">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                    <TrendingUp size={15} strokeWidth={2} className="text-emerald-600" />
-                  </div>
-                  <h3 className="text-[16px] font-bold text-slate-900 tracking-[-0.01em]">
-                    What size of brands?
-                  </h3>
-                </div>
-                <p className="text-[13px] text-slate-400 mb-3.5 ml-[38px]">
-                  This helps us rank brands in your feed. You&apos;ll still see all sizes — this just puts your preferred size on top.
-                </p>
-                <div className="flex flex-col gap-2.5">
-                  {BRAND_SIZES.map(bs => {
-                    const sel = (answers.brandSize ?? []).includes(bs.id);
-                    return (
-                      <button
-                        key={bs.id}
-                        type="button"
-                        onClick={() => toggleInArray('brandSize', bs.id)}
-                        className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all duration-150 ${
-                          sel
-                            ? 'border-ember-500 bg-ember-50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                          sel ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          {bs.icon}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-[14px] font-semibold leading-snug ${sel ? 'text-ember-700' : 'text-slate-900'}`}>
-                            {bs.label}
-                          </p>
-                          <p className="mt-0.5 text-[12px] text-slate-400 leading-snug">{bs.desc}</p>
-                        </div>
-                        <div className={`w-5 h-5 flex-shrink-0 rounded-md border-2 flex items-center justify-center transition-all ${
-                          sel ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
-                        }`}>
-                          {sel && <Check size={11} strokeWidth={3} className="text-white" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Which markets? */}
-              <div>
-                <div className="flex items-center gap-2.5 mb-1.5">
+                <div className="flex items-center gap-2.5 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
                     <Globe size={15} strokeWidth={2} className="text-blue-600" />
                   </div>
@@ -760,7 +561,7 @@ export default function OnboardingPage() {
                     Which markets? <span className="text-ember-500 text-[13px]">*</span>
                   </h3>
                 </div>
-                <p className="text-[13px] text-slate-400 mb-3.5 ml-[38px]">
+                <p className="text-[13px] text-slate-500 mb-3.5 ml-[38px]">
                   Where are the brands you want to track? We&apos;ll prioritize data from these regions.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -791,6 +592,100 @@ export default function OnboardingPage() {
                   })}
                 </div>
               </div>
+
+              {/* ─── What size of brands? ─── */}
+              <div>
+                <div className="flex items-center gap-2.5 mb-1">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                    <Tag size={15} strokeWidth={2} className="text-emerald-600" />
+                  </div>
+                  <h3 className="text-[16px] font-bold text-slate-900 tracking-[-0.01em]">
+                    What size of brands?
+                  </h3>
+                </div>
+                <p className="text-[13px] text-slate-500 mb-3.5 ml-[38px]">
+                  This helps us rank brands in your feed. You&apos;ll still see all sizes — this just puts your preferred size on top.
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {BRAND_SIZES.map(bs => {
+                    const sel = (answers.brandSize ?? []).includes(bs.id);
+                    return (
+                      <button
+                        key={bs.id}
+                        type="button"
+                        onClick={() => toggleInArray('brandSize', bs.id)}
+                        className={`flex flex-col items-center text-center rounded-xl border px-3 py-5 transition-all duration-150 ${
+                          sel
+                            ? 'border-ember-500 bg-ember-50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${
+                          sel ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {bs.icon}
+                        </div>
+                        <p className={`text-[13px] font-semibold leading-snug ${sel ? 'text-ember-700' : 'text-slate-900'}`}>
+                          {bs.label}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-400 leading-snug">
+                          {bs.desc}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ─── Which sales channels matter? ─── */}
+              <div>
+                <div className="flex items-center gap-2.5 mb-1">
+                  <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                    <ShoppingBag size={15} strokeWidth={2} className="text-violet-600" />
+                  </div>
+                  <h3 className="text-[16px] font-bold text-slate-900 tracking-[-0.01em]">
+                    Which sales channels matter?
+                  </h3>
+                </div>
+                <p className="text-[13px] text-slate-500 mb-3.5 ml-[38px]">
+                  What kind of D2C brands are most useful to you? Pick all that apply.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {CHANNEL_MIX_OPTIONS.map(ch => {
+                    const sel = (answers.channelMix ?? []).includes(ch.id);
+                    return (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => toggleChannelMix(ch.id)}
+                        className={`flex items-center gap-3.5 rounded-xl border p-4 text-left transition-all duration-150 ${
+                          sel
+                            ? 'border-ember-500 bg-ember-50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)]'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          sel ? 'bg-ember-100 text-ember-600' : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {ch.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-[13px] font-semibold leading-snug ${sel ? 'text-ember-700' : 'text-slate-900'}`}>
+                            {ch.label}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-400 leading-snug">{ch.desc}</p>
+                        </div>
+                        <div className={`w-5 h-5 flex-shrink-0 rounded-md border-2 flex items-center justify-center transition-all ${
+                          sel ? 'border-ember-500 bg-ember-500' : 'border-slate-300'
+                        }`}>
+                          {sel && <Check size={10} strokeWidth={3} className="text-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
             </div>
           )}
 

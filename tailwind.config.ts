@@ -35,11 +35,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans:    ['var(--font-sans)',    'system-ui', 'sans-serif'],
-        display: ['var(--font-display)', 'Georgia',   'serif'     ],
-        mono:    ['var(--font-mono)',    'monospace'               ],
-        kyiv:    ['var(--font-kyiv)',    'system-ui', 'sans-serif'],
-        jakarta: ['var(--font-jakarta)', 'system-ui', 'sans-serif'],
+        sans:      ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        mono:      ['var(--font-mono)', 'monospace'],
+        bricolage: ['var(--font-bricolage)', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         btn:   '8px',

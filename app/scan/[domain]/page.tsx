@@ -76,9 +76,43 @@ export default function ScanResultPage() {
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
+    const CACHE_KEY = 'harvin_scan_cache';
+    const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+    function getCached(d: string) {
+      try {
+        const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+        const entry = cache[d];
+        if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data as ScanResult;
+      } catch {}
+      return null;
+    }
+
+    function setCache(d: string, data: ScanResult) {
+      try {
+        const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+        cache[d] = { data, ts: Date.now() };
+        const keys = Object.keys(cache);
+        if (keys.length > 200) {
+          keys.sort((a, b) => cache[a].ts - cache[b].ts);
+          for (let i = 0; i < keys.length - 200; i++) delete cache[keys[i]];
+        }
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+      } catch {}
+    }
+
+    // Show cached data instantly
+    const cached = getCached(domain);
+    if (cached) {
+      setResult(cached);
+      setLoading(false);
+    }
+
     async function runScan() {
-      setLoading(true);
-      setError(null);
+      if (!cached) {
+        setLoading(true);
+        setError(null);
+      }
       try {
         const res = await fetch(`/api/detect?url=${encodeURIComponent(domain)}`);
         const text = await res.text();
@@ -89,6 +123,7 @@ export default function ScanResultPage() {
         if (!res.ok) throw new Error((data as unknown as { error: string }).error || 'Detection failed');
 
         setResult(data);
+        setCache(domain, data);
 
         // Mark free scan as used (only if not logged in)
         try {
@@ -97,7 +132,9 @@ export default function ScanResultPage() {
           }
         } catch {}
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Something went wrong');
+        if (!cached) {
+          setError(err instanceof Error ? err.message : 'Something went wrong');
+        }
       } finally {
         setLoading(false);
       }

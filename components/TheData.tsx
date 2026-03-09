@@ -186,7 +186,7 @@ export default function TheData() {
               </p>
             </div>
             <div className="md:pt-2 md:text-right">
-              <p className="font-display text-[40px] leading-none tracking-[-0.03em] text-slate-900 dark:text-white md:text-[44px]">
+              <p className="font-sans text-[40px] leading-none tracking-[-0.03em] text-slate-900 dark:text-white md:text-[44px]">
                 {displayLeadStr}+
               </p>
               <p className="text-[18px] font-medium leading-none text-slate-700 dark:text-white/72 md:text-[24px]">D2C opportunities / month</p>

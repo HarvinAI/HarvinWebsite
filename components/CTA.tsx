@@ -62,7 +62,7 @@ export default function CTA() {
             </div>
 
             {/* Headline */}
-            <h2 className="font-display font-semibold leading-[1.08] tracking-[-0.025em]
+            <h2 className="font-sans font-semibold leading-[1.08] tracking-[-0.025em]
                             text-[clamp(30px,3.5vw,48px)]
                             text-slate-900 dark:text-white">
               Ready to identify<br />

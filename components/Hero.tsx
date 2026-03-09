@@ -55,7 +55,7 @@ export default function Hero() {
       <main>
         {/* Headline + CTA */}
         <div className="text-center px-6 pt-16 pb-6">
-          <h1 className="font-display font-normal tracking-[-0.02em] leading-[1.08] mb-6
+          <h1 className="font-sans font-normal tracking-[-0.02em] leading-[1.08] mb-6
                          text-[clamp(40px,6vw,76px)]
                          text-slate-900 dark:text-slate-50">
             Never miss a<br />
@@ -148,7 +148,7 @@ export default function Hero() {
               { value: 'Daily', label: 'Signal updates'      },
             ].map(({ value, label }) => (
               <div key={label}>
-                <p className="font-display font-normal leading-none text-slate-900 dark:text-slate-100
+                <p className="font-sans font-normal leading-none text-slate-900 dark:text-slate-100
                                text-[clamp(28px,4vw,40px)]">
                   {value}
                 </p>

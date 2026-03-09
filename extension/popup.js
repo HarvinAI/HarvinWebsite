@@ -1,5 +1,5 @@
 // ── Config ───────────────────────────────────────────────────────────────
-const API_BASE = 'https://www.harvin.ai';
+const API_BASE = 'http://localhost:3000';
 
 // Category colors
 const CATEGORY_COLORS = {
@@ -392,6 +392,33 @@ const tabTech        = document.getElementById('tab-tech');
 let currentUrl = '';
 let lastResult = null;
 
+// ── Local cache (30-day TTL) ────────────────────────────────────────
+const CACHE_KEY = 'techscanner-cache';
+const CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
+
+function getCached(domain) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    const entry = cache[domain];
+    if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data;
+    if (entry) { delete cache[domain]; localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); }
+  } catch {}
+  return null;
+}
+
+function setCache(domain, data) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    cache[domain] = { data, ts: Date.now() };
+    const keys = Object.keys(cache);
+    if (keys.length > 200) {
+      keys.sort((a, b) => cache[a].ts - cache[b].ts);
+      for (let i = 0; i < keys.length - 200; i++) delete cache[keys[i]];
+    }
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {}
+}
+
 // ── Theme ───────────────────────────────────────────────────────────────
 function loadTheme() {
   const saved = localStorage.getItem('techscanner-theme');
@@ -438,14 +465,36 @@ refreshBtn.addEventListener('click', () => doScan(true));
 async function doScan(forceRefresh = false) {
   if (!currentUrl) return;
 
-  loadingState.classList.remove('hidden');
+  loadingState.classList.add('hidden');
   errorState.classList.add('hidden');
   panelDetails.classList.add('hidden');
   panelTech.classList.add('hidden');
 
+  // Show cached data instantly if available (no loading spinner)
+  const cached = !forceRefresh && getCached(currentUrl);
+  if (cached) {
+    lastResult = cached;
+    renderDetails(cached);
+    renderTechStack(cached);
+    switchTab('details');
+    // Still fetch fresh data in background to update cache
+    fetchFresh(false).catch(() => {});
+    return;
+  }
+
+  // No cache — show loading and fetch
+  loadingState.classList.remove('hidden');
+  await fetchFresh(forceRefresh);
+}
+
+async function fetchFresh(forceRefresh) {
   try {
     const refreshParam = forceRefresh ? '&refresh=1' : '';
-    const res = await fetch(`${API_BASE}/api/detect?url=${encodeURIComponent(currentUrl)}${refreshParam}`);
+
+    const res = await fetch(
+      `${API_BASE}/api/detect?url=${encodeURIComponent(currentUrl)}${refreshParam}`
+    );
+
     const text = await res.text();
     if (!text) throw new Error('Empty response from server');
 
@@ -454,12 +503,16 @@ async function doScan(forceRefresh = false) {
     if (!res.ok) throw new Error(data.error || 'Detection failed');
 
     lastResult = data;
+    setCache(currentUrl, data);
     renderDetails(data);
     renderTechStack(data);
     switchTab('details');
   } catch (err) {
-    errorText.textContent = err.message || 'Something went wrong';
-    errorState.classList.remove('hidden');
+    // Only show error if nothing is displayed yet
+    if (!lastResult || lastResult.url !== currentUrl) {
+      errorText.textContent = err.message || 'Something went wrong';
+      errorState.classList.remove('hidden');
+    }
   } finally {
     loadingState.classList.add('hidden');
   }
@@ -485,13 +538,11 @@ function renderDetails(data) {
     // Region
     html += `<div class="detail-card"><div class="detail-label">Region</div><div class="detail-value">${esc(companyMeta.region)}</div></div>`;
 
-    // Store count with confidence indicator
+    // Store count
     const stores = companyMeta.offlineStores || 'Unknown';
     const badgeClass = stores === 'Online' ? 'online-only' :
                        stores === 'Unknown' ? 'unknown' : 'has-stores';
-    const conf = companyMeta.storeConfidence;
-    const confTag = conf ? `<span class="confidence-tag confidence-${conf.tier}" title="${conf.source} &middot; ${conf.score}/100">${conf.tier === 'high' ? 'High' : conf.tier === 'medium' ? 'Medium' : 'Low'} confidence</span>` : '';
-    html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span>${confTag}</div></div>`;
+    html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span></div></div>`;
   }
 
   // Tech summary
