@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# bulk processing progress
+scripts/bulk-meta-progress.json
+
 # vercel
 .vercel
 

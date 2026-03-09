@@ -70,6 +70,7 @@ export default function ScanResultPage() {
   const domain = decodeURIComponent(params.domain as string);
 
   const [loading, setLoading] = useState(true);
+  const [techLoading, setTechLoading] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -108,13 +109,48 @@ export default function ScanResultPage() {
       setLoading(false);
     }
 
+    let stale = false;
+
     async function runScan() {
-      if (!cached) {
+      // Phase 1: Quick DB lookup for pre-processed company meta
+      let dbMeta: CompanyMeta | null = null;
+      try {
+        const metaRes = await fetch(`/api/company-meta?domain=${encodeURIComponent(domain)}`);
+        if (stale) return;
+        const metaJson = await metaRes.json();
+        if (metaJson.found && metaJson.data) {
+          dbMeta = {
+            category: metaJson.data.category || '',
+            subCategory: metaJson.data.subCategory || '',
+            region: metaJson.data.region || '',
+            offlineStores: metaJson.data.offlineStores || '',
+          };
+          // Show company info immediately (only if no cache)
+          if (!cached) {
+            setResult({
+              url: domain,
+              technologies: [],
+              count: 0,
+              companyMeta: dbMeta,
+            });
+            setLoading(false);
+            setTechLoading(true);
+          }
+        }
+      } catch {
+        // Phase 1 failed — no problem, Phase 2 handles everything
+      }
+
+      if (stale) return;
+
+      // Phase 2: Full tech scan
+      if (!cached && !dbMeta) {
         setLoading(true);
         setError(null);
       }
       try {
         const res = await fetch(`/api/detect?url=${encodeURIComponent(domain)}`);
+        if (stale) return;
         const text = await res.text();
         if (!text) throw new Error('No response from server');
 
@@ -122,8 +158,21 @@ export default function ScanResultPage() {
         try { data = JSON.parse(text); } catch { throw new Error('Unexpected response — please try again'); }
         if (!res.ok) throw new Error((data as unknown as { error: string }).error || 'Detection failed');
 
-        setResult(data);
-        setCache(domain, data);
+        // Merge: prefer detect endpoint's companyMeta, fall back to DB meta
+        if (!data.companyMeta && dbMeta) {
+          data.companyMeta = dbMeta;
+        }
+
+        // Don't overwrite good cached data with an empty scan result
+        if (cached && cached.count > 0 && data.count === 0) {
+          // Keep cached techs, but update companyMeta if detect brought one
+          if (data.companyMeta) {
+            setResult({ ...cached, companyMeta: data.companyMeta });
+          }
+        } else {
+          setResult(data);
+          setCache(domain, data);
+        }
 
         // Mark free scan as used (only if not logged in)
         try {
@@ -132,14 +181,19 @@ export default function ScanResultPage() {
           }
         } catch {}
       } catch (err: unknown) {
-        if (!cached) {
+        if (!cached && !dbMeta) {
           setError(err instanceof Error ? err.message : 'Something went wrong');
         }
       } finally {
-        setLoading(false);
+        if (!stale) {
+          setLoading(false);
+          setTechLoading(false);
+        }
       }
     }
     runScan();
+
+    return () => { stale = true; };
   }, [domain]);
 
   const grouped = result ? groupByCategory(result.technologies) : {};
@@ -223,8 +277,50 @@ export default function ScanResultPage() {
           </div>
         )}
 
-        {/* Results */}
-        {result && !loading && (
+        {/* Phase 1: Company meta shown while tech scan loads */}
+        {result && !loading && techLoading && (
+          <div className="animate-[fadeUp_0.4s_ease-out_forwards]">
+            {result.companyMeta && (
+              <div className="mb-6 p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] shadow-sm">
+                <h3 className="text-[12px] font-semibold tracking-wide uppercase text-slate-400 flex items-center gap-2 mb-4">
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3" y="4" width="14" height="14" rx="2" />
+                    <path d="M7 4V2M13 4V2M7 10h6M7 14h4" strokeLinecap="round" />
+                  </svg>
+                  Company Info
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {([
+                    { key: 'category' as const, label: 'Category' },
+                    { key: 'subCategory' as const, label: 'Sub-Category' },
+                    { key: 'region' as const, label: 'Region' },
+                    { key: 'offlineStores' as const, label: 'Stores' },
+                  ]).map(({ key, label }) => (
+                    <div key={key}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#C94C1E] mb-1">{label}</p>
+                      <p className="text-[14px] font-medium text-slate-200 px-3 py-2 rounded-lg bg-white/[0.04]">
+                        {result.companyMeta![key] || '\u2014'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-col items-center py-12">
+              <div className="relative w-12 h-12 mb-4">
+                <div className="absolute inset-0 rounded-full border-[3px] border-white/[0.08]" />
+                <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#C94C1E] animate-spin" />
+              </div>
+              <p className="text-[13px] text-slate-400">Loading technologies&hellip;</p>
+              <div className="mt-4 w-48 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                <div className="h-full rounded-full bg-[#C94C1E] animate-[scan_1.8s_ease-in-out_infinite] w-1/3" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Full results */}
+        {result && !loading && !techLoading && (
           <div className="animate-[fadeUp_0.4s_ease-out_forwards]">
             {/* Header */}
             <div className="mb-6">
