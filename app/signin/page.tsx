@@ -13,7 +13,7 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [loading, setLoading] = useState<'google' | 'credentials' | 'demo' | null>(null);
+  const [loading, setLoading] = useState<'google' | 'credentials' | null>(null);
   const [error, setError] = useState('');
 
   const handleGoogle = async () => {
@@ -34,12 +34,6 @@ export default function SignInPage() {
       localStorage.setItem('harvin_user', JSON.stringify({ type: 'credentials', name: email.split('@')[0], email: email.trim() }));
       router.push('/onboarding');
     }
-  };
-
-  const handleDemo = () => {
-    setLoading('demo');
-    localStorage.setItem('harvin_user', JSON.stringify({ type: 'demo', name: 'Demo User', email: 'demo@harvinai.com' }));
-    router.push('/onboarding');
   };
 
   const Spinner = ({ className = '' }: { className?: string }) => (
@@ -257,22 +251,6 @@ export default function SignInPage() {
                 </button>
               </form>
 
-              {/* Demo */}
-              <button onClick={handleDemo} disabled={loading !== null}
-                className="w-full flex items-center justify-center gap-1.5 h-[34px] mt-3
-                           text-[12px] font-medium text-gray-300
-                           hover:text-gray-500
-                           disabled:opacity-40 disabled:cursor-not-allowed
-                           transition-colors duration-150">
-                {loading === 'demo' ? <Spinner className="text-gray-300" /> : (
-                  <>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="5 3 19 12 5 21 5 3"/>
-                    </svg>
-                    Try demo without account
-                  </>
-                )}
-              </button>
             </div>
           </div>
 

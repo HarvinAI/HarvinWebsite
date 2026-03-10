@@ -351,10 +351,10 @@ export default function AccountDetailPage() {
         <header className="h-[64px] border-b border-slate-100 bg-white px-8 flex items-center justify-between flex-shrink-0 z-10">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => window.history.length > 1 ? router.back() : router.push('/dashboard')}
               className="text-[13px] text-slate-400 hover:text-slate-700 transition-colors font-medium"
             >
-              Accounts
+              &larr; Back
             </button>
             <ChevronRight size={14} className="text-slate-300" />
             <span className="text-[14px] font-semibold text-slate-800">{account.name}</span>

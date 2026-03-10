@@ -75,6 +75,17 @@ export default function ScanResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [backLabel, setBackLabel] = useState('Back');
+
+  useEffect(() => {
+    const ref = document.referrer;
+    if (ref.includes('/dashboard')) setBackLabel('Back to Dashboard');
+    else if (ref.includes('/account/')) setBackLabel('Back to Account');
+    else if (ref.includes('/scan')) setBackLabel('Back to Scanner');
+    else if (ref.includes('/onboarding')) setBackLabel('Back to Onboarding');
+    else if (window.history.length > 1) setBackLabel('Go Back');
+    else setBackLabel('Back to Home');
+  }, []);
 
   useEffect(() => {
     const CACHE_KEY = 'harvin_scan_cache';
@@ -209,13 +220,13 @@ export default function ScanResultPage() {
       <div className="sticky top-0 z-10 bg-[#0a0a1a]/80 backdrop-blur-md border-b border-white/[0.06]">
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => window.history.length > 1 ? router.back() : router.push('/')}
             className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 hover:text-slate-200 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
               <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Back to Scanner
+            {backLabel}
           </button>
           <div className="flex items-center gap-2">
             <span className="text-[12px] font-mono text-[#C94C1E] bg-[#C94C1E]/10 px-2.5 py-1 rounded-lg">

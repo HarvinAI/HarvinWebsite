@@ -10,6 +10,7 @@ import {
   Filter, Check, Satellite,
   Briefcase, Settings2, Link2, LogOut, Loader2,
   Target, Swords, Lock, Plus, Star, Trash2, Pencil,
+  Globe, Store, MapPin, Cpu, ExternalLink, CheckSquare, Square,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -28,6 +29,7 @@ type Account = {
   region: string;
   offlineStores: string;
   aiStoreCount: number;
+  techCount: number;
   updatedAt: string;
 };
 type Filters = { category: string[]; region: string[]; offlineStores: string[]; businessModel: string[]; mau: string[]; techStack: string[] };
@@ -58,6 +60,16 @@ const emptyFilters = (): Filters => ({ category: [], region: [], offlineStores: 
 function domainToName(domain: string): string {
   const base = domain.replace(/^www\./, '').split('.')[0];
   return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+function faviconUrl(domain: string): string {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+}
+
+function storeLabel(val: string): string {
+  if (!val || val === 'Unknown') return 'Online Only';
+  if (val === 'Online') return 'Online Only';
+  return `${val} Stores`;
 }
 
 function formatDate(dateStr: string): string {
@@ -141,14 +153,6 @@ const FilterSection = ({ title, count, children, defaultOpen = true }: {
   );
 };
 
-/* Category / Region badge colors */
-const REGION_COLORS: Record<string, string> = {
-  US: 'text-blue-700 bg-blue-50 border-blue-200',
-  UK: 'text-violet-700 bg-violet-50 border-violet-200',
-  India: 'text-orange-700 bg-orange-50 border-orange-200',
-  EU: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-};
-
 /* ═══════════════════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
   const router = useRouter();
@@ -158,12 +162,12 @@ export default function DashboardPage() {
   const [filters, setFilters] = useState<Filters>(emptyFilters());
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
-  const [sortAsc, setSortAsc] = useState(false);
+const [sortKey] = useState<SortKey>('updatedAt');
+  const [sortAsc] = useState(false);
   const [page, setPage] = useState(1);
-  const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [moreCats, setMoreCats] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>('account-explorer');
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   // Data from API
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -183,6 +187,13 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const [renamingWl, setRenamingWl] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [pendingOnboardingSync, setPendingOnboardingSync] = useState(false);
+
+  // Multi-select state
+  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
+  const [showBulkWlDropdown, setShowBulkWlDropdown] = useState(false);
+  const [bulkNewWlName, setBulkNewWlName] = useState('');
+  const [bulkAdding, setBulkAdding] = useState(false);
+  const bulkDropdownRef = useRef<HTMLDivElement>(null);
 
   /* ── Auth + onboarding sync ────────────────────────────────────────── */
   useEffect(() => {
@@ -360,6 +371,76 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
     signOut({ callbackUrl: '/' });
   };
 
+  // Multi-select handlers
+  const toggleSelect = (domain: string) => {
+    setSelectedAccounts(prev => {
+      const next = new Set(prev);
+      if (next.has(domain)) next.delete(domain); else next.add(domain);
+      return next;
+    });
+  };
+  const selectAll = () => {
+    if (selectedAccounts.size === accounts.length) setSelectedAccounts(new Set());
+    else setSelectedAccounts(new Set(accounts.map(a => a.normalizedDomain)));
+  };
+  const clearSelection = () => setSelectedAccounts(new Set());
+
+  const addSelectedToWatchlist = async (wlId: string) => {
+    setBulkAdding(true);
+    try {
+      await Promise.all(
+        Array.from(selectedAccounts).map(domain =>
+          fetch('/api/watchlists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: wlId, domain }),
+          })
+        )
+      );
+      setShowBulkWlDropdown(false);
+      clearSelection();
+      fetchWatchlists();
+    } catch {}
+    setBulkAdding(false);
+  };
+
+  const createAndAddToWatchlist = async () => {
+    if (!bulkNewWlName.trim()) return;
+    setBulkAdding(true);
+    try {
+      const res = await fetch('/api/watchlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: bulkNewWlName.trim() }),
+      });
+      if (res.ok) {
+        const wl = await res.json();
+        await addSelectedToWatchlist(wl._id);
+        setBulkNewWlName('');
+      }
+    } catch {}
+    setBulkAdding(false);
+  };
+
+  // Close bulk dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (bulkDropdownRef.current && !bulkDropdownRef.current.contains(e.target as Node)) {
+        setShowBulkWlDropdown(false);
+      }
+    };
+    if (showBulkWlDropdown) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showBulkWlDropdown]);
+
+  // Clear selection when page/filters change
+  useEffect(() => { clearSelection(); }, [page, filters, debouncedSearch]);
+
+  // Load watchlists for bulk-add dropdown when in account-explorer
+  useEffect(() => {
+    if (activeTab === 'account-explorer' && ready) fetchWatchlists();
+  }, [activeTab, ready, fetchWatchlists]);
+
   const activeCount = countFilters(filters);
 
   if (!ready) return null;
@@ -377,87 +458,134 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   return (
     <div className="flex h-screen w-full bg-[#FDFDFD] font-sans text-slate-900 overflow-hidden">
 
-      {/* ── Left Sidebar ────────────────────────────────────────────── */}
-      <aside className="hidden md:flex flex-col w-[260px] bg-white border-r border-slate-100 flex-shrink-0">
-        <div className="p-6 pb-2">
-          <div className="flex items-center gap-3">
-            <Image src="/logo.svg" alt="HarvinAI" width={40} height={40} className="rounded-xl shadow-lg shadow-orange-500/10" />
-            <span className="text-2xl font-bold tracking-tight text-slate-800">HarvinAI</span>
-          </div>
+      {/* ── Nav Rail (icon-only when filters open, expanded when closed) ── */}
+      <aside className={`hidden md:flex flex-col bg-white border-r border-slate-100 flex-shrink-0 transition-all duration-300 ease-in-out ${filtersOpen ? 'w-[64px]' : 'w-[240px]'}`}>
+        <div className={`flex items-center gap-3 flex-shrink-0 transition-all duration-300 ${filtersOpen ? 'px-0 py-4 justify-center' : 'px-5 py-4'}`}>
+          <Image src="/logo.svg" alt="HarvinAI" width={32} height={32} className="rounded-xl shadow-lg shadow-orange-500/10 flex-shrink-0" />
+          {!filtersOpen && <span className="text-[18px] font-bold tracking-tight text-slate-800">HarvinAI</span>}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-8 custom-scrollbar">
-          <div>
-            <h3 className="px-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Intelligence</h3>
-            <div className="space-y-1">
-              <button onClick={() => setActiveTab('market-intelligence')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all ${activeTab === 'market-intelligence' ? 'bg-orange-50 text-[#C94C1E]' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Satellite size={18} /> Market Intelligence
-              </button>
-              <button onClick={() => setActiveTab('account-explorer')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-medium transition-all ${activeTab === 'account-explorer' ? 'bg-orange-50 text-[#C94C1E] font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Search size={18} /> Account Explorer
-              </button>
+        <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+          <div className={`space-y-4 ${filtersOpen ? 'px-2' : 'px-3'}`}>
+            {!filtersOpen && <h3 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Intelligence</h3>}
+            <div className="space-y-0.5">
+              <NavBtn icon={<Satellite size={18} />} label="Market Intelligence" active={activeTab === 'market-intelligence'} collapsed={filtersOpen} onClick={() => setActiveTab('market-intelligence')} />
+              <NavBtn icon={<Search size={18} />} label="Account Explorer" active={activeTab === 'account-explorer'} collapsed={filtersOpen} onClick={() => setActiveTab('account-explorer')} />
             </div>
-          </div>
 
-          <div>
-            <h3 className="px-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Watchlists</h3>
-            <div className="space-y-1">
-              <button onClick={() => setActiveTab('my-watchlists')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-medium transition-all ${activeTab === 'my-watchlists' ? 'bg-orange-50 text-[#C94C1E] font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Star size={18} /> My Watchlists
-                {watchlists.length > 0 && <span className="ml-auto text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">{watchlists.length}</span>}
-              </button>
-              <button onClick={() => setActiveTab('recently-funded')}
-                className="w-full flex items-center justify-between px-4 py-2 rounded-xl text-slate-400 cursor-not-allowed">
-                <div className="flex items-center gap-3 font-medium text-[14px]"><Target size={18} className="text-slate-300" /> Recently Funded</div>
-                <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase">Soon</span>
-              </button>
-              <button onClick={() => setActiveTab('competitor-clients')}
-                className="w-full flex items-center justify-between px-4 py-2 rounded-xl text-slate-400 cursor-not-allowed">
-                <div className="flex items-center gap-3 font-medium text-[14px]"><Swords size={18} className="text-slate-300" /> Competitor Clients</div>
-                <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase">Soon</span>
-              </button>
-              <button onClick={() => setActiveTab('current-clients')}
-                className="w-full flex items-center justify-between px-4 py-2 rounded-xl text-slate-400 cursor-not-allowed">
-                <div className="flex items-center gap-3 font-medium text-[14px]"><Briefcase size={18} className="text-slate-300" /> Current Clients</div>
-                <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase">Soon</span>
-              </button>
+            {!filtersOpen && <h3 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Watchlists</h3>}
+            <div className="space-y-0.5">
+              <NavBtn icon={<Star size={18} />} label="My Watchlists" active={activeTab === 'my-watchlists'} collapsed={filtersOpen} onClick={() => setActiveTab('my-watchlists')}
+                badge={watchlists.length > 0 ? String(watchlists.length) : undefined} />
+              <NavBtn icon={<Target size={18} />} label="Recently Funded" collapsed={filtersOpen} locked />
+              <NavBtn icon={<Swords size={18} />} label="Competitor Clients" collapsed={filtersOpen} locked />
+              <NavBtn icon={<Briefcase size={18} />} label="Current Clients" collapsed={filtersOpen} locked />
             </div>
-          </div>
 
-          <div>
-            <h3 className="px-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Settings</h3>
-            <div className="space-y-1">
-              <button onClick={() => setActiveTab('icp-preferences')}
-                className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl text-[14px] font-medium transition-all text-left ${activeTab === 'icp-preferences' ? 'bg-orange-50 text-[#C94C1E] font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Settings2 size={18} /> ICP & Preferences
-              </button>
-              <button onClick={() => setActiveTab('integrations')}
-                className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl text-[14px] font-medium transition-all text-left ${activeTab === 'integrations' ? 'bg-orange-50 text-[#C94C1E] font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Link2 size={18} /> Integrations
-              </button>
+            {!filtersOpen && <h3 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Settings</h3>}
+            <div className="space-y-0.5">
+              <NavBtn icon={<Settings2 size={18} />} label="ICP & Preferences" active={activeTab === 'icp-preferences'} collapsed={filtersOpen} onClick={() => setActiveTab('icp-preferences')} />
+              <NavBtn icon={<Link2 size={18} />} label="Integrations" active={activeTab === 'integrations'} collapsed={filtersOpen} onClick={() => setActiveTab('integrations')} />
             </div>
           </div>
         </div>
 
         {/* User */}
-        <div className="px-4 py-3 border-t border-slate-100">
-          <div className="flex items-center gap-2.5 px-2 py-1.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#C94C1E] to-[#e07040] flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0">
-              {firstName[0].toUpperCase()}
+        <div className={`border-t border-slate-100 flex-shrink-0 ${filtersOpen ? 'px-2 py-3 flex flex-col items-center' : 'px-3 py-2.5'}`}>
+          {filtersOpen ? (
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#C94C1E] to-[#e07040] flex items-center justify-center text-white text-[11px] font-bold" title={user?.name || ''}>
+              {firstName[0]?.toUpperCase() || 'U'}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-semibold text-slate-700 truncate">{user?.name}</p>
-              <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
-            </div>
-          </div>
-          <button onClick={handleLogout} className="mt-0.5 flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] text-slate-400 hover:text-slate-600 hover:bg-slate-50 w-full transition-colors">
-            <LogOut size={13} /> Sign out
-          </button>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 px-2 py-1">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#C94C1E] to-[#e07040] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
+                  {firstName[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold text-slate-700 truncate">{user?.name}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
+                </div>
+              </div>
+              <button onClick={handleLogout} className="mt-0.5 flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] text-slate-400 hover:text-slate-600 hover:bg-slate-50 w-full transition-colors">
+                <LogOut size={12} /> Sign out
+              </button>
+            </>
+          )}
         </div>
       </aside>
+
+      {/* ── Filter Panel (slides in from left, next to nav rail) ──────── */}
+      {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && (
+        <aside className={`hidden md:flex flex-col bg-white border-r border-slate-100 flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${filtersOpen ? 'w-[280px]' : 'w-0'}`}>
+          <div className="h-[56px] px-5 flex items-center justify-between border-b border-slate-100 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <Filter size={15} className="text-[#C94C1E]" />
+              <h2 className="font-bold text-slate-800 text-[14px]">Filters</h2>
+              {activeCount > 0 && <span className="text-[10px] bg-orange-100 text-[#C94C1E] px-1.5 py-0.5 rounded-full font-bold">{activeCount}</span>}
+            </div>
+            <button onClick={() => setFiltersOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors">
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+            <FilterSection title="Category" count={filters.category.length}>
+              <FilterItem
+                label="All Categories"
+                on={filterOptions.categories.length > 0 && filters.category.length === filterOptions.categories.length}
+                onClick={() => {
+                  const allSelected = filters.category.length === filterOptions.categories.length;
+                  setFilters(p => ({ ...p, category: allSelected ? [] : [...filterOptions.categories] }));
+                }}
+              />
+              {visCats.map(v => <FilterItem key={v} label={v} on={filters.category.includes(v)} onClick={() => toggle('category', v)} />)}
+              {hiddenCats > 0 && (
+                <button onClick={() => setMoreCats(!moreCats)} className="px-3 mt-1 text-[11px] text-[#C94C1E] font-medium hover:underline">
+                  {moreCats ? 'Show less' : `+ ${hiddenCats} more`}
+                </button>
+              )}
+            </FilterSection>
+
+            <FilterSection title="Region" count={filters.region.length}>
+              {filterOptions.regions.map(v => <FilterItem key={v} label={v} on={filters.region.includes(v)} onClick={() => toggle('region', v)} />)}
+            </FilterSection>
+
+            <FilterSection title="Offline Stores" count={filters.offlineStores.length} defaultOpen={false}>
+              {filterOptions.offlineStores.map(v => <FilterItem key={v} label={v} on={filters.offlineStores.includes(v)} onClick={() => toggle('offlineStores', v)} />)}
+            </FilterSection>
+
+            <FilterSection title="Business Model" count={filters.businessModel.length} defaultOpen={false}>
+              {['Physical', 'Digital', 'Website Only', 'Marketplace Only', 'Omnichannel', 'Offline Retail'].map(v => (
+                <FilterItem key={v} label={v} on={filters.businessModel.includes(v)} onClick={() => toggle('businessModel', v)} />
+              ))}
+            </FilterSection>
+
+            <FilterSection title="Monthly Active Users" count={filters.mau.length} defaultOpen={false}>
+              {['< 10K', '10K - 50K', '50K - 100K', '100K - 500K', '500K - 1M', '1M+'].map(v => (
+                <FilterItem key={v} label={v} on={filters.mau.includes(v)} onClick={() => toggle('mau', v)} />
+              ))}
+            </FilterSection>
+
+            <FilterSection title="Tech Stack" count={filters.techStack.length} defaultOpen={false}>
+              {['Shopify', 'WooCommerce', 'Magento', 'Custom'].map(v => (
+                <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
+              ))}
+            </FilterSection>
+          </div>
+
+          <div className="p-4 border-t border-slate-100 space-y-2 flex-shrink-0">
+            <button onClick={resyncOnboarding} className="w-full flex items-center justify-center gap-2 bg-[#C94C1E] hover:bg-[#b5431a] text-white px-4 py-2.5 rounded-xl text-[12px] font-bold shadow-sm transition-all">
+              Re-sync from Onboarding
+            </button>
+            {activeCount > 0 && (
+              <button onClick={clearAll} className="w-full text-center text-[12px] text-slate-400 hover:text-slate-600 font-medium py-1 transition-colors">
+                Clear All Filters
+              </button>
+            )}
+          </div>
+        </aside>
+      )}
 
       {/* ── Main Area ────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col min-w-0 bg-[#F9F9F9] relative">
@@ -471,17 +599,17 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             {isWatchlistTab && activeWatchlist && <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{activeWatchlist.domains?.length || 0} accounts</span>}
           </div>
           {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <div className="relative flex items-center">
                 <Search className="absolute left-3 text-slate-400" size={16} />
                 <input type="text" placeholder="Search brands or categories..." value={search} onChange={e => setSearch(e.target.value)}
                   className="pl-10 pr-4 py-2 bg-slate-50 border-transparent border focus:border-orange-200 focus:bg-white focus:ring-4 focus:ring-orange-100 rounded-xl text-[13px] w-[300px] transition-all outline-none" />
                 {search && <button onClick={() => setSearch('')} className="absolute right-3 text-slate-400 hover:text-slate-600"><X size={14} /></button>}
               </div>
-<button onClick={() => setIsFilterVisible(!isFilterVisible)}
-                className={`p-2 px-4 rounded-xl border transition-all flex items-center gap-2 ${isFilterVisible ? 'bg-orange-50 border-orange-200 text-[#C94C1E]' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                <Filter size={18} />
-                <span className="text-[13px] font-bold">Filters</span>
+              <button onClick={() => setFiltersOpen(!filtersOpen)}
+                className={`p-2 px-3.5 rounded-xl border transition-all flex items-center gap-2 ${filtersOpen ? 'bg-orange-50 border-orange-200 text-[#C94C1E]' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                <Filter size={16} />
+                <span className="text-[13px] font-semibold">Filters</span>
                 {activeCount > 0 && <span className="w-5 h-5 rounded-full bg-[#C94C1E] text-white text-[10px] font-bold flex items-center justify-center">{activeCount}</span>}
               </button>
             </div>
@@ -770,57 +898,173 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
               </div>
             </div>
           ) : (
-            /* ── Card View ─────────────────────────────────────────── */
+            /* ── Selection Bar ─────────────────────────────────────── */
             <div className="max-w-6xl mx-auto space-y-4">
-              {accounts.map(a => (
-                <div key={a.normalizedDomain}
-                  onClick={() => router.push(`/account/${a.normalizedDomain}`)}
-                  className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group">
-                  <div className="p-5 flex flex-col gap-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center font-serif text-slate-400 text-xl shadow-inner">
-                          {domainToName(a.normalizedDomain)[0]}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-[17px] font-bold text-slate-800 leading-tight group-hover:text-[#C94C1E] transition-colors">{domainToName(a.normalizedDomain)}</h3>
-                            <span className="text-[11px] text-slate-400 font-medium">{a.normalizedDomain}</span>
-                          </div>
-                          <p className="text-[12px] text-slate-400 font-medium mt-0.5">
-                            {a.category}{a.subCategory && a.subCategory !== a.category ? ` · ${a.subCategory}` : ''} &bull; {a.region}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {a.category && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-semibold text-orange-700 bg-orange-50 border-orange-200">
-                            {a.category}
-                          </span>
-                        )}
-                        {a.region && (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-semibold ${REGION_COLORS[a.region] || 'text-slate-600 bg-slate-50 border-slate-200'}`}>
-                            {a.region}
-                          </span>
-                        )}
-                        {a.offlineStores && a.offlineStores !== 'Online' && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-semibold text-emerald-700 bg-emerald-50 border-emerald-200">
-                            {a.offlineStores} stores
-                          </span>
-                        )}
-                      </div>
-                    </div>
+              {/* Select all / selection actions bar */}
+              <div className="flex items-center justify-between">
+                <button onClick={selectAll}
+                  className="flex items-center gap-2 text-[12px] font-medium text-slate-500 hover:text-slate-700 transition-colors">
+                  {selectedAccounts.size === accounts.length && accounts.length > 0
+                    ? <CheckSquare size={16} className="text-[#C94C1E]" />
+                    : <Square size={16} />}
+                  <span>{selectedAccounts.size === accounts.length && accounts.length > 0 ? 'Deselect all' : 'Select all'}</span>
+                </button>
 
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium border-t border-slate-100 pt-3">
-                      <span>{a.offlineStores || 'Online'}</span>
-                      <span className="text-slate-200">&bull;</span>
-                      <span>{a.aiStoreCount ?? 0} AI stores</span>
-                      <span className="text-slate-200">&bull;</span>
-                      <span>Updated {formatDate(a.updatedAt)}</span>
+                {selectedAccounts.size > 0 && (
+                  <div className="flex items-center gap-3" ref={bulkDropdownRef}>
+                    <span className="text-[12px] font-bold text-[#C94C1E]">{selectedAccounts.size} selected</span>
+                    <div className="relative">
+                      <button onClick={() => setShowBulkWlDropdown(!showBulkWlDropdown)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C94C1E] text-white text-[12px] font-bold hover:bg-[#b5431a] transition-colors shadow-lg shadow-orange-500/20">
+                        <Plus size={14} /> Add to Watchlist
+                      </button>
+                      {showBulkWlDropdown && (
+                        <div className="absolute right-0 top-full mt-2 w-[280px] bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden">
+                          <div className="p-3 border-b border-slate-100">
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Add {selectedAccounts.size} account{selectedAccounts.size > 1 ? 's' : ''} to</p>
+                          </div>
+                          <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
+                            {watchlists.map(wl => (
+                              <button key={wl._id} onClick={() => addSelectedToWatchlist(wl._id)} disabled={bulkAdding}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left disabled:opacity-50">
+                                <Star size={14} className="text-slate-300 flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[13px] font-medium text-slate-700 truncate">{wl.name}</p>
+                                  <p className="text-[11px] text-slate-400">{wl.domains?.length || 0} accounts</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                          <div className="p-3 border-t border-slate-100">
+                            <div className="flex gap-2">
+                              <input type="text" placeholder="New watchlist name..." value={bulkNewWlName}
+                                onChange={e => setBulkNewWlName(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && createAndAddToWatchlist()}
+                                className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[12px] outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all" />
+                              <button onClick={createAndAddToWatchlist} disabled={!bulkNewWlName.trim() || bulkAdding}
+                                className="px-3 py-2 rounded-lg bg-[#C94C1E] text-white text-[11px] font-bold hover:bg-[#b5431a] disabled:opacity-40 transition-colors">
+                                Create
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
+                    <button onClick={clearSelection}
+                      className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                      <X size={16} />
+                    </button>
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
+
+              {/* ── Account Cards Grid ──────────────────────────────── */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {accounts.map(a => {
+                  const isSelected = selectedAccounts.has(a.normalizedDomain);
+                  const name = domainToName(a.normalizedDomain);
+                  return (
+                    <div key={a.normalizedDomain}
+                      className={`bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all group relative ${isSelected ? 'border-[#C94C1E]/40 ring-2 ring-[#C94C1E]/10' : 'border-slate-200 hover:border-slate-300'}`}>
+
+                      {/* Selection checkbox */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(a.normalizedDomain); }}
+                        className={`absolute top-4 left-4 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                          isSelected
+                            ? 'bg-[#C94C1E] border-[#C94C1E]'
+                            : 'border-slate-300 bg-white opacity-0 group-hover:opacity-100'
+                        }`}>
+                        {isSelected && <Check size={12} className="text-white stroke-[3]" />}
+                      </button>
+
+                      {/* Card content */}
+                      <div className="p-5 cursor-pointer" onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
+                        {/* Header: Logo + Name + Domain */}
+                        <div className="flex items-start gap-3.5 mb-4">
+                          <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={faviconUrl(a.normalizedDomain)}
+                              alt=""
+                              width={28}
+                              height={28}
+                              className="rounded"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.parentElement!.innerHTML = `<span class="font-serif text-slate-400 text-lg">${name[0]}</span>`;
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-[16px] font-bold text-slate-800 leading-tight group-hover:text-[#C94C1E] transition-colors truncate">
+                              {name}
+                            </h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <Globe size={11} className="text-slate-300 flex-shrink-0" />
+                              <span className="text-[11px] text-slate-400 font-medium truncate">{a.normalizedDomain}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); window.open(`https://${a.normalizedDomain}`, '_blank'); }}
+                            className="p-1.5 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-50 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                            title="Visit website">
+                            <ExternalLink size={14} />
+                          </button>
+                        </div>
+
+                        {/* Category + Subcategory */}
+                        <div className="mb-3.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {a.category && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-orange-700 bg-orange-50 border border-orange-100">
+                                {a.category}
+                              </span>
+                            )}
+                            {a.subCategory && a.subCategory !== a.category && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100">
+                                {a.subCategory}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Info Row: Region + Stores + Updated */}
+                        <div className="grid grid-cols-3 gap-2 pt-3.5 border-t border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                              <MapPin size={13} className="text-blue-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Region</p>
+                              <p className="text-[12px] font-semibold text-slate-700 truncate">{a.region || 'Global'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                              <Store size={13} className="text-emerald-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Stores</p>
+                              <p className="text-[12px] font-semibold text-slate-700 truncate">{storeLabel(a.offlineStores)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+                              <Cpu size={13} className="text-violet-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Techs</p>
+                              <p className="text-[12px] font-semibold text-slate-700 truncate">{a.techCount ? `${a.techCount}+ techs` : '—'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -855,73 +1099,6 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         )}
       </main>
 
-      {/* ── Filter Sidebar (Right, White, Collapsible) ────────────────── */}
-      {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && (
-        <aside className={`flex-shrink-0 border-l border-slate-100 bg-white flex flex-col transition-all duration-300 ease-in-out ${isFilterVisible ? 'w-[300px]' : 'w-0 overflow-hidden'}`}>
-          <div className="h-[64px] px-6 flex items-center justify-between border-b border-slate-50 bg-white sticky top-0 z-10 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Filter size={16} className="text-slate-400" />
-              <h2 className="font-bold text-slate-800 text-[14px]">Filters</h2>
-              {activeCount > 0 && <span className="text-[10px] bg-orange-100 text-[#C94C1E] px-1.5 rounded-full font-bold">{activeCount}</span>}
-            </div>
-            <button onClick={() => setIsFilterVisible(false)} className="p-1 hover:bg-slate-50 rounded-lg text-slate-400"><X size={18} /></button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-            <FilterSection title="Category" count={filters.category.length}>
-              <FilterItem
-                label="All Categories"
-                on={filterOptions.categories.length > 0 && filters.category.length === filterOptions.categories.length}
-                onClick={() => {
-                  const allSelected = filters.category.length === filterOptions.categories.length;
-                  setFilters(p => ({ ...p, category: allSelected ? [] : [...filterOptions.categories] }));
-                }}
-              />
-              {visCats.map(v => <FilterItem key={v} label={v} on={filters.category.includes(v)} onClick={() => toggle('category', v)} />)}
-              {hiddenCats > 0 && (
-                <button onClick={() => setMoreCats(!moreCats)} className="px-3 mt-1 text-[11px] text-[#C94C1E] font-medium hover:underline">
-                  {moreCats ? 'Show less' : `+ ${hiddenCats} more`}
-                </button>
-              )}
-            </FilterSection>
-
-            <FilterSection title="Region" count={filters.region.length}>
-              {filterOptions.regions.map(v => <FilterItem key={v} label={v} on={filters.region.includes(v)} onClick={() => toggle('region', v)} />)}
-            </FilterSection>
-
-            <FilterSection title="Offline Stores" count={filters.offlineStores.length}>
-              {filterOptions.offlineStores.map(v => <FilterItem key={v} label={v} on={filters.offlineStores.includes(v)} onClick={() => toggle('offlineStores', v)} />)}
-            </FilterSection>
-
-            <FilterSection title="Business Model" count={filters.businessModel.length} defaultOpen={false}>
-              {['Physical', 'Digital', 'Website Only', 'Marketplace Only', 'Omnichannel', 'Offline Retail'].map(v => (
-                <FilterItem key={v} label={v} on={filters.businessModel.includes(v)} onClick={() => toggle('businessModel', v)} />
-              ))}
-            </FilterSection>
-
-            <FilterSection title="Monthly Active Users" count={filters.mau.length} defaultOpen={false}>
-              {['< 10K', '10K - 50K', '50K - 100K', '100K - 500K', '500K - 1M', '1M+'].map(v => (
-                <FilterItem key={v} label={v} on={filters.mau.includes(v)} onClick={() => toggle('mau', v)} />
-              ))}
-            </FilterSection>
-
-            <FilterSection title="Tech Stack" count={filters.techStack.length} defaultOpen={false}>
-              {['Shopify', 'WooCommerce', 'Magento', 'Custom'].map(v => (
-                <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
-              ))}
-            </FilterSection>
-          </div>
-
-          <div className="p-4 border-t border-slate-100 space-y-2 flex-shrink-0">
-            <button onClick={resyncOnboarding} className="w-full flex items-center justify-center gap-2 bg-[#C94C1E] hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl text-[13px] font-bold shadow-lg shadow-orange-500/20 transition-all">
-              Re-sync from Onboarding
-            </button>
-            <button onClick={clearAll} className="w-full text-center text-[12px] text-slate-400 hover:text-slate-600 font-medium py-1.5 transition-colors">
-              Clear All Filters
-            </button>
-          </div>
-        </aside>
-      )}
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -930,5 +1107,39 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #E2E2E2; }
       `}</style>
     </div>
+  );
+}
+
+/* ── NavBtn (sidebar navigation button, supports collapsed icon-only mode) ── */
+function NavBtn({ icon, label, active, collapsed, locked, onClick, badge }: {
+  icon: React.ReactNode; label: string; active?: boolean; collapsed?: boolean; locked?: boolean; onClick?: () => void; badge?: string;
+}) {
+  if (locked) {
+    return (
+      <div className={`flex items-center rounded-lg text-slate-400 cursor-not-allowed transition-all ${collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2'}`} title={label}>
+        <div className={`flex items-center ${collapsed ? '' : 'gap-2.5'}`}>
+          <span className="text-slate-300 flex-shrink-0">{icon}</span>
+          {!collapsed && <span className="text-[13px] font-medium">{label}</span>}
+        </div>
+        {!collapsed && <span className="text-[8px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-bold uppercase">Soon</span>}
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center rounded-lg transition-all ${
+        collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2'
+      } ${
+        active
+          ? 'bg-orange-50 text-[#C94C1E]'
+          : 'text-slate-500 hover:bg-slate-50'
+      }`}
+      title={collapsed ? label : undefined}
+    >
+      <span className="flex-shrink-0">{icon}</span>
+      {!collapsed && <span className={`text-[13px] ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>}
+      {!collapsed && badge && <span className="ml-auto text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">{badge}</span>}
+    </button>
   );
 }
