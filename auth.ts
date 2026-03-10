@@ -65,7 +65,23 @@ export const authOptions = {
       }
       return true;
     },
-    async session({ session }: { session: import('next-auth').Session; token: import('next-auth/jwt').JWT }) {
+    async jwt({ token, user }: { token: import('next-auth/jwt').JWT; user?: { id?: string; email?: string | null } }) {
+      if (user?.id) {
+        token.userId = user.id;
+      } else if (!token.userId && token.email) {
+        // For Google sign-in, look up user id from DB
+        try {
+          const db = await getAuthDb();
+          const doc = await db.collection('users').findOne({ email: (token.email as string).toLowerCase() });
+          if (doc) token.userId = doc._id.toString();
+        } catch {}
+      }
+      return token;
+    },
+    async session({ session, token }: { session: import('next-auth').Session; token: import('next-auth/jwt').JWT }) {
+      if (session.user && token.userId) {
+        (session.user as Record<string, unknown>).id = token.userId;
+      }
       return session;
     },
   },

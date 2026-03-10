@@ -242,7 +242,7 @@ export default function OnboardingPage() {
     save(answers, next);
     if (next >= STEPS.length) {
       localStorage.setItem('harvin_onboarding', JSON.stringify({ step: next, answers, completed: true }));
-      router.push('/dashboard');
+      router.push('/syncing');
     } else {
       navigate(next);
     }

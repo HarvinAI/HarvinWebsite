@@ -6,10 +6,10 @@ import { useSession, signOut } from 'next-auth/react';
 import Image from 'next/image';
 import {
   Search, ChevronDown, ChevronUp, X,
-  ChevronLeft, ChevronRight, LayoutGrid, List,
+  ChevronLeft, ChevronRight,
   Filter, Check, Satellite,
-  Briefcase, Settings2, Link2, LogOut, ArrowUpDown, Loader2,
-  Target, Swords, Lock,
+  Briefcase, Settings2, Link2, LogOut, Loader2,
+  Target, Swords, Lock, Plus, Star, Trash2, Pencil,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -30,10 +30,12 @@ type Account = {
   aiStoreCount: number;
   updatedAt: string;
 };
-type Filters = { category: string[]; region: string[]; offlineStores: string[] };
+type Filters = { category: string[]; region: string[]; offlineStores: string[]; businessModel: string[]; mau: string[]; techStack: string[] };
 type SortKey = 'domain' | 'category' | 'region' | 'offlineStores' | 'updatedAt';
 type FilterOptions = { categories: string[]; regions: string[]; offlineStores: string[] };
-type SidebarTab = 'market-intelligence' | 'account-explorer' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations';
+type Watchlist = { _id: string; name: string; domains: string[]; createdAt: string; updatedAt: string };
+type WatchlistAccount = Account & { normalizedDomain: string };
+type SidebarTab = 'market-intelligence' | 'account-explorer' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 const PAGE_SIZE = 20;
@@ -42,6 +44,7 @@ const CAT_SHOW = 5;
 const TAB_TITLES: Record<SidebarTab, string> = {
   'market-intelligence': 'Market Intelligence',
   'account-explorer': 'Account Explorer',
+  'my-watchlists': 'My Watchlists',
   'recently-funded': 'Recently Funded',
   'competitor-clients': 'Competitor Clients',
   'current-clients': 'Current Clients',
@@ -50,7 +53,7 @@ const TAB_TITLES: Record<SidebarTab, string> = {
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
-const emptyFilters = (): Filters => ({ category: [], region: [], offlineStores: [] });
+const emptyFilters = (): Filters => ({ category: [], region: [], offlineStores: [], businessModel: [], mau: [], techStack: [] });
 
 function domainToName(domain: string): string {
   const base = domain.replace(/^www\./, '').split('.')[0];
@@ -70,13 +73,33 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function syncFromOnboarding(a: OnboardingAnswers): Filters {
+/* Onboarding label → DB value mappings (mirrors API CATEGORY_MAP / REGION_MAP) */
+const ONBOARD_CAT_MAP: Record<string, string> = {
+  'Beauty & Skincare': 'Beauty & Personal Care',
+  'Electronics & Gadgets': 'Electronics & Tech',
+  'Jewelry & Accessories': 'Jewelry',
+  'Fitness & Sports': 'Outdoor & Sports',
+};
+const ONBOARD_REGION_MAP: Record<string, string> = {
+  'United States': 'US',
+  'United Kingdom': 'UK',
+};
+
+function syncFromOnboarding(a: OnboardingAnswers, allCategories: string[]): Filters {
   const f = emptyFilters();
   if (a.categories?.length) {
-    f.category = [...a.categories];
+    if (a.categories.includes('All Categories')) {
+      f.category = [...allCategories];
+    } else {
+      f.category = a.categories.map(c => ONBOARD_CAT_MAP[c] || c);
+    }
   }
   if (a.geoFocus?.length) {
-    f.region = [...a.geoFocus];
+    if (a.geoFocus.includes('Global')) {
+      // Global means no region filter needed
+    } else {
+      f.region = a.geoFocus.map(r => ONBOARD_REGION_MAP[r] || r);
+    }
   }
   if (a.channelMix?.length) {
     if (a.channelMix.includes('offline_retail')) {
@@ -135,8 +158,7 @@ export default function DashboardPage() {
   const [filters, setFilters] = useState<Filters>(emptyFilters());
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [view, setView] = useState<'table' | 'card'>('card');
-  const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
+const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
   const [isFilterVisible, setIsFilterVisible] = useState(true);
@@ -151,6 +173,17 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const fetchRef = useRef(0);
 
+  // Watchlist state
+  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
+  const [activeWatchlist, setActiveWatchlist] = useState<Watchlist | null>(null);
+  const [watchlistAccounts, setWatchlistAccounts] = useState<WatchlistAccount[]>([]);
+  const [wlLoading, setWlLoading] = useState(false);
+  const [showCreateWl, setShowCreateWl] = useState(false);
+  const [newWlName, setNewWlName] = useState('');
+  const [renamingWl, setRenamingWl] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [pendingOnboardingSync, setPendingOnboardingSync] = useState(false);
+
   /* ── Auth + onboarding sync ────────────────────────────────────────── */
   useEffect(() => {
     if (status === 'loading') return;
@@ -163,17 +196,29 @@ export default function DashboardPage() {
       setUser(su);
     } else { router.replace('/signin'); return; }
 
-    if (o) {
-      try {
-        const parsed = JSON.parse(o);
-        const ans: OnboardingAnswers = parsed.answers ?? {};
-        const saved = localStorage.getItem('harvin_dashboard_filters');
-        if (saved) { try { const parsed = JSON.parse(saved); setFilters({ ...emptyFilters(), ...parsed }); } catch { setFilters(syncFromOnboarding(ans)); } }
-        else setFilters(syncFromOnboarding(ans));
-      } catch { /* */ }
+    // Restore saved filters, or flag for onboarding sync once filterOptions load
+    const saved = localStorage.getItem('harvin_dashboard_filters');
+    if (saved) {
+      try { const parsed = JSON.parse(saved); setFilters({ ...emptyFilters(), ...parsed }); } catch { /* */ }
+    } else if (o) {
+      // No saved filters but onboarding exists — need to sync once we have filterOptions
+      setPendingOnboardingSync(true);
     }
     setReady(true);
   }, [router, session, status]);
+
+  // Auto-apply onboarding choices once filterOptions are loaded (first visit from onboarding)
+  useEffect(() => {
+    if (!pendingOnboardingSync || filterOptions.categories.length === 0) return;
+    const o = localStorage.getItem('harvin_onboarding');
+    if (o) {
+      try {
+        const ans: OnboardingAnswers = JSON.parse(o).answers ?? {};
+        setFilters(syncFromOnboarding(ans, filterOptions.categories));
+      } catch { /* */ }
+    }
+    setPendingOnboardingSync(false);
+  }, [pendingOnboardingSync, filterOptions.categories]);
 
   // Persist filters
   useEffect(() => { if (ready) localStorage.setItem('harvin_dashboard_filters', JSON.stringify(filters)); }, [filters, ready]);
@@ -225,20 +270,94 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
+  /* ── Watchlist CRUD ──────────────────────────────────────────────── */
+  const fetchWatchlists = useCallback(async () => {
+    try {
+      const res = await fetch('/api/watchlists');
+      if (!res.ok) return;
+      const data = await res.json();
+      setWatchlists(data.watchlists || []);
+    } catch {}
+  }, []);
+
+  const fetchWatchlistDetail = useCallback(async (id: string) => {
+    setWlLoading(true);
+    try {
+      const res = await fetch(`/api/watchlists?id=${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setActiveWatchlist(data);
+      setWatchlistAccounts(data.accounts || []);
+    } catch {}
+    setWlLoading(false);
+  }, []);
+
+  // Load watchlists when tab is opened
+  useEffect(() => {
+    if (activeTab === 'my-watchlists' && ready) fetchWatchlists();
+  }, [activeTab, ready, fetchWatchlists]);
+
+  const createWatchlist = async () => {
+    if (!newWlName.trim()) return;
+    try {
+      const res = await fetch('/api/watchlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newWlName.trim() }),
+      });
+      if (res.ok) {
+        setNewWlName('');
+        setShowCreateWl(false);
+        fetchWatchlists();
+      }
+    } catch {}
+  };
+
+  const deleteWatchlist = async (id: string) => {
+    try {
+      await fetch(`/api/watchlists?id=${id}`, { method: 'DELETE' });
+      if (activeWatchlist?._id === id) { setActiveWatchlist(null); setWatchlistAccounts([]); }
+      fetchWatchlists();
+    } catch {}
+  };
+
+  const renameWatchlist = async (id: string) => {
+    if (!renameValue.trim()) return;
+    try {
+      await fetch('/api/watchlists', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: renameValue.trim() }),
+      });
+      setRenamingWl(null);
+      setRenameValue('');
+      fetchWatchlists();
+      if (activeWatchlist?._id === id) fetchWatchlistDetail(id);
+    } catch {}
+  };
+
+  const removeFromWatchlist = async (wlId: string, domain: string) => {
+    try {
+      await fetch('/api/watchlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: wlId, domain, remove: true }),
+      });
+      fetchWatchlistDetail(wlId);
+      fetchWatchlists();
+    } catch {}
+  };
+
   /* ── Handlers ──────────────────────────────────────────────────────── */
   const toggle = (k: keyof Filters, v: string) => setFilters(p => ({ ...p, [k]: p[k].includes(v) ? p[k].filter(x => x !== v) : [...p[k], v] }));
   const clearAll = () => setFilters(emptyFilters());
   const resyncOnboarding = () => {
     const o = localStorage.getItem('harvin_onboarding');
-    if (o) { try { setFilters(syncFromOnboarding(JSON.parse(o).answers ?? {})); } catch { /* */ } }
+    if (o) { try { setFilters(syncFromOnboarding(JSON.parse(o).answers ?? {}, filterOptions.categories)); } catch { /* */ } }
   };
   const handleLogout = () => {
     ['harvin_user', 'harvin_onboarding', 'harvin_dashboard_filters'].forEach(k => localStorage.removeItem(k));
     signOut({ callbackUrl: '/' });
-  };
-  const doSort = (key: SortKey) => {
-    if (sortKey === key) setSortAsc(!sortAsc);
-    else { setSortKey(key); setSortAsc(true); }
   };
 
   const activeCount = countFilters(filters);
@@ -251,15 +370,8 @@ export default function DashboardPage() {
 
   const isSettingsTab = activeTab === 'icp-preferences' || activeTab === 'integrations';
   const isComingSoonTab = activeTab === 'recently-funded' || activeTab === 'competitor-clients' || activeTab === 'current-clients';
+  const isWatchlistTab = activeTab === 'my-watchlists';
 
-  /* ── Table header sort button ───────────────────────────────────── */
-  const SortHeader = ({ label, sortKeyVal, className = '' }: { label: string; sortKeyVal: SortKey; className?: string }) => (
-    <button onClick={() => doSort(sortKeyVal)}
-      className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors ${className}`}>
-      {label}
-      <ArrowUpDown size={11} className={sortKey === sortKeyVal ? 'text-[#C94C1E]' : 'opacity-30'} />
-    </button>
-  );
 
   /* ── RENDER ────────────────────────────────────────────────────────── */
   return (
@@ -292,6 +404,11 @@ export default function DashboardPage() {
           <div>
             <h3 className="px-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Watchlists</h3>
             <div className="space-y-1">
+              <button onClick={() => setActiveTab('my-watchlists')}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-medium transition-all ${activeTab === 'my-watchlists' ? 'bg-orange-50 text-[#C94C1E] font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <Star size={18} /> My Watchlists
+                {watchlists.length > 0 && <span className="ml-auto text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">{watchlists.length}</span>}
+              </button>
               <button onClick={() => setActiveTab('recently-funded')}
                 className="w-full flex items-center justify-between px-4 py-2 rounded-xl text-slate-400 cursor-not-allowed">
                 <div className="flex items-center gap-3 font-medium text-[14px]"><Target size={18} className="text-slate-300" /> Recently Funded</div>
@@ -350,9 +467,10 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-[#C94C1E]" />
             <h1 className="text-[18px] font-bold text-slate-800">{TAB_TITLES[activeTab]}</h1>
-            {!isSettingsTab && !isComingSoonTab && <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{total} results</span>}
+            {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{total} results</span>}
+            {isWatchlistTab && activeWatchlist && <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{activeWatchlist.domains?.length || 0} accounts</span>}
           </div>
-          {!isSettingsTab && !isComingSoonTab && (
+          {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && (
             <div className="flex items-center gap-4">
               <div className="relative flex items-center">
                 <Search className="absolute left-3 text-slate-400" size={16} />
@@ -360,11 +478,7 @@ export default function DashboardPage() {
                   className="pl-10 pr-4 py-2 bg-slate-50 border-transparent border focus:border-orange-200 focus:bg-white focus:ring-4 focus:ring-orange-100 rounded-xl text-[13px] w-[300px] transition-all outline-none" />
                 {search && <button onClick={() => setSearch('')} className="absolute right-3 text-slate-400 hover:text-slate-600"><X size={14} /></button>}
               </div>
-              <div className="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-100">
-                <button onClick={() => setView('table')} className={`p-1.5 rounded-md transition-colors ${view === 'table' ? 'bg-white shadow-sm text-[#C94C1E]' : 'text-slate-400'}`}><List size={16} /></button>
-                <button onClick={() => setView('card')} className={`p-1.5 rounded-md transition-colors ${view === 'card' ? 'bg-white shadow-sm text-[#C94C1E]' : 'text-slate-400'}`}><LayoutGrid size={16} /></button>
-              </div>
-              <button onClick={() => setIsFilterVisible(!isFilterVisible)}
+<button onClick={() => setIsFilterVisible(!isFilterVisible)}
                 className={`p-2 px-4 rounded-xl border transition-all flex items-center gap-2 ${isFilterVisible ? 'bg-orange-50 border-orange-200 text-[#C94C1E]' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                 <Filter size={18} />
                 <span className="text-[13px] font-bold">Filters</span>
@@ -375,24 +489,197 @@ export default function DashboardPage() {
         </header>
 
         {/* Active filter chips */}
-        {!isSettingsTab && !isComingSoonTab && activeCount > 0 && (
-          <div className="bg-white border-b border-slate-100 px-8 py-2 flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] text-slate-400 font-medium mr-0.5">Filtered by</span>
-            {(Object.keys(filters) as (keyof Filters)[]).flatMap(k =>
-              filters[k].map(v => (
-                <button key={`${k}-${v}`} onClick={() => toggle(k, v)}
-                  className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md bg-slate-100 text-[10.5px] font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors">
-                  {v} <X size={9} strokeWidth={3} className="opacity-60" />
-                </button>
-              ))
-            )}
-            <button onClick={clearAll} className="text-[10.5px] text-[#C94C1E] font-semibold ml-1">Clear all</button>
+        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && activeCount > 0 && (
+          <div className="bg-white border-b border-slate-100 px-8 py-2.5 flex items-center gap-3 overflow-x-auto custom-scrollbar">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Filter size={12} className="text-slate-400" />
+              <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Active</span>
+            </div>
+            <div className="h-4 w-px bg-slate-200 flex-shrink-0" />
+            {(Object.keys(filters) as (keyof Filters)[]).map(k => {
+              if (filters[k].length === 0) return null;
+              const label: Record<string, string> = { category: 'Category', region: 'Region', offlineStores: 'Stores', businessModel: 'Business', mau: 'MAU', techStack: 'Tech' };
+              return (
+                <div key={k} className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label[k] || k}:</span>
+                  {filters[k].map(v => (
+                    <button key={`${k}-${v}`} onClick={() => toggle(k, v)}
+                      className="inline-flex items-center gap-1.5 h-[26px] px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-medium text-slate-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-all group">
+                      {v}
+                      <X size={10} strokeWidth={2.5} className="text-slate-400 group-hover:text-red-500 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+            <div className="h-4 w-px bg-slate-200 flex-shrink-0" />
+            <button onClick={clearAll} className="flex-shrink-0 text-[11px] text-[#C94C1E] font-bold hover:text-[#b5431a] transition-colors">
+              Clear all
+            </button>
           </div>
         )}
 
         {/* Content */}
         <div className="flex-1 overflow-auto custom-scrollbar p-8">
-          {isSettingsTab ? (
+          {isWatchlistTab ? (
+            /* ── Watchlists View ───────────────────────────────────── */
+            <div className="max-w-5xl mx-auto">
+              {!activeWatchlist ? (
+                /* Watchlist list */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[14px] text-slate-500">{watchlists.length} watchlist{watchlists.length !== 1 ? 's' : ''}</p>
+                    <button onClick={() => setShowCreateWl(true)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/20">
+                      <Plus size={16} /> New Watchlist
+                    </button>
+                  </div>
+
+                  {/* Create modal */}
+                  {showCreateWl && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                      <h3 className="text-[14px] font-bold text-slate-800 mb-3">Create Watchlist</h3>
+                      <div className="flex gap-2">
+                        <input
+                          type="text" placeholder="e.g. Top D2C Brands, Competitor Tracking..."
+                          value={newWlName} onChange={e => setNewWlName(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && createWatchlist()}
+                          className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-orange-300 focus:ring-4 focus:ring-orange-100 rounded-xl text-[13px] outline-none transition-all"
+                          autoFocus
+                        />
+                        <button onClick={createWatchlist}
+                          className="px-5 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-orange-700 transition-colors">
+                          Create
+                        </button>
+                        <button onClick={() => { setShowCreateWl(false); setNewWlName(''); }}
+                          className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-500 text-[13px] font-medium hover:bg-slate-50 transition-colors">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {watchlists.length === 0 && !showCreateWl ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                      <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
+                        <Star size={24} className="text-slate-300" />
+                      </div>
+                      <p className="text-[15px] font-semibold text-slate-600 mb-1">No watchlists yet</p>
+                      <p className="text-[12px] text-slate-400 mb-5 max-w-sm">Create a watchlist to save and track brands you&apos;re interested in. Add accounts from the Account Explorer or individual account pages.</p>
+                      <button onClick={() => setShowCreateWl(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/20">
+                        <Plus size={16} /> Create your first watchlist
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {watchlists.map(wl => (
+                        <div key={wl._id}
+                          className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group"
+                          onClick={() => fetchWatchlistDetail(wl._id)}>
+                          <div className="flex items-start justify-between mb-3">
+                            {renamingWl === wl._id ? (
+                              <input type="text" value={renameValue}
+                                onChange={e => setRenameValue(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') renameWatchlist(wl._id); if (e.key === 'Escape') setRenamingWl(null); }}
+                                onBlur={() => setRenamingWl(null)}
+                                className="text-[16px] font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-orange-300 w-full"
+                                autoFocus
+                                onClick={e => e.stopPropagation()}
+                              />
+                            ) : (
+                              <h3 className="text-[16px] font-bold text-slate-800 group-hover:text-[#C94C1E] transition-colors">{wl.name}</h3>
+                            )}
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                              <button onClick={() => { setRenamingWl(wl._id); setRenameValue(wl.name); }}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+                                <Pencil size={13} />
+                              </button>
+                              <button onClick={() => { if (confirm('Delete this watchlist?')) deleteWatchlist(wl._id); }}
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 text-[12px] text-slate-400">
+                            <span className="font-semibold text-slate-600">{wl.domains?.length || 0} accounts</span>
+                            <span className="text-slate-200">&bull;</span>
+                            <span>Updated {formatDate(wl.updatedAt)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Watchlist detail */
+                <div>
+                  <button onClick={() => { setActiveWatchlist(null); setWatchlistAccounts([]); }}
+                    className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 hover:text-slate-600 mb-4 transition-colors">
+                    <ChevronLeft size={16} /> Back to Watchlists
+                  </button>
+                  <div className="flex items-center justify-between mb-5">
+                    <div>
+                      <h2 className="text-[20px] font-bold text-slate-800">{activeWatchlist.name}</h2>
+                      <p className="text-[12px] text-slate-400 mt-0.5">{activeWatchlist.domains?.length || 0} accounts &middot; Updated {formatDate(activeWatchlist.updatedAt)}</p>
+                    </div>
+                  </div>
+
+                  {wlLoading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <Loader2 size={28} className="text-[#C94C1E] animate-spin" />
+                    </div>
+                  ) : watchlistAccounts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-3"><Star size={20} className="text-slate-300" /></div>
+                      <p className="text-[14px] font-semibold text-slate-600 mb-1">This watchlist is empty</p>
+                      <p className="text-[12px] text-slate-400 mb-4">Add accounts from the Account Explorer or individual account pages.</p>
+                      <button onClick={() => setActiveTab('account-explorer')}
+                        className="px-4 py-2 rounded-xl text-[13px] font-semibold text-[#C94C1E] border border-orange-200 hover:bg-orange-50 transition-colors">
+                        Browse accounts
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {watchlistAccounts.map(a => (
+                        <div key={a.normalizedDomain}
+                          className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all group">
+                          <div className="p-4 flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center font-serif text-slate-400 text-lg flex-shrink-0 cursor-pointer"
+                              onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
+                              {domainToName(a.normalizedDomain)[0]}
+                            </div>
+                            <div className="min-w-0 flex-1 cursor-pointer" onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-[15px] font-bold text-slate-800 group-hover:text-[#C94C1E] transition-colors">{domainToName(a.normalizedDomain)}</h3>
+                                <span className="text-[11px] text-slate-400">{a.normalizedDomain}</span>
+                              </div>
+                              <p className="text-[12px] text-slate-400 mt-0.5">
+                                {a.category}{a.subCategory && a.subCategory !== a.category ? ` · ${a.subCategory}` : ''}{a.region ? ` · ${a.region}` : ''}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {a.category && a.category !== 'Unknown' && (
+                                <span className="text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">{a.category}</span>
+                              )}
+                              {a.offlineStores && a.offlineStores !== 'Unknown' && a.offlineStores !== 'Online' && (
+                                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">{a.offlineStores} stores</span>
+                              )}
+                              <button onClick={() => removeFromWatchlist(activeWatchlist._id, a.normalizedDomain)}
+                                className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Remove from watchlist">
+                                <X size={14} strokeWidth={2.5} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : isSettingsTab ? (
             /* ── Settings Pages ────────────────────────────────────── */
             <div className="max-w-3xl mx-auto">
               {activeTab === 'icp-preferences' && (
@@ -482,12 +769,12 @@ export default function DashboardPage() {
                 <button onClick={resyncOnboarding} className="h-8 px-4 rounded-lg text-[12px] font-semibold text-[#C94C1E] border border-orange-200 hover:bg-orange-50 transition-colors">Reset to preferences</button>
               </div>
             </div>
-          ) : view === 'card' ? (
+          ) : (
             /* ── Card View ─────────────────────────────────────────── */
             <div className="max-w-6xl mx-auto space-y-4">
               {accounts.map(a => (
                 <div key={a.normalizedDomain}
-                  onClick={() => router.push(`/scan/${a.normalizedDomain}`)}
+                  onClick={() => router.push(`/account/${a.normalizedDomain}`)}
                   className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group">
                   <div className="p-5 flex flex-col gap-3">
                     <div className="flex items-start justify-between">
@@ -501,7 +788,7 @@ export default function DashboardPage() {
                             <span className="text-[11px] text-slate-400 font-medium">{a.normalizedDomain}</span>
                           </div>
                           <p className="text-[12px] text-slate-400 font-medium mt-0.5">
-                            {a.subCategory || a.category} &bull; {a.region}
+                            {a.category}{a.subCategory && a.subCategory !== a.category ? ` · ${a.subCategory}` : ''} &bull; {a.region}
                           </p>
                         </div>
                       </div>
@@ -535,63 +822,11 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          ) : (
-            /* ── Table / List View ─────────────────────────────────── */
-            <div className="max-w-6xl mx-auto">
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="text-left px-5 py-3"><SortHeader label="Brand" sortKeyVal="domain" /></th>
-                      <th className="text-left px-4 py-3"><SortHeader label="Category" sortKeyVal="category" /></th>
-                      <th className="text-left px-4 py-3"><span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Sub-Category</span></th>
-                      <th className="text-left px-4 py-3"><SortHeader label="Region" sortKeyVal="region" /></th>
-                      <th className="text-left px-4 py-3"><SortHeader label="Stores" sortKeyVal="offlineStores" /></th>
-                      <th className="text-right px-5 py-3"><SortHeader label="Updated" sortKeyVal="updatedAt" /></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {accounts.map(a => (
-                      <tr key={a.normalizedDomain}
-                        onClick={() => router.push(`/scan/${a.normalizedDomain}`)}
-                        className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer group">
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center font-serif text-slate-400 text-[15px] flex-shrink-0">
-                              {domainToName(a.normalizedDomain)[0]}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[13px] font-bold text-slate-800 truncate group-hover:text-[#C94C1E] transition-colors">{domainToName(a.normalizedDomain)}</p>
-                              <p className="text-[11px] text-slate-400 truncate">{a.normalizedDomain}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-[12px] text-slate-600">{a.category}</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-[12px] text-slate-500">{a.subCategory || '—'}</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-semibold ${REGION_COLORS[a.region] || 'text-slate-600 bg-slate-50 border-slate-200'}`}>{a.region}</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-[12px] text-slate-600">{a.offlineStores || 'Online'}</span>
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <span className="text-[11px] text-slate-400">{formatDate(a.updatedAt)}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           )}
         </div>
 
         {/* Footer */}
-        {!isSettingsTab && !isComingSoonTab && (
+        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && (
           <footer className="h-[64px] border-t border-slate-100 bg-white px-8 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-4 text-[12px] text-slate-400 font-medium">
               <span>Showing <span className="text-slate-800 font-bold">{total === 0 ? 0 : ((page - 1) * PAGE_SIZE) + 1}&ndash;{Math.min(page * PAGE_SIZE, total)}</span> of <span className="text-slate-800 font-bold">{total}</span></span>
@@ -621,7 +856,7 @@ export default function DashboardPage() {
       </main>
 
       {/* ── Filter Sidebar (Right, White, Collapsible) ────────────────── */}
-      {!isSettingsTab && !isComingSoonTab && (
+      {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && (
         <aside className={`flex-shrink-0 border-l border-slate-100 bg-white flex flex-col transition-all duration-300 ease-in-out ${isFilterVisible ? 'w-[300px]' : 'w-0 overflow-hidden'}`}>
           <div className="h-[64px] px-6 flex items-center justify-between border-b border-slate-50 bg-white sticky top-0 z-10 flex-shrink-0">
             <div className="flex items-center gap-2">
@@ -634,6 +869,14 @@ export default function DashboardPage() {
 
           <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
             <FilterSection title="Category" count={filters.category.length}>
+              <FilterItem
+                label="All Categories"
+                on={filterOptions.categories.length > 0 && filters.category.length === filterOptions.categories.length}
+                onClick={() => {
+                  const allSelected = filters.category.length === filterOptions.categories.length;
+                  setFilters(p => ({ ...p, category: allSelected ? [] : [...filterOptions.categories] }));
+                }}
+              />
               {visCats.map(v => <FilterItem key={v} label={v} on={filters.category.includes(v)} onClick={() => toggle('category', v)} />)}
               {hiddenCats > 0 && (
                 <button onClick={() => setMoreCats(!moreCats)} className="px-3 mt-1 text-[11px] text-[#C94C1E] font-medium hover:underline">
@@ -648,6 +891,24 @@ export default function DashboardPage() {
 
             <FilterSection title="Offline Stores" count={filters.offlineStores.length}>
               {filterOptions.offlineStores.map(v => <FilterItem key={v} label={v} on={filters.offlineStores.includes(v)} onClick={() => toggle('offlineStores', v)} />)}
+            </FilterSection>
+
+            <FilterSection title="Business Model" count={filters.businessModel.length} defaultOpen={false}>
+              {['Physical', 'Digital', 'Website Only', 'Marketplace Only', 'Omnichannel', 'Offline Retail'].map(v => (
+                <FilterItem key={v} label={v} on={filters.businessModel.includes(v)} onClick={() => toggle('businessModel', v)} />
+              ))}
+            </FilterSection>
+
+            <FilterSection title="Monthly Active Users" count={filters.mau.length} defaultOpen={false}>
+              {['< 10K', '10K - 50K', '50K - 100K', '100K - 500K', '500K - 1M', '1M+'].map(v => (
+                <FilterItem key={v} label={v} on={filters.mau.includes(v)} onClick={() => toggle('mau', v)} />
+              ))}
+            </FilterSection>
+
+            <FilterSection title="Tech Stack" count={filters.techStack.length} defaultOpen={false}>
+              {['Shopify', 'WooCommerce', 'Magento', 'Custom'].map(v => (
+                <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
+              ))}
             </FilterSection>
           </div>
 

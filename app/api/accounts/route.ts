@@ -148,8 +148,8 @@ export async function GET(req: NextRequest) {
       },
     }, { headers: corsHeaders });
   } catch (err: unknown) {
-    const error = err as { message?: string };
-    console.error('[accounts API]', error.message);
-    return NextResponse.json({ error: 'Failed to fetch accounts' }, { status: 500, headers: corsHeaders });
+    const error = err as Error;
+    console.error('[accounts API] error:', error?.message, error?.stack);
+    return NextResponse.json({ error: error?.message || 'Failed to fetch accounts' }, { status: 500, headers: corsHeaders });
   }
 }
