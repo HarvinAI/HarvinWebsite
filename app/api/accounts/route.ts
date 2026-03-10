@@ -59,6 +59,8 @@ export async function GET(req: NextRequest) {
   // Filters (comma-separated)
   const rawCategories = sp.get('categories')?.split(',').filter(Boolean) || [];
   const rawRegions = sp.get('regions')?.split(',').filter(Boolean) || [];
+  const states = sp.get('states')?.split(',').filter(Boolean) || [];
+  const cities = sp.get('cities')?.split(',').filter(Boolean) || [];
   const offlinePresence = sp.get('offlinePresence')?.split(',').filter(Boolean) || [];
   const businessModel = sp.get('businessModel')?.split(',').filter(Boolean) || [];
   const scale = sp.get('scale')?.split(',').filter(Boolean) || [];
@@ -88,6 +90,7 @@ export async function GET(req: NextRequest) {
     const query: Record<string, unknown> = {
       category: { $exists: true, $nin: [null, ''] },
       region: { $exists: true, $nin: [null, ''] },
+      normalizedDomain: { $nin: ['harvin.ai'] },
     };
 
     if (categories.length > 0) {
@@ -100,6 +103,14 @@ export async function GET(req: NextRequest) {
       if (!regions.includes('Global')) {
         query.region = { $in: regions };
       }
+    }
+
+    if (states.length > 0) {
+      query.state = { $in: states };
+    }
+
+    if (cities.length > 0) {
+      query.city = { $in: cities };
     }
 
     if (offlineStores.length > 0) {
@@ -156,6 +167,7 @@ export async function GET(req: NextRequest) {
       category: 'category',
       region: 'region',
       offlineStores: 'aiStoreCount',
+      techCount: 'techCount',
       updatedAt: 'updatedAt',
     };
     const sortField = sortMap[sortBy] || 'updatedAt';

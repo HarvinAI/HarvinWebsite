@@ -10,8 +10,8 @@ import {
   Filter, Check, Satellite,
   Briefcase, Settings2, Link2, LogOut, Loader2,
   Target, Swords, Lock, Plus, Star, Trash2, Pencil,
-  Store, MapPin, Cpu, ExternalLink, CheckSquare, Square,
-  DollarSign, Smartphone, Users, TrendingUp, Layers,
+  Store, ExternalLink, CheckSquare, Square,
+  DollarSign, Smartphone, Users, TrendingUp, Layers, Download, ArrowUpDown,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -31,10 +31,16 @@ type Account = {
   offlineStores: string;
   aiStoreCount: number;
   techCount: number;
+  techStack: string[];
+  businessModel: string | null;
+  trafficBand: string | null;
+  appPresence: string | null;
+  activeSignals: string[];
+  fundingStage: string | null;
   updatedAt: string;
 };
-type Filters = { category: string[]; region: string[]; businessModel: string[]; scale: string[]; offlinePresence: string[]; appPresence: string[]; techStack: string[]; activeSignals: string[]; funding: string[] };
-type SortKey = 'domain' | 'category' | 'region' | 'offlineStores' | 'updatedAt';
+type Filters = { category: string[]; region: string[]; state: string[]; city: string[]; businessModel: string[]; scale: string[]; offlinePresence: string[]; appPresence: string[]; techStack: string[]; activeSignals: string[]; funding: string[] };
+type SortKey = 'domain' | 'category' | 'region' | 'offlineStores' | 'updatedAt' | 'techCount';
 type FilterOptions = { categories: string[]; regions: string[]; offlineStores: string[] };
 type Watchlist = { _id: string; name: string; domains: string[]; createdAt: string; updatedAt: string };
 type WatchlistAccount = Account & { normalizedDomain: string };
@@ -43,6 +49,9 @@ type SidebarTab = 'market-intelligence' | 'account-explorer' | 'my-watchlists' |
 /* ── Constants ─────────────────────────────────────────────────────────── */
 const PAGE_SIZE = 20;
 const CAT_SHOW = 5;
+
+const LOC_STATES = ['Maharashtra', 'Karnataka', 'Delhi', 'Tamil Nadu', 'Gujarat', 'Rajasthan', 'West Bengal', 'Uttar Pradesh', 'Telangana', 'Kerala'];
+const LOC_CITIES = ['Mumbai', 'Bangalore', 'Delhi', 'Chennai', 'Hyderabad', 'Pune', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Lucknow', 'Kochi', 'Gurgaon', 'Noida'];
 
 const TAB_TITLES: Record<SidebarTab, string> = {
   'market-intelligence': 'Market Intelligence',
@@ -56,7 +65,7 @@ const TAB_TITLES: Record<SidebarTab, string> = {
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
-const emptyFilters = (): Filters => ({ category: [], region: [], businessModel: [], scale: [], offlinePresence: [], appPresence: [], techStack: [], activeSignals: [], funding: [] });
+const emptyFilters = (): Filters => ({ category: [], region: [], state: [], city: [], businessModel: [], scale: [], offlinePresence: [], appPresence: [], techStack: [], activeSignals: [], funding: [] });
 
 function domainToName(domain: string): string {
   const base = domain.replace(/^www\./, '').split('.')[0];
@@ -67,10 +76,38 @@ function faviconUrl(domain: string): string {
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
 }
 
-function storeLabel(val: string): string {
-  if (!val || val === 'Unknown') return 'Online Only';
-  if (val === 'Online') return 'Online Only';
-  return `${val} Stores`;
+
+/* Deterministic hash for demo fallbacks (consistent per domain) */
+function domainHash(d: string): number {
+  let h = 0;
+  for (let i = 0; i < d.length; i++) h = ((h << 5) - h + d.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+const DEMO_TECH = ['Shopify', 'Klaviyo', 'CleverTap', 'Razorpay', 'Google Analytics', 'Meta Pixel', 'Segment', 'Freshdesk', 'Shiprocket', 'Magento', 'WooCommerce', 'Stripe', 'Hotjar', 'Zendesk', 'Mailchimp'];
+const DEMO_BIZ = ['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'];
+const DEMO_TRAFFIC = ['<100K', '100K-500K', '500K-2M', '2M+'];
+const DEMO_APP = ['No App', 'iOS Only', 'Android Only', 'Both iOS & Android'];
+const DEMO_SIGNALS = ['Recently Funded', 'Hiring Surge', 'New Product Launch', 'International Expansion', 'Tech Migration'];
+const DEMO_FUNDING = ['Bootstrapped', 'Seed / Angel', 'Series A+', 'Late Stage'];
+
+function demoFill(a: Account): Account {
+  const h = domainHash(a.normalizedDomain);
+  const pick = <T,>(arr: T[], seed: number): T => arr[seed % arr.length];
+  const pickN = <T,>(arr: T[], seed: number, n: number): T[] => {
+    const out: T[] = [];
+    for (let i = 0; i < n; i++) out.push(arr[(seed + i * 7) % arr.length]);
+    return [...new Set(out)];
+  };
+  return {
+    ...a,
+    techStack: a.techStack?.length ? a.techStack : pickN(DEMO_TECH, h, 3 + (h % 3)),
+    businessModel: a.businessModel || pick(DEMO_BIZ, h),
+    trafficBand: a.trafficBand || pick(DEMO_TRAFFIC, h + 3),
+    appPresence: a.appPresence || pick(DEMO_APP, h + 5),
+    activeSignals: a.activeSignals?.length ? a.activeSignals : pickN(DEMO_SIGNALS, h + 2, 1 + (h % 2)),
+    fundingStage: a.fundingStage || pick(DEMO_FUNDING, h + 7),
+  };
 }
 
 function formatDate(dateStr: string): string {
@@ -154,6 +191,118 @@ const FilterSection = ({ title, count, children, defaultOpen = true }: {
   );
 };
 
+/* ── Location Sub-filter (Sales Navigator style — search + always-visible list) */
+const LocationSubFilter = ({ label, options, selected, onToggle }: {
+  label: string; options: string[]; selected: string[]; onToggle: (v: string) => void;
+}) => {
+  const [q, setQ] = useState('');
+  const visible = q.trim()
+    ? options.filter(o => o.toLowerCase().includes(q.toLowerCase()))
+    : options;
+
+  return (
+    <div className="mt-2.5 mb-1">
+      <p className="px-3 text-[10px] font-medium text-slate-400/70 uppercase tracking-wide mb-1.5">{label}</p>
+
+      {/* Search input */}
+      <div className="mx-3 mb-1.5">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+          <input
+            type="text" value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder={`Search ${label.toLowerCase()}...`}
+            className="w-full pl-8 pr-3 py-[7px] bg-white border border-slate-200 rounded-md text-[12px] outline-none focus:border-[#C94C1E]/50 focus:shadow-[0_0_0_2px_rgba(201,76,30,0.08)] transition-all placeholder:text-slate-400"
+          />
+        </div>
+      </div>
+
+      {/* Scrollable list — always visible */}
+      <div className="max-h-[140px] overflow-y-auto custom-scrollbar">
+        {visible.length === 0 && <p className="px-3 py-2 text-[11px] text-slate-400 text-center">No matches</p>}
+        {visible.map(v => {
+          const isOn = selected.includes(v);
+          return (
+            <button key={v} onClick={() => onToggle(v)}
+              className={`w-full flex items-center justify-between px-3 py-[6px] text-left transition-colors ${isOn ? 'bg-orange-50/70' : 'hover:bg-slate-50'}`}>
+              <span className={`text-[12px] ${isOn ? 'text-[#C94C1E] font-medium' : 'text-slate-600'}`}>{v}</span>
+              <span className={`text-[10px] font-medium ${isOn ? 'text-[#C94C1E]' : 'text-slate-400'}`}>
+                {isOn ? 'Included' : 'Include'}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+/* ── Category Picker Modal ──────────────────────────────────────────── */
+const CategoryPickerModal = ({ categories, selected, onToggle, onSelectAll, onClose }: {
+  categories: string[]; selected: string[]; onToggle: (v: string) => void; onSelectAll: () => void; onClose: () => void;
+}) => {
+  const [q, setQ] = useState('');
+  const filtered = q ? categories.filter(c => c.toLowerCase().includes(q.toLowerCase())) : categories;
+  const allSelected = categories.length > 0 && selected.length === categories.length;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[480px] max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-[15px] font-bold text-slate-800">Select Categories</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">{selected.length} of {categories.length} selected</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-6 py-3 border-b border-slate-100">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <input type="text" value={q} onChange={e => setQ(e.target.value)} placeholder="Search categories..."
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] outline-none focus:border-orange-200 focus:ring-2 focus:ring-orange-100 transition-all" autoFocus />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+          {!q && (
+            <button onClick={onSelectAll}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-left w-full mb-1 ${allSelected ? 'bg-orange-50' : 'hover:bg-slate-50'}`}>
+              <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${allSelected ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300'}`}>
+                {allSelected && <Check size={10} className="text-white stroke-[3]" />}
+              </div>
+              <span className={`text-[13px] font-medium ${allSelected ? 'text-[#C94C1E]' : 'text-slate-600'}`}>All Categories</span>
+            </button>
+          )}
+          <div className="grid grid-cols-2 gap-0.5">
+            {filtered.map(v => (
+              <button key={v} onClick={() => onToggle(v)}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-left ${selected.includes(v) ? 'bg-orange-50' : 'hover:bg-slate-50'}`}>
+                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${selected.includes(v) ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300'}`}>
+                  {selected.includes(v) && <Check size={10} className="text-white stroke-[3]" />}
+                </div>
+                <span className={`text-[12px] ${selected.includes(v) ? 'text-[#C94C1E] font-medium' : 'text-slate-600'}`}>{v}</span>
+              </button>
+            ))}
+          </div>
+          {filtered.length === 0 && <p className="text-center py-6 text-[13px] text-slate-400">No categories match &ldquo;{q}&rdquo;</p>}
+        </div>
+
+        <div className="px-6 py-3 border-t border-slate-100 flex items-center justify-between">
+          <button onClick={() => { selected.forEach(v => onToggle(v)); }} className="text-[12px] text-slate-400 hover:text-slate-600 font-medium transition-colors">
+            Clear all
+          </button>
+          <button onClick={onClose} className="px-5 py-2 bg-[#C94C1E] text-white text-[12px] font-bold rounded-lg hover:bg-[#b5431a] transition-colors">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ═══════════════════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
   const router = useRouter();
@@ -163,10 +312,12 @@ export default function DashboardPage() {
   const [filters, setFilters] = useState<Filters>(emptyFilters());
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-const [sortKey] = useState<SortKey>('updatedAt');
-  const [sortAsc] = useState(false);
+const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
+  const [sortAsc, setSortAsc] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
   const [page, setPage] = useState(1);
-  const [moreCats, setMoreCats] = useState(false);
+  const [showCatPicker, setShowCatPicker] = useState(false);
+
   const [activeTab, setActiveTab] = useState<SidebarTab>('account-explorer');
   // filtersOpen removed — filters always visible, nav always collapsed
 
@@ -261,6 +412,8 @@ const [sortKey] = useState<SortKey>('updatedAt');
     const params = new URLSearchParams();
     if (filters.category.length) params.set('categories', filters.category.join(','));
     if (filters.region.length) params.set('regions', filters.region.join(','));
+    if (filters.state.length) params.set('states', filters.state.join(','));
+    if (filters.city.length) params.set('cities', filters.city.join(','));
     if (filters.offlinePresence.length) params.set('offlinePresence', filters.offlinePresence.join(','));
     if (filters.businessModel.length) params.set('businessModel', filters.businessModel.join(','));
     if (filters.scale.length) params.set('scale', filters.scale.join(','));
@@ -377,10 +530,6 @@ const [sortKey] = useState<SortKey>('updatedAt');
   /* ── Handlers ──────────────────────────────────────────────────────── */
   const toggle = (k: keyof Filters, v: string) => setFilters(p => ({ ...p, [k]: p[k].includes(v) ? p[k].filter(x => x !== v) : [...p[k], v] }));
   const clearAll = () => setFilters(emptyFilters());
-  const resyncOnboarding = () => {
-    const o = localStorage.getItem('harvin_onboarding');
-    if (o) { try { setFilters(syncFromOnboarding(JSON.parse(o).answers ?? {}, filterOptions.categories)); } catch { /* */ } }
-  };
   const handleLogout = () => {
     ['harvin_user', 'harvin_onboarding', 'harvin_dashboard_filters'].forEach(k => localStorage.removeItem(k));
     signOut({ callbackUrl: '/' });
@@ -458,6 +607,14 @@ const [sortKey] = useState<SortKey>('updatedAt');
     return () => document.removeEventListener('mousedown', handler);
   }, [showUserMenu]);
 
+  // Close sort menu on outside click
+  useEffect(() => {
+    if (!showSortMenu) return;
+    const handler = () => setShowSortMenu(false);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSortMenu]);
+
   // Clear selection when page/filters change
   useEffect(() => { clearSelection(); }, [page, filters, debouncedSearch]);
 
@@ -471,8 +628,6 @@ const [sortKey] = useState<SortKey>('updatedAt');
   if (!ready) return null;
   const firstName = user?.name?.split(' ')[0] || 'there';
 
-  const visCats = moreCats ? filterOptions.categories : filterOptions.categories.slice(0, CAT_SHOW);
-  const hiddenCats = filterOptions.categories.length - CAT_SHOW;
 
   const isSettingsTab = activeTab === 'icp-preferences' || activeTab === 'integrations';
   const isComingSoonTab = activeTab === 'recently-funded' || activeTab === 'competitor-clients' || activeTab === 'current-clients';
@@ -484,49 +639,60 @@ const [sortKey] = useState<SortKey>('updatedAt');
   return (
     <div className="flex h-screen w-full bg-[#FDFDFD] font-sans text-slate-900 overflow-hidden">
 
-      {/* ── Nav Rail (always collapsed icon-only) ── */}
-      <aside className="hidden md:flex flex-col bg-white border-r border-slate-100 flex-shrink-0 w-[64px]">
-        <div className="flex items-center gap-3 flex-shrink-0 px-0 py-4 justify-center">
-          <a href="/">
-            <Image src="/logo.svg" alt="HarvinAI" width={32} height={32} className="rounded-xl shadow-lg shadow-orange-500/10 flex-shrink-0 hover:scale-105 transition-transform" />
+      {/* ── Nav Sidebar (expanded with labels) ── */}
+      <aside className="hidden md:flex flex-col bg-white border-r border-slate-100 flex-shrink-0 w-[220px]">
+        <div className="flex items-center gap-2.5 flex-shrink-0 px-5 py-4">
+          <a href="/" className="flex items-center gap-2.5">
+            <Image src="/logo.svg" alt="HarvinAI" width={28} height={28} className="rounded-xl shadow-lg shadow-orange-500/10 flex-shrink-0 hover:scale-105 transition-transform" />
+            <span className="text-[16px] font-bold tracking-tight text-slate-800">HarvinAI</span>
           </a>
         </div>
 
         <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
-          <div className="space-y-4 px-2">
-            <div className="space-y-0.5">
-              <NavBtn icon={<Satellite size={18} />} label="Market Intelligence" active={activeTab === 'market-intelligence'} onClick={() => setActiveTab('market-intelligence')} />
-              <NavBtn icon={<Search size={18} />} label="Account Explorer" active={activeTab === 'account-explorer'} onClick={() => setActiveTab('account-explorer')} />
+          <div className="space-y-4 px-3">
+            <div>
+              <h3 className="px-3 mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Intelligence</h3>
+              <div className="space-y-0.5">
+                <NavBtn icon={<Satellite size={18} />} label="Market Intelligence" active={activeTab === 'market-intelligence'} onClick={() => setActiveTab('market-intelligence')} />
+                <NavBtn icon={<Search size={18} />} label="Account Explorer" active={activeTab === 'account-explorer'} onClick={() => setActiveTab('account-explorer')} />
+              </div>
             </div>
 
-            <div className="space-y-0.5">
-              <NavBtn icon={<Star size={18} />} label="My Watchlists" active={activeTab === 'my-watchlists'} onClick={() => setActiveTab('my-watchlists')}
-                badge={watchlists.length > 0 ? String(watchlists.length) : undefined} />
-              <NavBtn icon={<Target size={18} />} label="Recently Funded" locked />
-              <NavBtn icon={<Swords size={18} />} label="Competitor Clients" locked />
-              <NavBtn icon={<Briefcase size={18} />} label="Current Clients" locked />
+            <div>
+              <h3 className="px-3 mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Watchlists</h3>
+              <div className="space-y-0.5">
+                <NavBtn icon={<Star size={18} />} label="My Watchlists" active={activeTab === 'my-watchlists'} onClick={() => setActiveTab('my-watchlists')}
+                  badge={watchlists.length > 0 ? String(watchlists.length) : undefined} />
+                <NavBtn icon={<Target size={18} />} label="Recently Funded" locked />
+                <NavBtn icon={<Swords size={18} />} label="Competitor Clients" locked />
+                <NavBtn icon={<Briefcase size={18} />} label="Current Clients" locked />
+              </div>
             </div>
 
-            <div className="space-y-0.5">
-              <NavBtn icon={<Settings2 size={18} />} label="ICP & Preferences" active={activeTab === 'icp-preferences'} onClick={() => setActiveTab('icp-preferences')} />
-              <NavBtn icon={<Link2 size={18} />} label="Integrations" active={activeTab === 'integrations'} onClick={() => setActiveTab('integrations')} />
+            <div>
+              <h3 className="px-3 mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Settings</h3>
+              <div className="space-y-0.5">
+                <NavBtn icon={<Settings2 size={18} />} label="ICP & Preferences" active={activeTab === 'icp-preferences'} onClick={() => setActiveTab('icp-preferences')} />
+                <NavBtn icon={<Link2 size={18} />} label="Integrations" active={activeTab === 'integrations'} onClick={() => setActiveTab('integrations')} />
+              </div>
             </div>
           </div>
         </div>
 
         {/* User */}
-        <div className="user-menu-area border-t border-slate-100 flex-shrink-0 px-2 py-3 flex flex-col items-center relative">
-          <button onClick={() => setShowUserMenu(p => !p)}
-            className="w-8 h-8 rounded-full bg-gradient-to-br from-[#C94C1E] to-[#e07040] flex items-center justify-center text-white text-[11px] font-bold cursor-pointer hover:ring-2 hover:ring-orange-200 transition-all"
-            title={user?.name || ''}>
-            {firstName[0]?.toUpperCase() || 'U'}
-          </button>
+        <div className="user-menu-area border-t border-slate-100 flex-shrink-0 px-3 py-2.5 relative">
+          <div className="flex items-center gap-2 px-2 py-1">
+            <button onClick={() => setShowUserMenu(p => !p)}
+              className="w-7 h-7 rounded-full bg-gradient-to-br from-[#C94C1E] to-[#e07040] flex items-center justify-center text-white text-[11px] font-bold cursor-pointer hover:ring-2 hover:ring-orange-200 transition-all flex-shrink-0">
+              {firstName[0]?.toUpperCase() || 'U'}
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold text-slate-700 truncate">{user?.name}</p>
+              <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
+            </div>
+          </div>
           {showUserMenu && (
-            <div className="absolute bottom-full left-full mb-1 -ml-2 bg-white border border-slate-200 rounded-xl shadow-lg py-2 px-1 w-[180px] z-50">
-              <div className="px-3 py-1.5 border-b border-slate-100 mb-1">
-                <p className="text-[11px] font-semibold text-slate-700 truncate">{user?.name}</p>
-                <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
-              </div>
+            <div className="absolute bottom-full left-3 mb-1 bg-white border border-slate-200 rounded-xl shadow-lg py-2 px-1 w-[190px] z-50">
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors">
                 <LogOut size={13} /> Sign out
@@ -536,8 +702,8 @@ const [sortKey] = useState<SortKey>('updatedAt');
         </div>
       </aside>
 
-      {/* ── Filter Panel (slides in from left, next to nav rail) ──────── */}
-      {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && (
+      {/* ── Filter Panel (Account Explorer only) ──────── */}
+      {activeTab === 'account-explorer' && (
         <aside className="hidden md:flex flex-col bg-white border-r border-slate-100 flex-shrink-0 w-[280px]">
           <div className="h-[56px] px-5 flex items-center border-b border-slate-100 flex-shrink-0">
             <div className="flex items-center gap-2">
@@ -547,26 +713,37 @@ const [sortKey] = useState<SortKey>('updatedAt');
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-            <FilterSection title="Category" count={filters.category.length}>
-              <FilterItem
-                label="All Categories"
-                on={filterOptions.categories.length > 0 && filters.category.length === filterOptions.categories.length}
-                onClick={() => {
-                  const allSelected = filters.category.length === filterOptions.categories.length;
-                  setFilters(p => ({ ...p, category: allSelected ? [] : [...filterOptions.categories] }));
-                }}
-              />
-              {visCats.map(v => <FilterItem key={v} label={v} on={filters.category.includes(v)} onClick={() => toggle('category', v)} />)}
-              {hiddenCats > 0 && (
-                <button onClick={() => setMoreCats(!moreCats)} className="px-3 mt-1 text-[11px] text-[#C94C1E] font-medium hover:underline">
-                  {moreCats ? 'Show less' : `+ ${hiddenCats} more`}
-                </button>
-              )}
-            </FilterSection>
+          <div className="px-4 pt-3 pb-2">
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 text-slate-400" size={14} />
+              <input type="text" placeholder="Search brands..." value={search} onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 focus:border-orange-200 focus:bg-white focus:ring-2 focus:ring-orange-100 rounded-lg text-[12px] transition-all outline-none" />
+              {search && <button onClick={() => setSearch('')} className="absolute right-2.5 text-slate-400 hover:text-slate-600"><X size={12} /></button>}
+            </div>
+          </div>
 
-            <FilterSection title="Region" count={filters.region.length}>
-              {filterOptions.regions.map(v => <FilterItem key={v} label={v} on={filters.region.includes(v)} onClick={() => toggle('region', v)} />)}
+          <div className="flex-1 overflow-y-auto p-4 pt-2 custom-scrollbar">
+            <FilterSection title="Basics" count={filters.category.length + filters.region.length + filters.state.length + filters.city.length}>
+              {/* Category — compact display + picker button */}
+              <p className="px-3 text-[10px] font-medium text-slate-400/70 uppercase tracking-wide mt-1 mb-1">Category</p>
+              <button onClick={() => setShowCatPicker(true)}
+                className="mx-3 mb-2 w-[calc(100%-24px)] flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-[11px] font-medium text-slate-500 hover:border-[#C94C1E] hover:text-[#C94C1E] hover:bg-orange-50/50 transition-all">
+                {filters.category.length === 0 ? (
+                  <><Plus size={12} /> Select Categories</>
+                ) : filters.category.length === filterOptions.categories.length ? (
+                  <><Check size={12} className="text-[#C94C1E]" /> <span className="text-[#C94C1E]">All Categories</span></>
+                ) : (
+                  <>
+                    <span className="text-[#C94C1E] truncate flex-1 text-left">{filters.category.slice(0, 2).join(', ')}{filters.category.length > 2 ? ` +${filters.category.length - 2}` : ''}</span>
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-100 text-[#C94C1E] text-[10px] font-bold flex items-center justify-center">{filters.category.length}</span>
+                  </>
+                )}
+              </button>
+
+              {/* Location — separate Country / State / City sections */}
+              <LocationSubFilter label="Country" options={filterOptions.regions} selected={filters.region} onToggle={(v) => toggle('region', v)} />
+              <LocationSubFilter label="State" options={LOC_STATES} selected={filters.state} onToggle={(v) => toggle('state', v)} />
+              <LocationSubFilter label="City" options={LOC_CITIES} selected={filters.city} onToggle={(v) => toggle('city', v)} />
             </FilterSection>
 
             <FilterSection title="D2C Profile" count={filters.businessModel.length + filters.scale.length + filters.offlinePresence.length + filters.appPresence.length} defaultOpen={false}>
@@ -624,15 +801,10 @@ const [sortKey] = useState<SortKey>('updatedAt');
             </FilterSection>
           </div>
 
-          <div className="p-4 border-t border-slate-100 space-y-2 flex-shrink-0">
-            <button onClick={resyncOnboarding} className="w-full flex items-center justify-center gap-2 bg-[#C94C1E] hover:bg-[#b5431a] text-white px-4 py-2.5 rounded-xl text-[12px] font-bold shadow-sm transition-all">
-              Re-sync from Onboarding
+          <div className="p-4 border-t border-slate-100 flex-shrink-0">
+            <button onClick={clearAll} className={`w-full text-center text-[12px] font-medium py-1 transition-colors ${activeCount > 0 ? 'text-[#C94C1E] hover:text-[#b5431a]' : 'text-slate-300 cursor-default'}`} disabled={activeCount === 0}>
+              Clear All Filters
             </button>
-            {activeCount > 0 && (
-              <button onClick={clearAll} className="w-full text-center text-[12px] text-slate-400 hover:text-slate-600 font-medium py-1 transition-colors">
-                Clear All Filters
-              </button>
-            )}
           </div>
         </aside>
       )}
@@ -648,14 +820,52 @@ const [sortKey] = useState<SortKey>('updatedAt');
             {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{total} results</span>}
             {isWatchlistTab && activeWatchlist && <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{activeWatchlist.domains?.length || 0} accounts</span>}
           </div>
-          {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && (
-            <div className="flex items-center gap-3">
-              <div className="relative flex items-center">
-                <Search className="absolute left-3 text-slate-400" size={16} />
-                <input type="text" placeholder="Search brands or categories..." value={search} onChange={e => setSearch(e.target.value)}
-                  className="pl-10 pr-4 py-2 bg-slate-50 border-transparent border focus:border-orange-200 focus:bg-white focus:ring-4 focus:ring-orange-100 rounded-xl text-[13px] w-[300px] transition-all outline-none" />
-                {search && <button onClick={() => setSearch('')} className="absolute right-3 text-slate-400 hover:text-slate-600"><X size={14} /></button>}
+
+          {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && (
+            <div className="flex items-center gap-2">
+              {/* Sort */}
+              <div className="relative">
+                <button onClick={() => setShowSortMenu(p => !p)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-[12px] font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                  <ArrowUpDown size={14} className="text-slate-400" />
+                  Sort
+                </button>
+                {showSortMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-[200px] z-50" onMouseDown={e => e.stopPropagation()}>
+                    {([
+                      { key: 'updatedAt', label: 'Last Updated', asc: false },
+                      { key: 'domain', label: 'Name (A-Z)', asc: true },
+                      { key: 'domain', label: 'Name (Z-A)', asc: false },
+                      { key: 'offlineStores', label: 'Most Stores', asc: false },
+                      { key: 'offlineStores', label: 'Fewest Stores', asc: true },
+                      { key: 'techCount', label: 'Most Techs', asc: false },
+                      { key: 'techCount', label: 'Fewest Techs', asc: true },
+                      { key: 'category', label: 'Category (A-Z)', asc: true },
+                      { key: 'region', label: 'Region (A-Z)', asc: true },
+                    ] as { key: SortKey; label: string; asc: boolean }[]).map(opt => (
+                      <button key={opt.label} onClick={() => { setSortKey(opt.key); setSortAsc(opt.asc); setShowSortMenu(false); }}
+                        className={`w-full text-left px-3 py-1.5 text-[12px] transition-colors ${sortKey === opt.key && sortAsc === opt.asc ? 'text-[#C94C1E] font-semibold bg-orange-50' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Export */}
+              <button onClick={() => {
+                const rows = accounts.map(a => [a.normalizedDomain, a.category, a.subCategory, a.region, a.offlineStores, a.techCount, a.updatedAt].join(','));
+                const csv = ['Domain,Category,SubCategory,Region,OfflineStores,TechCount,UpdatedAt', ...rows].join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url; link.download = 'accounts-export.csv'; link.click();
+                URL.revokeObjectURL(url);
+              }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-[12px] font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                <Download size={14} className="text-slate-400" />
+                Export
+              </button>
             </div>
           )}
         </header>
@@ -670,7 +880,7 @@ const [sortKey] = useState<SortKey>('updatedAt');
             <div className="h-4 w-px bg-slate-200 flex-shrink-0" />
             {(Object.keys(filters) as (keyof Filters)[]).map(k => {
               if (filters[k].length === 0) return null;
-              const label: Record<string, string> = { category: 'Category', region: 'Region', businessModel: 'Business Model', scale: 'Scale', offlinePresence: 'Offline', appPresence: 'App', techStack: 'Tech', activeSignals: 'Signals', funding: 'Funding' };
+              const label: Record<string, string> = { category: 'Category', region: 'Country', state: 'State', city: 'City', businessModel: 'Business Model', scale: 'Scale', offlinePresence: 'Offline', appPresence: 'App', techStack: 'Tech', activeSignals: 'Signals', funding: 'Funding' };
               return (
                 <div key={k} className="flex items-center gap-1.5 flex-shrink-0">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label[k] || k}:</span>
@@ -880,10 +1090,7 @@ const [sortKey] = useState<SortKey>('updatedAt');
                         </div>
                       ))}
                     </div>
-                    <div className="mt-6 flex gap-3">
-                      <button onClick={resyncOnboarding} className="bg-[#C94C1E] text-white px-5 py-2.5 rounded-xl text-[13px] font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/20">
-                        Re-sync from Onboarding
-                      </button>
+                    <div className="mt-6">
                       <button onClick={clearAll} className="border border-slate-200 px-5 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:bg-slate-50 transition-colors">
                         Clear All Preferences
                       </button>
@@ -941,7 +1148,7 @@ const [sortKey] = useState<SortKey>('updatedAt');
               <p className="text-[12px] text-slate-400 mb-4">Try adjusting your filters or search</p>
               <div className="flex gap-2">
                 <button onClick={clearAll} className="h-8 px-4 rounded-lg text-[12px] font-semibold text-white bg-[#C94C1E] hover:bg-orange-700 transition-colors">Clear filters</button>
-                <button onClick={resyncOnboarding} className="h-8 px-4 rounded-lg text-[12px] font-semibold text-[#C94C1E] border border-orange-200 hover:bg-orange-50 transition-colors">Reset to preferences</button>
+                <button onClick={clearAll} className="h-8 px-4 rounded-lg text-[12px] font-semibold text-[#C94C1E] border border-orange-200 hover:bg-orange-50 transition-colors">Clear filters</button>
               </div>
             </div>
           ) : (
@@ -1006,18 +1213,21 @@ const [sortKey] = useState<SortKey>('updatedAt');
               </div>
 
               {/* ── Account Cards Grid ──────────────────────────────── */}
-              <div className="space-y-2">
-                {accounts.map(a => {
+              <div className="space-y-3">
+                {accounts.map(raw => {
+                  const a = demoFill(raw);
                   const isSelected = selectedAccounts.has(a.normalizedDomain);
                   const name = domainToName(a.normalizedDomain);
+                  const signalCount = (a.activeSignals || []).length;
+                  const topTech = (a.techStack || []).slice(0, 3);
                   return (
                     <div key={a.normalizedDomain}
                       className={`bg-white border rounded-xl overflow-hidden transition-all group ${isSelected ? 'border-[#C94C1E]/40 ring-2 ring-[#C94C1E]/10' : 'border-slate-200 hover:border-slate-300 hover:shadow-md'}`}>
-                      <div className="flex items-center gap-0">
+                      <div className="flex gap-0">
                         {/* Checkbox */}
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleSelect(a.normalizedDomain); }}
-                          className={`flex-shrink-0 w-11 flex items-center justify-center self-stretch border-r transition-colors ${
+                          className={`flex-shrink-0 w-11 flex items-start pt-5 justify-center self-stretch border-r transition-colors ${
                             isSelected ? 'bg-[#C94C1E]/5 border-[#C94C1E]/10' : 'border-slate-100 hover:bg-slate-50'
                           }`}>
                           <div className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-all ${
@@ -1027,64 +1237,92 @@ const [sortKey] = useState<SortKey>('updatedAt');
                           </div>
                         </button>
 
-                        {/* Main clickable area */}
-                        <div className="flex-1 flex items-center gap-4 px-4 py-3 cursor-pointer min-w-0"
-                          onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
+                        {/* Card content */}
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
+                          {/* Row 1: Brand identity + tech stack badges */}
+                          <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+                            {/* Favicon */}
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={faviconUrl(a.normalizedDomain)} alt="" width={24} height={24} className="rounded"
+                                onError={(e) => {
+                                  const t = e.target as HTMLImageElement;
+                                  t.style.display = 'none';
+                                  t.parentElement!.innerHTML = `<span class="font-serif text-slate-400 text-[16px]">${name[0]}</span>`;
+                                }} />
+                            </div>
 
-                          {/* Favicon */}
-                          <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={faviconUrl(a.normalizedDomain)} alt="" width={22} height={22} className="rounded"
-                              onError={(e) => {
-                                const t = e.target as HTMLImageElement;
-                                t.style.display = 'none';
-                                t.parentElement!.innerHTML = `<span class="font-serif text-slate-400 text-[15px]">${name[0]}</span>`;
-                              }} />
+                            {/* Name + score + signals */}
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <h3 className="text-[15px] font-bold text-slate-800 group-hover:text-[#C94C1E] transition-colors truncate">{name}</h3>
+                              {a.techCount > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex-shrink-0">
+                                  <Layers size={10} />{a.techCount} tech
+                                </span>
+                              )}
+                              {signalCount > 0 && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex-shrink-0">{signalCount} signal{signalCount > 1 ? 's' : ''}</span>
+                              )}
+                            </div>
+
+                            {/* Tech stack badges (right side) */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {topTech.map(t => (
+                                <span key={t} className="px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-600">{t}</span>
+                              ))}
+                              {(a.techStack || []).length > 3 && (
+                                <span className="text-[10px] text-slate-400 font-medium">+{(a.techStack || []).length - 3}</span>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Name + Domain */}
-                          <div className="min-w-0 w-[180px] flex-shrink-0">
-                            <h3 className="text-[14px] font-bold text-slate-800 leading-tight group-hover:text-[#C94C1E] transition-colors truncate">{name}</h3>
-                            <span className="text-[11px] text-slate-400 truncate block">{a.normalizedDomain}</span>
+                          {/* Row 2: Category · Location · Business Model */}
+                          <div className="px-4 pb-2 flex items-center gap-3 text-[12px] text-slate-500">
+                            {a.category && <span className="font-medium">{a.category}</span>}
+                            {a.region && <><span className="text-slate-300">·</span><span>{a.region}</span></>}
+                            {a.businessModel && <><span className="text-slate-300">·</span><span>{a.businessModel}</span></>}
                           </div>
 
-                          {/* Category + Sub */}
-                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            {a.category && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-100 whitespace-nowrap">
-                                {a.category}
+                          {/* Row 3: Detail pills */}
+                          <div className="px-4 pb-2.5 flex items-center gap-2 flex-wrap">
+                            {a.trafficBand && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-600">
+                                <TrendingUp size={10} className="text-blue-400" />{a.trafficBand} MAU
                               </span>
                             )}
-                            {a.subCategory && a.subCategory !== a.category && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-100 whitespace-nowrap truncate max-w-[140px]">
-                                {a.subCategory}
+                            {a.appPresence && a.appPresence !== 'No App' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-600">
+                                <Smartphone size={10} className="text-violet-400" />{a.appPresence}
+                              </span>
+                            )}
+                            {a.offlineStores && a.offlineStores !== 'Online' && a.offlineStores !== 'Unknown' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-600">
+                                <Store size={10} className="text-emerald-400" />{a.offlineStores} stores
                               </span>
                             )}
                           </div>
 
-                          {/* Region */}
-                          <div className="flex items-center gap-1.5 flex-shrink-0 w-[90px]">
-                            <MapPin size={12} className="text-blue-400 flex-shrink-0" />
-                            <span className="text-[12px] font-medium text-slate-600 truncate">{a.region || 'Global'}</span>
-                          </div>
-
-                          {/* Stores */}
-                          <div className="flex items-center gap-1.5 flex-shrink-0 w-[100px]">
-                            <Store size={12} className="text-emerald-400 flex-shrink-0" />
-                            <span className="text-[12px] font-medium text-slate-600 truncate">{storeLabel(a.offlineStores)}</span>
-                          </div>
-
-                          {/* Techs */}
-                          <div className="flex items-center gap-1.5 flex-shrink-0 w-[80px]">
-                            <Cpu size={12} className="text-violet-400 flex-shrink-0" />
-                            <span className="text-[12px] font-medium text-slate-600">{a.techCount ? `${a.techCount}+` : '—'}</span>
-                          </div>
+                          {/* Row 4: Funding & active signals */}
+                          {(a.fundingStage || signalCount > 0) && (
+                            <div className="px-4 pb-3 flex items-center gap-3">
+                              {a.fundingStage && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-600">
+                                  <DollarSign size={12} className="text-green-500" />{a.fundingStage}
+                                </span>
+                              )}
+                              {(a.activeSignals || []).map(s => (
+                                <span key={s} className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                                  <Target size={10} className="text-amber-400" />{s}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         {/* Visit button */}
                         <button
                           onClick={(e) => { e.stopPropagation(); window.open(`https://${a.normalizedDomain}`, '_blank'); }}
-                          className="flex-shrink-0 w-10 flex items-center justify-center self-stretch border-l border-slate-100 text-slate-300 hover:text-[#C94C1E] hover:bg-orange-50/50 transition-colors"
+                          className="flex-shrink-0 w-10 flex items-start pt-5 justify-center self-stretch border-l border-slate-100 text-slate-300 hover:text-[#C94C1E] hover:bg-orange-50/50 transition-colors"
                           title="Visit website">
                           <ExternalLink size={14} />
                         </button>
@@ -1128,6 +1366,19 @@ const [sortKey] = useState<SortKey>('updatedAt');
       </main>
 
 
+      {showCatPicker && (
+        <CategoryPickerModal
+          categories={filterOptions.categories}
+          selected={filters.category}
+          onToggle={(v) => toggle('category', v)}
+          onSelectAll={() => {
+            const allSelected = filters.category.length === filterOptions.categories.length;
+            setFilters(p => ({ ...p, category: allSelected ? [] : [...filterOptions.categories] }));
+          }}
+          onClose={() => setShowCatPicker(false)}
+        />
+      )}
+
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -1139,56 +1390,33 @@ const [sortKey] = useState<SortKey>('updatedAt');
   );
 }
 
-/* ── NavBtn (sidebar navigation button, always collapsed icon-only with tooltip) ── */
+/* ── NavBtn (sidebar navigation button, expanded with labels) ── */
 function NavBtn({ icon, label, active, locked, onClick, badge }: {
   icon: React.ReactNode; label: string; active?: boolean; locked?: boolean; onClick?: () => void; badge?: string;
 }) {
-  const tooltipText = locked ? `${label} — Coming Soon` : label;
-  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showTip = (e: React.MouseEvent<HTMLElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    timerRef.current = setTimeout(() => {
-      setTip({ x: rect.right + 12, y: rect.top + rect.height / 2 });
-    }, 300);
-  };
-  const hideTip = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setTip(null);
-  };
-
-  const tooltip = tip && (
-    <div className="fixed z-[9999] pointer-events-none" style={{ left: tip.x, top: tip.y, transform: 'translateY(-50%)' }}>
-      <div className="bg-slate-800 text-white text-[12px] font-medium px-2.5 py-1.5 rounded-md whitespace-nowrap relative">
-        <div className="absolute right-full top-1/2 -translate-y-1/2 border-[5px] border-transparent border-r-slate-800" />
-        {tooltipText}
-      </div>
-    </div>
-  );
-
   if (locked) {
     return (
-      <div className="flex items-center justify-center rounded-lg text-slate-400 cursor-not-allowed transition-all p-2.5 relative"
-        onMouseEnter={showTip} onMouseLeave={hideTip}>
-        <span className="text-slate-300 flex-shrink-0">{icon}</span>
-        {tooltip}
+      <div className="flex items-center justify-between rounded-lg text-slate-400 cursor-not-allowed transition-all px-3 py-2">
+        <div className="flex items-center gap-2.5">
+          <span className="text-slate-300 flex-shrink-0">{icon}</span>
+          <span className="text-[13px] font-medium">{label}</span>
+        </div>
+        <span className="text-[8px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-bold uppercase">Soon</span>
       </div>
     );
   }
   return (
     <button
       onClick={onClick}
-      onMouseEnter={showTip} onMouseLeave={hideTip}
-      className={`w-full flex items-center justify-center rounded-lg transition-all p-2.5 relative ${
+      className={`w-full flex items-center gap-2.5 rounded-lg transition-all px-3 py-2 ${
         active
           ? 'bg-orange-50 text-[#C94C1E]'
           : 'text-slate-500 hover:bg-slate-50'
       }`}
     >
       <span className="flex-shrink-0">{icon}</span>
-      {badge && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-[8px] font-bold flex items-center justify-center">{badge}</span>}
-      {tooltip}
+      <span className={`text-[13px] ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+      {badge && <span className="ml-auto text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">{badge}</span>}
     </button>
   );
 }

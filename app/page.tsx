@@ -14,7 +14,7 @@ export default function Home() {
         <Hero />
         <HowItWorks />
         <TheData />
-        <Pricing />
+        {/* <Pricing /> */}
         <CTA />
       </div>
       <Footer />

@@ -55,11 +55,11 @@ export default function Hero() {
       <main>
         {/* Headline + CTA */}
         <div className="text-center px-6 pt-16 pb-6">
-          <h1 className="font-sans font-normal tracking-[-0.02em] leading-[1.08] mb-6
-                         text-[clamp(40px,6vw,76px)]
+          <h1 className="font-sans font-bold tracking-[-0.02em] leading-[1.08] mb-6
+                         text-[clamp(30px,6vw,76px)]
                          text-slate-900 dark:text-slate-50">
-            Never miss a<br />
-            <em className="not-italic text-ember-500">D2C opportunity</em>
+            Know which D2C brands <br /> to sell to — and
+            <em className="not-italic text-ember-500"> when</em>
           </h1>
 
           <button
