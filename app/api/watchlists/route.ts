@@ -37,15 +37,15 @@ export async function GET(req: NextRequest) {
       const docs = await db.collection('company_meta').find({
         normalizedDomain: { $in: wl.domains },
       }).toArray();
-      const byDomain = new Map(docs.map((d: Record<string, unknown>) => [d.normalizedDomain, d]));
+      const byDomain = new Map<string, Record<string, unknown>>(docs.map((d: Record<string, unknown>) => [d.normalizedDomain as string, d]));
       accounts = wl.domains.map((domain: string) => {
         const doc = byDomain.get(domain);
         return {
           normalizedDomain: domain,
-          category: doc?.category || 'Unknown',
-          subCategory: doc?.subCategory || '',
-          region: doc?.region || 'Global',
-          offlineStores: doc?.offlineStores || 'Unknown',
+          category: (doc?.category as string) || 'Unknown',
+          subCategory: (doc?.subCategory as string) || '',
+          region: (doc?.region as string) || 'Global',
+          offlineStores: (doc?.offlineStores as string) || 'Unknown',
           updatedAt: doc?.updatedAt || null,
         };
       });
