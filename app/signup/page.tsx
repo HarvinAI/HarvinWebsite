@@ -43,7 +43,7 @@ export default function SignUpPage() {
   const handleGoogle = async () => {
     setLoading('google');
     setError('');
-    try { await signIn('google', { callbackUrl: '/onboarding' }); }
+    try { await signIn('google', { callbackUrl: '/auth-redirect' }); }
     catch { setError('Google sign-up failed.'); setLoading(null); }
   };
 
@@ -113,7 +113,7 @@ export default function SignUpPage() {
         },
       };
       localStorage.setItem('harvin_onboarding', JSON.stringify(onboardingData));
-      router.push('/onboarding');
+      router.push('/auth-redirect');
     } catch { setError('Something went wrong.'); setLoading(null); }
   };
 

@@ -4,6 +4,8 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { getAuthDb } from '@/lib/auth-db';
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '').toLowerCase().split(',').map(e => e.trim()).filter(Boolean);
+
 export const authOptions = {
   providers: [
     GoogleProvider({
@@ -69,19 +71,21 @@ export const authOptions = {
       if (user?.id) {
         token.userId = user.id;
       } else if (!token.userId && token.email) {
-        // For Google sign-in, look up user id from DB
         try {
           const db = await getAuthDb();
           const doc = await db.collection('users').findOne({ email: (token.email as string).toLowerCase() });
           if (doc) token.userId = doc._id.toString();
         } catch {}
       }
+      const email = (token.email || user?.email || '').toLowerCase();
+      token.isAdmin = ADMIN_EMAILS.includes(email);
       return token;
     },
     async session({ session, token }: { session: import('next-auth').Session; token: import('next-auth/jwt').JWT }) {
       if (session.user && token.userId) {
         (session.user as Record<string, unknown>).id = token.userId;
       }
+      (session as unknown as Record<string, unknown>).isAdmin = !!token.isAdmin;
       return session;
     },
   },

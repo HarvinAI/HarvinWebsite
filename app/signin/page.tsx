@@ -19,7 +19,7 @@ export default function SignInPage() {
   const handleGoogle = async () => {
     setLoading('google');
     setError('');
-    try { await signIn('google', { callbackUrl: '/onboarding' }); }
+    try { await signIn('google', { callbackUrl: '/auth-redirect' }); }
     catch { setError('Google sign-in failed.'); setLoading(null); }
   };
 
@@ -32,7 +32,7 @@ export default function SignInPage() {
     if (res?.error) { setError('Invalid email or password'); setLoading(null); }
     else {
       localStorage.setItem('harvin_user', JSON.stringify({ type: 'credentials', name: email.split('@')[0], email: email.trim() }));
-      router.push('/onboarding');
+      router.push('/auth-redirect');
     }
   };
 

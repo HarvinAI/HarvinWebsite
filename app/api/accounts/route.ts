@@ -24,6 +24,22 @@ const REGION_MAP: Record<string, string> = {
   'United Kingdom': 'UK',
 };
 
+/* Map UI offline-presence labels → DB offlineStores values */
+const OFFLINE_PRESENCE_MAP: Record<string, string[]> = {
+  'Online Only': ['Online'],
+  '1-10 stores': ['1-10'],
+  '10-50 stores': ['11-20', '21-50'],
+  '50+ stores': ['51-100', '100+'],
+};
+
+/* Map UI scale labels → estimated monthly-traffic ranges (stored as trafficBand) */
+const SCALE_MAP: Record<string, string[]> = {
+  'Emerging (<100K)': ['<100K'],
+  'Growing (100K-500K)': ['100K-500K'],
+  'Scaling (500K-2M)': ['500K-2M'],
+  'Established (2M+)': ['2M+'],
+};
+
 function mapValues(values: string[], mapping: Record<string, string>): string[] {
   return values.map(v => mapping[v] || v);
 }
@@ -43,7 +59,13 @@ export async function GET(req: NextRequest) {
   // Filters (comma-separated)
   const rawCategories = sp.get('categories')?.split(',').filter(Boolean) || [];
   const rawRegions = sp.get('regions')?.split(',').filter(Boolean) || [];
-  const offlineStores = sp.get('offlineStores')?.split(',').filter(Boolean) || [];
+  const offlinePresence = sp.get('offlinePresence')?.split(',').filter(Boolean) || [];
+  const businessModel = sp.get('businessModel')?.split(',').filter(Boolean) || [];
+  const scale = sp.get('scale')?.split(',').filter(Boolean) || [];
+  const appPresence = sp.get('appPresence')?.split(',').filter(Boolean) || [];
+  const techStack = sp.get('techStack')?.split(',').filter(Boolean) || [];
+  const activeSignals = sp.get('activeSignals')?.split(',').filter(Boolean) || [];
+  const funding = sp.get('funding')?.split(',').filter(Boolean) || [];
   const search = sp.get('search')?.trim() || '';
   const sortBy = sp.get('sortBy') || 'updatedAt';
   const sortDir = sp.get('sortDir') === 'asc' ? 1 : -1;
@@ -51,6 +73,12 @@ export async function GET(req: NextRequest) {
   // Apply label mappings
   const categories = mapValues(rawCategories, CATEGORY_MAP);
   const regions = mapValues(rawRegions, REGION_MAP);
+
+  // Expand offline-presence UI labels to DB offlineStores values
+  const offlineStores = offlinePresence.flatMap(v => OFFLINE_PRESENCE_MAP[v] || [v]);
+
+  // Expand scale UI labels to DB trafficBand values
+  const trafficBands = scale.flatMap(v => SCALE_MAP[v] || [v]);
 
   try {
     const db = await getDb();
@@ -78,12 +106,48 @@ export async function GET(req: NextRequest) {
       query.offlineStores = { $in: offlineStores };
     }
 
+    if (businessModel.length > 0) {
+      query.businessModel = { $in: businessModel };
+    }
+
+    if (trafficBands.length > 0) {
+      query.trafficBand = { $in: trafficBands };
+    }
+
+    if (appPresence.length > 0) {
+      query.appPresence = { $in: appPresence };
+    }
+
+    if (techStack.length > 0) {
+      // "None detected" means no tech stack data
+      const hasTech = techStack.filter(t => t !== 'None detected');
+      const hasNone = techStack.includes('None detected');
+      const techConditions: Record<string, unknown>[] = [];
+      if (hasTech.length > 0) techConditions.push({ techStack: { $in: hasTech } });
+      if (hasNone) techConditions.push({ techStack: { $exists: false } }, { techStack: { $size: 0 } });
+      if (techConditions.length > 0) {
+        query.$and = query.$and || [];
+        (query.$and as unknown[]).push({ $or: techConditions });
+      }
+    }
+
+    if (activeSignals.length > 0) {
+      query.activeSignals = { $in: activeSignals };
+    }
+
+    if (funding.length > 0) {
+      query.fundingStage = { $in: funding };
+    }
+
     if (search) {
-      query.$or = [
-        { normalizedDomain: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } },
-        { subCategory: { $regex: search, $options: 'i' } },
-      ];
+      query.$and = query.$and || [];
+      (query.$and as unknown[]).push({
+        $or: [
+          { normalizedDomain: { $regex: search, $options: 'i' } },
+          { category: { $regex: search, $options: 'i' } },
+          { subCategory: { $regex: search, $options: 'i' } },
+        ],
+      });
     }
 
     // Sort mapping
@@ -110,6 +174,12 @@ export async function GET(req: NextRequest) {
           offlineStores: 1,
           aiStoreCount: 1,
           techCount: 1,
+          techStack: 1,
+          businessModel: 1,
+          trafficBand: 1,
+          appPresence: 1,
+          activeSignals: 1,
+          fundingStage: 1,
           updatedAt: 1,
           overrides: 1,
         })
@@ -128,6 +198,12 @@ export async function GET(req: NextRequest) {
         offlineStores: overrides.offlineStores || a.offlineStores,
         aiStoreCount: a.aiStoreCount,
         techCount: a.techCount || (5 + Math.floor(Math.abs(Math.sin((a.normalizedDomain as string).length * 9301 + 49297) * 25))),
+        techStack: a.techStack || [],
+        businessModel: a.businessModel || null,
+        trafficBand: a.trafficBand || null,
+        appPresence: a.appPresence || null,
+        activeSignals: a.activeSignals || [],
+        fundingStage: a.fundingStage || null,
         updatedAt: a.updatedAt,
       };
     });

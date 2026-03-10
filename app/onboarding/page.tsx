@@ -169,12 +169,20 @@ function SelectDropdown({ value, onChange, options, placeholder }: {
 /* ── Main component ──────────────────────────────────────────────────────── */
 export default function OnboardingPage() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
   const [animating, setAnimating] = useState(false);
   const [isGoogleUser, setIsGoogleUser] = useState(false);
+
+  // Admin gate
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (session && (session as unknown as Record<string, unknown>).isAdmin === false) {
+      router.replace('/thankyou');
+    }
+  }, [session, status, router]);
 
   // Sync Google OAuth session → localStorage
   useEffect(() => {
