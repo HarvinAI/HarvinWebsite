@@ -315,9 +315,11 @@ export default function OnboardingPage() {
 
       {/* Top bar */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <img src="/logo.svg" alt="" className="h-7 w-7" />
-          <span className="font-bricolage font-bold text-[18px] tracking-normal text-slate-900 dark:text-white leading-none">
+        <div className="flex items-center gap-0.5">
+          <div className="h-8 w-9 overflow-hidden flex-shrink-0">
+            <img src="/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto max-w-none" />
+          </div>
+          <span className="font-bricolage font-bold text-[24px] tracking-normal text-slate-900 dark:text-white leading-none">
             Harvin<span className="font-semibold opacity-40">AI</span>
           </span>
         </div>

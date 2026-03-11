@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
-import Image from 'next/image';
+
 import ThemeToggle from '@/components/ThemeToggle';
 
 export default function ThankYouPage() {
@@ -38,9 +38,11 @@ export default function ThankYouPage() {
       <div className="relative z-10 max-w-[520px] w-full">
         <div className="bg-white rounded-[28px] shadow-[0_20px_70px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] p-10 text-center">
           {/* Logo */}
-          <div className="flex items-center justify-center gap-2.5 mb-8">
-            <Image src="/logo.svg" alt="HarvinAI" width={36} height={36} className="rounded-xl" />
-            <span className="font-bricolage font-bold text-[20px] tracking-normal text-slate-800 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
+          <div className="flex items-center justify-center gap-0.5 mb-8">
+            <div className="h-8 w-9 overflow-hidden flex-shrink-0">
+              <img src="/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto max-w-none" />
+            </div>
+            <span className="font-bricolage font-bold text-[24px] tracking-normal text-slate-900 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
           </div>
 
           {/* Checkmark */}

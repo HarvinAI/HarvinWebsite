@@ -72,9 +72,17 @@ export async function POST(req: NextRequest) {
     const db = await getAuthDb();
     const user = await db.collection('users').findOne({ email: email.toLowerCase() });
 
-    // Always return success to prevent email enumeration
-    if (!user || !user.passwordHash) {
+    // If user doesn't exist, return success to prevent email enumeration
+    if (!user) {
       return NextResponse.json({ ok: true });
+    }
+
+    // Google-only users: let them know they should sign in with Google
+    if (user.provider === 'google' && !user.passwordHash) {
+      return NextResponse.json(
+        { error: 'This account uses Google Sign-In. Please sign in with Google instead.' },
+        { status: 400 }
+      );
     }
 
     // Rate limit
@@ -104,17 +112,29 @@ export async function POST(req: NextRequest) {
     }
 
     const transporter = createTransporter();
-    await transporter.verify();
+    try {
+      await transporter.verify();
+    } catch (verifyErr) {
+      console.error('[forgot-password] SMTP verify failed:', verifyErr);
+      // Still return ok — OTP is saved, user can try resend
+      return NextResponse.json({ ok: true });
+    }
 
     const fromName = process.env.FROM_NAME ?? 'HarvinAI';
     const fromAddr = process.env.SMTP_USER ?? '';
 
-    await transporter.sendMail({
-      from: `"${fromName}" <${fromAddr}>`,
-      to: email,
-      subject: `${otp} — Your HarvinAI password reset code`,
-      html: resetEmailHtml(otp, user.name || 'there'),
-    });
+    try {
+      await transporter.sendMail({
+        from: `"${fromName}" <${fromAddr}>`,
+        to: email,
+        subject: `${otp} — Your HarvinAI password reset code`,
+        html: resetEmailHtml(otp, user.name || 'there'),
+      });
+      console.log(`[forgot-password] OTP email sent to ${email}`);
+    } catch (mailErr) {
+      console.error('[forgot-password] sendMail failed:', mailErr);
+      // OTP is saved in DB, return ok so user can try again
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

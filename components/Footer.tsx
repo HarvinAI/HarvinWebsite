@@ -47,11 +47,11 @@ export default function Footer() {
 
         {/* Brand column */}
         <div className="col-span-2 md:col-span-1 flex flex-col gap-6 pr-4">
-          <Link href="/" className="flex items-center gap-2.5 w-fit group">
-            <div className="h-8 w-8 overflow-hidden flex-shrink-0">
+          <Link href="/" className="flex items-center gap-0.5 w-fit group">
+            <div className="h-8 w-9 overflow-hidden flex-shrink-0">
               <img src="/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto max-w-none" />
             </div>
-            <span className="font-bricolage font-bold text-[22px] tracking-normal text-white leading-none">
+            <span className="font-bricolage font-bold text-[24px] tracking-normal text-white leading-none">
               Harvin<span className="font-semibold opacity-40">AI</span>
             </span>
           </Link>

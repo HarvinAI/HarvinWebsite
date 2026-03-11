@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+
 import { Check } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -64,9 +64,11 @@ export default function SyncingPage() {
     <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center px-4">
       <ThemeToggle />
       {/* Logo */}
-      <div className="flex items-center gap-3 mb-12">
-        <Image src="/logo.svg" alt="HarvinAI" width={44} height={44} className="rounded-xl shadow-lg shadow-orange-500/10" />
-        <span className="font-bricolage font-bold text-2xl tracking-normal text-slate-800 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
+      <div className="flex items-center gap-0.5 mb-12">
+        <div className="h-8 w-9 overflow-hidden flex-shrink-0">
+          <img src="/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto max-w-none" />
+        </div>
+        <span className="font-bricolage font-bold text-[24px] tracking-normal text-slate-900 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
       </div>
 
       {/* Card */}

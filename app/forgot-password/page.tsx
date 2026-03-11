@@ -163,11 +163,13 @@ export default function ForgotPasswordPage() {
           />
 
           <div className="relative z-10 flex flex-col justify-between p-11 w-full min-h-[640px]">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[10px] bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center">
-                <Image src="/logo.svg" alt="" width={18} height={18} />
+            <div className="flex items-center gap-0.5">
+              <div className="h-8 w-9 overflow-hidden flex-shrink-0">
+                <img src="/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto max-w-none" />
               </div>
-              <span className="text-[11px] font-semibold text-white/30 tracking-[0.15em] uppercase">HarvinAI</span>
+              <span className="font-bricolage font-bold text-[24px] tracking-normal text-white leading-none">
+                Harvin<span className="font-semibold opacity-40">AI</span>
+              </span>
             </div>
 
             <div className="space-y-7">
@@ -199,9 +201,11 @@ export default function ForgotPasswordPage() {
         {/* ── Right ── */}
         <div className="bg-white flex flex-col min-h-[640px]">
           <div className="flex justify-between items-center px-8 pt-8 lg:px-10 lg:pt-9">
-            <Link href="/" className="flex items-center gap-2 lg:hidden">
-              <Image src="/logo.svg" alt="HarvinAI" width={28} height={28} className="rounded-lg" />
-              <span className="font-bricolage font-bold text-[18px] tracking-normal text-gray-900 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
+            <Link href="/" className="flex items-center gap-0.5 lg:hidden">
+              <div className="h-8 w-9 overflow-hidden flex-shrink-0">
+                <img src="/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto max-w-none" />
+              </div>
+              <span className="font-bricolage font-bold text-[24px] tracking-normal text-slate-900 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
             </Link>
             <div className="hidden lg:block" />
             <Link href="/signin" className="text-[12px] font-medium text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 px-3.5 py-1.5 rounded-lg border border-gray-100">

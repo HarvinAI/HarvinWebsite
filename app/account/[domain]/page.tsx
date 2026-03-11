@@ -296,9 +296,11 @@ export default function AccountDetailPage() {
       {/* ── Left Sidebar (mirrors dashboard) ──────────────────────────── */}
       <aside className="hidden md:flex flex-col w-[220px] bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0">
         <div className="flex items-center gap-2.5 flex-shrink-0 px-5 py-4">
-          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => router.push('/dashboard')}>
-            <Image src="/logo.svg" alt="HarvinAI" width={28} height={28} className="rounded-xl shadow-lg shadow-orange-500/10 flex-shrink-0 hover:scale-105 transition-transform" />
-            <span className="font-bricolage font-bold text-[16px] tracking-normal text-slate-800 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
+          <div className="flex items-center gap-0.5 cursor-pointer" onClick={() => router.push('/dashboard')}>
+            <div className="h-7 w-8 overflow-hidden flex-shrink-0">
+              <img src="/logo.svg" alt="" aria-hidden="true" className="h-7 w-auto max-w-none" />
+            </div>
+            <span className="font-bricolage font-bold text-[18px] tracking-normal text-slate-900 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
           </div>
         </div>
 
@@ -428,7 +430,7 @@ export default function AccountDetailPage() {
                       alt=""
                       width={32}
                       height={32}
-                      className="rounded-lg"
+                      className="rounded-lg dark:bg-white dark:p-[3px]"
                       onError={(e) => {
                         const t = e.target as HTMLImageElement;
                         t.style.display = 'none';

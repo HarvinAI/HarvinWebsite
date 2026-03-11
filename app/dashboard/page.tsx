@@ -660,9 +660,11 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
       {/* ── Nav Sidebar (expanded with labels) ── */}
       <aside className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0 w-[220px]">
         <div className="flex items-center gap-2.5 flex-shrink-0 px-5 py-4">
-          <a href="/" className="flex items-center gap-2.5">
-            <Image src="/logo.svg" alt="HarvinAI" width={28} height={28} className="rounded-xl shadow-lg shadow-orange-500/10 flex-shrink-0 hover:scale-105 transition-transform" />
-            <span className="font-bricolage font-bold text-[16px] tracking-normal text-slate-800 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
+          <a href="/" className="flex items-center gap-0.5">
+            <div className="h-7 w-8 overflow-hidden flex-shrink-0">
+              <img src="/logo.svg" alt="" aria-hidden="true" className="h-7 w-auto max-w-none" />
+            </div>
+            <span className="font-bricolage font-bold text-[18px] tracking-normal text-slate-900 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
           </a>
         </div>
 
@@ -1284,7 +1286,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                             {/* Favicon */}
                             <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-100 dark:border-white/[0.06] flex items-center justify-center flex-shrink-0 overflow-hidden">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={faviconUrl(a.normalizedDomain)} alt="" width={24} height={24} className="rounded"
+                              <img src={faviconUrl(a.normalizedDomain)} alt="" width={24} height={24} className="rounded dark:bg-white dark:p-[2px] dark:rounded-md"
                                 onError={(e) => {
                                   const t = e.target as HTMLImageElement;
                                   t.style.display = 'none';
@@ -1575,7 +1577,7 @@ function MarketIntelligenceView() {
                 <div className="px-6 pb-5 space-y-3 border-t border-slate-100 dark:border-white/[0.06] pt-4">
                   {signals.map((s, i) => (
                     <div key={i} className="flex items-start gap-4 p-4 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors group/card">
-                      <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`} alt="" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 mt-0.5" />
+                      <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`} alt="" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 mt-0.5 dark:bg-white dark:p-[3px]" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="text-[13px] font-bold text-slate-800 dark:text-white">{s.brand}</span>
@@ -1718,7 +1720,7 @@ function TechPill({ tech }: { tech: ScanTech }) {
         <img
           src={iconUrl}
           alt=""
-          className="w-4 h-4 rounded-sm flex-shrink-0"
+          className="w-4 h-4 rounded-sm flex-shrink-0 dark:bg-white dark:p-[1px] dark:rounded"
           onError={() => setImgFailed(true)}
         />
       ) : (
@@ -2176,7 +2178,7 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
         <div>
           <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5 mb-4">
             <div className="flex items-center gap-3 mb-4">
-              <img src={`https://www.google.com/s2/favicons?domain=${scanDomain}&sz=64`} alt="" className="w-8 h-8 rounded-lg"
+              <img src={`https://www.google.com/s2/favicons?domain=${scanDomain}&sz=64`} alt="" className="w-8 h-8 rounded-lg dark:bg-white dark:p-[2px]"
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               <div>
                 <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">{domainToName(scanDomain)}</h3>
@@ -2229,7 +2231,7 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
           <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <img src={`https://www.google.com/s2/favicons?domain=${scanDomain}&sz=64`} alt="" className="w-10 h-10 rounded-lg border border-slate-200 dark:border-white/[0.08]"
+                <img src={`https://www.google.com/s2/favicons?domain=${scanDomain}&sz=64`} alt="" className="w-10 h-10 rounded-lg border border-slate-200 dark:border-white/[0.08] dark:bg-white dark:p-[3px]"
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 <div>
                   <h3 className="text-[17px] font-bold text-slate-800 dark:text-white">{domainToName(scanDomain)}</h3>
@@ -2336,7 +2338,7 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
             {scanHistory.map(h => (
               <button key={h.domain} onClick={() => { setScanInput(h.domain); runScan(h.domain); }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-left group">
-                <img src={`https://www.google.com/s2/favicons?domain=${h.domain}&sz=64`} alt="" className="w-7 h-7 rounded-lg flex-shrink-0"
+                <img src={`https://www.google.com/s2/favicons?domain=${h.domain}&sz=64`} alt="" className="w-7 h-7 rounded-lg flex-shrink-0 dark:bg-white dark:p-[2px]"
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold text-slate-700 dark:text-neutral-200 group-hover:text-[#C94C1E] transition-colors truncate">{h.domain}</p>
