@@ -64,11 +64,22 @@ export default function ForgotPasswordPage() {
     } catch { setError('Something went wrong.'); setLoading(false); }
   };
 
-  const handleVerifyOtp = (otpValue?: string) => {
+  const handleVerifyOtp = async (otpValue?: string) => {
     const code = otpValue || otp.join('');
     if (code.length !== 6) return;
     setError('');
-    setStep('newpass');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify-reset-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), otp: code }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Invalid code'); setLoading(false); return; }
+      setStep('newpass');
+      setLoading(false);
+    } catch { setError('Something went wrong.'); setLoading(false); }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -96,8 +107,6 @@ export default function ForgotPasswordPage() {
     newOtp[index] = value.slice(-1);
     setOtp(newOtp);
     if (value && index < 5) inputRefs.current[index + 1]?.focus();
-    const full = newOtp.join('');
-    if (full.length === 6) handleVerifyOtp(full);
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
@@ -111,8 +120,7 @@ export default function ForgotPasswordPage() {
     const newOtp = [...otp];
     for (let i = 0; i < 6; i++) newOtp[i] = pasted[i] || '';
     setOtp(newOtp);
-    if (pasted.length === 6) handleVerifyOtp(pasted);
-    else inputRefs.current[pasted.length]?.focus();
+    if (pasted.length < 6) inputRefs.current[pasted.length]?.focus();
   };
 
   const Spinner = ({ className = '' }: { className?: string }) => (
@@ -308,14 +316,14 @@ export default function ForgotPasswordPage() {
                     </div>
                   )}
 
-                  <button onClick={() => handleVerifyOtp()} disabled={otp.join('').length !== 6}
+                  <button onClick={() => handleVerifyOtp()} disabled={loading || otp.join('').length !== 6}
                     className="w-full h-[42px] rounded-[10px] bg-[#C94C1E] text-white text-[14px] font-semibold
                                flex items-center justify-center gap-2
                                hover:bg-[#b5431a] active:scale-[0.995]
                                shadow-[0_1px_3px_rgba(201,76,30,0.2),0_4px_12px_rgba(201,76,30,0.15)]
                                disabled:opacity-40 disabled:cursor-not-allowed
                                transition-all duration-150">
-                    Continue
+                    {loading ? <Spinner className="text-white" /> : 'Verify Code'}
                   </button>
 
                   <div className="mt-5 text-center">

@@ -251,6 +251,15 @@ export default function OnboardingPage() {
     save(answers, next);
     if (next >= STEPS.length) {
       localStorage.setItem('harvin_onboarding', JSON.stringify({ step: next, answers, completed: true }));
+      // Persist completion to DB so it works across browsers/devices
+      const email = answers.email || session?.user?.email;
+      if (email) {
+        fetch('/api/onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }).catch(() => {});
+      }
       router.push('/syncing');
     } else {
       navigate(next);

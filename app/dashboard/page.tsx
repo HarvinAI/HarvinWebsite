@@ -46,7 +46,7 @@ type Account = {
 };
 type Filters = { category: string[]; region: string[]; state: string[]; city: string[]; businessModel: string[]; scale: string[]; offlinePresence: string[]; appPresence: string[]; techStack: string[]; activeSignals: string[]; funding: string[] };
 type SortKey = 'domain' | 'category' | 'region' | 'offlineStores' | 'updatedAt' | 'techCount';
-type FilterOptions = { categories: string[]; regions: string[]; offlineStores: string[] };
+type FilterOptions = { categories: string[]; regions: string[]; states: string[]; cities: string[]; offlineStores: string[] };
 type Watchlist = { _id: string; name: string; domains: string[]; createdAt: string; updatedAt: string };
 type WatchlistAccount = Account & { normalizedDomain: string };
 type SidebarTab = 'market-intelligence' | 'account-explorer' | 'tech-scanner' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations';
@@ -55,8 +55,7 @@ type SidebarTab = 'market-intelligence' | 'account-explorer' | 'tech-scanner' | 
 const PAGE_SIZE = 20;
 const CAT_SHOW = 5;
 
-const LOC_STATES = ['Maharashtra', 'Karnataka', 'Delhi', 'Tamil Nadu', 'Gujarat', 'Rajasthan', 'West Bengal', 'Uttar Pradesh', 'Telangana', 'Kerala'];
-const LOC_CITIES = ['Mumbai', 'Bangalore', 'Delhi', 'Chennai', 'Hyderabad', 'Pune', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Lucknow', 'Kochi', 'Gurgaon', 'Noida'];
+
 
 type ScanTech = { name: string; category: string; color: string };
 type ScanCompanyMeta = { category: string; subCategory: string; region: string; offlineStores: string };
@@ -210,6 +209,9 @@ const LocationSubFilter = ({ label, options, selected, onToggle }: {
     ? options.filter(o => o.toLowerCase().includes(q.toLowerCase()))
     : options;
 
+  // Don't render the filter section at all if there are no options
+  if (options.length === 0) return null;
+
   return (
     <div className="mt-2.5 mb-1">
       <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mb-1.5">{label}</p>
@@ -349,7 +351,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({ categories: [], regions: [], offlineStores: [] });
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({ categories: [], regions: [], states: [], cities: [], offlineStores: [] });
   const [loading, setLoading] = useState(false);
   const fetchRef = useRef(0);
 
@@ -461,6 +463,8 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
       if (data.filterOptions) setFilterOptions({
         categories: data.filterOptions.categories || [],
         regions: data.filterOptions.regions || [],
+        states: data.filterOptions.states || [],
+        cities: data.filterOptions.cities || [],
         offlineStores: data.filterOptions.offlineStores || [],
       });
     } catch (err) {
@@ -775,8 +779,8 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
               {/* Location — separate Country / State / City sections */}
               <LocationSubFilter label="Country" options={filterOptions.regions} selected={filters.region} onToggle={(v) => toggle('region', v)} />
-              <LocationSubFilter label="State" options={LOC_STATES} selected={filters.state} onToggle={(v) => toggle('state', v)} />
-              <LocationSubFilter label="City" options={LOC_CITIES} selected={filters.city} onToggle={(v) => toggle('city', v)} />
+              <LocationSubFilter label="State" options={filterOptions.states || []} selected={filters.state} onToggle={(v) => toggle('state', v)} />
+              <LocationSubFilter label="City" options={filterOptions.cities || []} selected={filters.city} onToggle={(v) => toggle('city', v)} />
             </FilterSection>
 
             <FilterSection title="D2C Profile" count={filters.businessModel.length + filters.scale.length + filters.offlinePresence.length + filters.appPresence.length} defaultOpen={false}>

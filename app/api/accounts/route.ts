@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getDb } = require('@/lib/scan/db');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { INDIA_STATES } = require('@/lib/scan/companyMeta');
 
 export const maxDuration = 15;
 
@@ -183,7 +185,10 @@ export async function GET(req: NextRequest) {
           category: 1,
           subCategory: 1,
           region: 1,
+          state: 1,
+          city: 1,
           offlineStores: 1,
+          storeRawCount: 1,
           aiStoreCount: 1,
           techCount: 1,
           techStack: 1,
@@ -207,7 +212,10 @@ export async function GET(req: NextRequest) {
         category: overrides.category || a.category,
         subCategory: overrides.subCategory || a.subCategory,
         region: overrides.region || a.region,
+        state: a.state || null,
+        city: a.city || null,
         offlineStores: overrides.offlineStores || a.offlineStores,
+        storeRawCount: a.storeRawCount || 0,
         aiStoreCount: a.aiStoreCount,
         techCount: a.techCount || (5 + Math.floor(Math.abs(Math.sin((a.normalizedDomain as string).length * 9301 + 49297) * 25))),
         techStack: a.techStack || [],
@@ -221,9 +229,11 @@ export async function GET(req: NextRequest) {
     });
 
     // Get distinct values for filter options
-    const [allCategories, allRegions] = await Promise.all([
+    const [allCategories, allRegions, allStates, allCities] = await Promise.all([
       col.distinct('category', { category: { $exists: true, $nin: [null, ''] } }),
       col.distinct('region', { region: { $exists: true, $nin: [null, ''] } }),
+      col.distinct('state', { state: { $exists: true, $nin: [null, ''] } }),
+      col.distinct('city', { city: { $exists: true, $nin: [null, ''] } }),
     ]);
 
     return NextResponse.json({
@@ -234,6 +244,8 @@ export async function GET(req: NextRequest) {
       filterOptions: {
         categories: allCategories.filter(Boolean).sort(),
         regions: allRegions.filter(Boolean).sort(),
+        states: [...new Set([...allStates.filter(Boolean), ...INDIA_STATES])].sort(),
+        cities: allCities.filter(Boolean).sort(),
         offlineStores: ['Online', '1-10', '11-20', '21-50', '51-100', '100+'],
       },
     }, { headers: corsHeaders });

@@ -16,28 +16,53 @@ export default function AuthRedirectPage() {
       return;
     }
 
+    // Store user info
+    if (session.user) {
+      localStorage.setItem('harvin_user', JSON.stringify({
+        type: 'google',
+        name: session.user.name ?? '',
+        email: session.user.email ?? '',
+      }));
+    }
+
     const isAdmin = (session as unknown as Record<string, unknown>).isAdmin === true;
 
-    if (isAdmin) {
-      // Store user info for admin
-      if (session.user) {
-        localStorage.setItem('harvin_user', JSON.stringify({
-          type: 'google',
-          name: session.user.name ?? '',
-          email: session.user.email ?? '',
-        }));
-      }
-      router.replace('/onboarding');
-    } else {
-      // Store user info for non-admin
-      if (session.user) {
-        localStorage.setItem('harvin_user', JSON.stringify({
-          type: 'google',
-          name: session.user.name ?? '',
-          email: session.user.email ?? '',
-        }));
-      }
+    if (!isAdmin) {
       router.replace('/thankyou');
+      return;
+    }
+
+    // Admin: check if onboarding already completed (localStorage first, then DB)
+    const saved = localStorage.getItem('harvin_onboarding');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.completed) {
+          router.replace('/dashboard');
+          return;
+        }
+      } catch {}
+    }
+
+    // Check DB for onboarding status (handles cross-browser/device)
+    const email = session.user?.email;
+    if (email) {
+      fetch(`/api/onboarding?email=${encodeURIComponent(email)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.completed) {
+            // Sync to localStorage so future checks are instant
+            localStorage.setItem('harvin_onboarding', JSON.stringify({ completed: true }));
+            router.replace('/dashboard');
+          } else {
+            router.replace('/onboarding');
+          }
+        })
+        .catch(() => {
+          router.replace('/onboarding');
+        });
+    } else {
+      router.replace('/onboarding');
     }
   }, [session, status, router]);
 
