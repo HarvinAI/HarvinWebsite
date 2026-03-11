@@ -155,7 +155,7 @@ function userHtml(name: string, isSales: boolean) {
 
   <!-- Footer -->
   <tr><td style="padding:20px 36px;border-top:1px solid #f4f4f5;text-align:center;">
-    <p style="margin:0 0 4px;font-size:12px;color:#a1a1aa;">© ${new Date().getFullYear()} HarvinAI, Inc. · All rights reserved.</p>
+    <p style="margin:0 0 4px;font-size:12px;color:#a1a1aa;">© ${new Date().getFullYear()} HarvinAI, Ltd. · All rights reserved.</p>
     <p style="margin:0;font-size:12px;color:#a1a1aa;">You're receiving this because you signed up at harvinai.com</p>
   </td></tr>
 

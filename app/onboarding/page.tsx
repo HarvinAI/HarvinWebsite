@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowRight, ArrowLeft, Check, ChevronDown, Building2, User, Mail, Link2, Monitor, Megaphone, LineChart, PenTool, Layers, Package, Wifi, Shirt, Sparkles, UtensilsCrossed, Heart, Sofa, Cpu, Baby, PawPrint, Gem, Dumbbell, Bath, LayoutGrid, Globe, Tag, Sprout, Rocket, Store, Users, ShoppingBag, Link as LinkIcon } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 type Persona = 'saas' | 'agency' | 'investor' | 'freelancer' | 'other';
@@ -301,13 +302,14 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f7f8] flex flex-col">
+      <ThemeToggle />
 
       {/* Top bar */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <img src="/logo.svg" alt="" className="h-7 w-7" />
-          <span className="font-sans font-bold text-[18px] tracking-[-0.02em] text-slate-900 leading-none">
-            Harvin<span className="font-normal opacity-35">AI</span>
+          <span className="font-bricolage font-bold text-[18px] tracking-normal text-slate-900 dark:text-white leading-none">
+            Harvin<span className="font-semibold opacity-40">AI</span>
           </span>
         </div>
         <div className="flex items-center gap-3">

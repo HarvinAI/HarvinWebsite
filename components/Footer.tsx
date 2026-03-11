@@ -51,8 +51,8 @@ export default function Footer() {
             <div className="h-8 w-8 overflow-hidden flex-shrink-0">
               <img src="/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto max-w-none" />
             </div>
-            <span className="font-sans font-bold text-[22px] tracking-[-0.02em] text-white leading-none">
-              Harvin<span className="font-normal opacity-35">AI</span>
+            <span className="font-bricolage font-bold text-[22px] tracking-normal text-white leading-none">
+              Harvin<span className="font-semibold opacity-40">AI</span>
             </span>
           </Link>
 
@@ -104,13 +104,49 @@ export default function Footer() {
         ))}
       </div>
 
+      {/* ── Company registration ──────────────────────────────────────────── */}
+      <div className="border-t border-white/[0.05]">
+        <div className="max-w-[1100px] mx-auto px-6 py-8
+                         grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-start">
+
+          {/* Registered info */}
+          <div className="flex flex-col sm:flex-row gap-6 sm:gap-12">
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.06em] uppercase text-white/20 mb-2">Registered Company</p>
+              <p className="text-[13px] text-white/40 leading-relaxed font-medium">HARVIN AI LTD</p>
+              <p className="text-[12px] text-white/25 leading-relaxed mt-0.5">
+                Registered in England and Wales
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.06em] uppercase text-white/20 mb-2">Company Number</p>
+              <p className="text-[13px] text-white/40 font-mono font-medium">17080422</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.06em] uppercase text-white/20 mb-2">Registered Office</p>
+              <p className="text-[12px] text-white/30 leading-relaxed">
+                124 City Road, London<br />
+                EC1V 2NX, United Kingdom
+              </p>
+            </div>
+          </div>
+
+          {/* Contact */}
+          <div className="flex flex-col items-start sm:items-end gap-1">
+            <a href="mailto:admin@harvin.ai" className="text-[12px] text-white/30 hover:text-[#C94C1E] transition-colors">
+              admin@harvin.ai
+            </a>
+          </div>
+        </div>
+      </div>
+
       {/* ── Bottom bar ────────────────────────────────────────────────────── */}
       <div className="border-t border-white/[0.07]">
         <div className="max-w-[1100px] mx-auto px-6 py-5
                          flex flex-col sm:flex-row items-center justify-between gap-4">
 
           <p className="text-[12px] font-sans text-white/25">
-            © {year} HarvinAI, Inc. All rights reserved.
+            &copy; {year} HarvinAI, Ltd. All rights reserved.
           </p>
 
           <div className="flex items-center gap-6">

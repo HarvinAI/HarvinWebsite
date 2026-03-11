@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Check } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const STEPS = [
   { label: 'Syncing your preferences', duration: 1200 },
@@ -61,10 +62,11 @@ export default function SyncingPage() {
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center px-4">
+      <ThemeToggle />
       {/* Logo */}
       <div className="flex items-center gap-3 mb-12">
         <Image src="/logo.svg" alt="HarvinAI" width={44} height={44} className="rounded-xl shadow-lg shadow-orange-500/10" />
-        <span className="text-2xl font-bold tracking-tight text-slate-800">HarvinAI</span>
+        <span className="font-bricolage font-bold text-2xl tracking-normal text-slate-800 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
       </div>
 
       {/* Card */}

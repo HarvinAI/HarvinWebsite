@@ -53,7 +53,7 @@ function otpEmailHtml(otp: string, name: string) {
   </td></tr>
 
   <tr><td style="padding:16px 36px;border-top:1px solid #f4f4f5;text-align:center;">
-    <p style="margin:0;font-size:11px;color:#a1a1aa;">&copy; ${new Date().getFullYear()} HarvinAI, Inc.</p>
+    <p style="margin:0;font-size:11px;color:#a1a1aa;">&copy; ${new Date().getFullYear()} HarvinAI, Ltd.</p>
   </td></tr>
 
 </table>

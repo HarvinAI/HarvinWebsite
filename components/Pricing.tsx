@@ -312,7 +312,6 @@ export default function Pricing() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-5
                            bg-ember-50 dark:bg-ember-500/10
                            border border-ember-200 dark:border-ember-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-ember-500 animate-pulse" />
             <p className="font-mono text-[11px] font-medium tracking-[0.1em] uppercase text-ember-600 dark:text-ember-400">
               Pricing
             </p>

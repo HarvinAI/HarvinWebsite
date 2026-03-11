@@ -6,6 +6,7 @@ import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, EyeOff, ArrowLeft, ShieldCheck, ChevronDown } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const JOB_ROLES = ['Owner/Founder', 'Marketing', 'Sales', 'Growth', 'Other'];
 const HEARD_FROM = [
@@ -157,6 +158,7 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f3f0] relative overflow-hidden flex items-center justify-center p-3 sm:p-6">
+      <ThemeToggle />
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
         <div className="absolute top-[-200px] right-[-100px] w-[500px] h-[500px] rounded-full bg-[#C94C1E]/[0.04] blur-[80px]" />
@@ -237,7 +239,7 @@ export default function SignUpPage() {
           <div className="flex justify-between items-center px-8 pt-6 pb-0 lg:px-10 flex-shrink-0">
             <Link href="/" className="flex items-center gap-2 lg:hidden">
               <Image src="/logo.svg" alt="HarvinAI" width={28} height={28} className="rounded-lg" />
-              <span className="font-bold text-[18px] tracking-tight text-gray-900">HarvinAI</span>
+              <span className="font-bricolage font-bold text-[18px] tracking-normal text-gray-900 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
             </Link>
             <div className="hidden lg:block" />
             <Link href="/signin" className="text-[12px] font-medium text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 px-3.5 py-1.5 rounded-lg border border-gray-100">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import Image from 'next/image';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function ThankYouPage() {
   const [name, setName] = useState('');
@@ -24,6 +25,7 @@ export default function ThankYouPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f3f0] relative overflow-hidden flex items-center justify-center p-4">
+      <ThemeToggle />
       {/* Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[-200px] right-[-100px] w-[500px] h-[500px] rounded-full bg-[#C94C1E]/[0.04] blur-[80px]" />
@@ -38,7 +40,7 @@ export default function ThankYouPage() {
           {/* Logo */}
           <div className="flex items-center justify-center gap-2.5 mb-8">
             <Image src="/logo.svg" alt="HarvinAI" width={36} height={36} className="rounded-xl" />
-            <span className="text-[20px] font-bold tracking-tight text-slate-800">HarvinAI</span>
+            <span className="font-bricolage font-bold text-[20px] tracking-normal text-slate-800 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
           </div>
 
           {/* Checkmark */}
@@ -81,7 +83,7 @@ export default function ThankYouPage() {
           {/* Contact */}
           <p className="text-[13px] text-slate-400 mb-6">
             Questions? Reach us at{' '}
-            <a href="mailto:hello@harvin.ai" className="text-[#C94C1E] font-semibold hover:underline">hello@harvin.ai</a>
+            <a href="mailto:admin@harvin.ai" className="text-[#C94C1E] font-semibold hover:underline">admin@harvin.ai</a>
           </p>
 
           <button onClick={handleLogout}

@@ -109,8 +109,8 @@ export default function TheData() {
   const pinnedLeads = Math.round(eased * RELEASE_LEADS);
   const leadCount = Math.min(MAX_LEADS, pinnedLeads + Math.round(tailProgress * (MAX_LEADS - RELEASE_LEADS)));
 
-  // Graph shape — fills up as eased → 1
-  const leftTop  = 72 - 8  * eased;
+  // Graph shape — starts from 0 (bottom), rises to the right
+  const leftTop  = 100;
   const rightTop = 66 - 28 * eased - 9 * tailProgress;
 
   // ── Auto-phase display values ─────────────────────────────────────────────
@@ -181,7 +181,7 @@ export default function TheData() {
               <h2 className="text-[36px] font-semibold leading-[1.03] tracking-[-0.025em] text-slate-900 dark:text-white md:text-[44px]">
                 The longer it runs,<br />the stronger it gets
               </h2>
-              <p className="mt-4 max-w-[620px] text-[18px] leading-relaxed text-slate-700 dark:text-white/64 md:text-[16px]">
+              <p className="mt-4 max-w-[620px] text-[18px] leading-relaxed text-slate-700 dark:text-white/40 md:text-[16px]">
                 More D2C brands tracked, more funding signals captured, more buying windows identified. Every month Harvin compounds your pipeline.
               </p>
             </div>
@@ -189,7 +189,7 @@ export default function TheData() {
               <p className="font-sans text-[40px] leading-none tracking-[-0.03em] text-slate-900 dark:text-white md:text-[44px]">
                 {displayLeadStr}+
               </p>
-              <p className="text-[18px] font-medium leading-none text-slate-700 dark:text-white/72 md:text-[24px]">D2C opportunities / month</p>
+              <p className="text-[18px] font-medium leading-none text-slate-700 dark:text-white/40 md:text-[24px]">D2C opportunities / month</p>
               <p className="mt-2 text-[12px] text-slate-500 dark:text-white/32 md:text-[16px]">Identified by Month {displayMonth}</p>
             </div>
           </div>
@@ -200,17 +200,48 @@ export default function TheData() {
             {/* Baseline */}
             <div className="absolute bottom-14 left-0 right-0 h-px bg-slate-400/45 dark:bg-white/[0.14]" />
 
-            {/* Filled area */}
+            {/* Filled area — curved SVG, grows with progress */}
             <div
               className="absolute bottom-14 left-0 h-[58%] overflow-hidden"
-              style={{
-                width: `${MARKER_X}%`,
-                clipPath: `polygon(0% ${leftTop}%, 0% 100%, 100% 100%, 100% ${rightTop}%)`,
-              }}
+              style={{ width: `${MARKER_X}%` }}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-[#C94C1E]/85 via-[#A93D18]/72 to-[#5E220E]/28 dark:from-[#C94C1E]/82 dark:via-[#A93D18]/72 dark:to-[#3D160A]/22" />
+              <svg
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                className="absolute inset-0 h-full w-full"
+                style={{ overflow: 'visible' }}
+              >
+                <defs>
+                  <linearGradient id="graphFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" className="[stop-color:#C94C1E] dark:[stop-color:#C94C1E]" style={{ stopOpacity: 0.85 }} />
+                    <stop offset="50%" className="[stop-color:#A93D18] dark:[stop-color:#A93D18]" style={{ stopOpacity: 0.72 }} />
+                    <stop offset="100%" className="[stop-color:#5E220E] dark:[stop-color:#3D160A]" style={{ stopOpacity: 0.28 }} />
+                  </linearGradient>
+                  <linearGradient id="graphGlowGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="transparent" />
+                    <stop offset="50%" stopColor="#F48E56" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="transparent" />
+                  </linearGradient>
+                </defs>
+                {(() => {
+                  // Starts from 0 (bottom), curves up — end point still rising steeply
+                  const cp1Y = leftTop - (leftTop - rightTop) * 0.08; // first half stays near bottom
+                  const cp2Y = rightTop + (leftTop - rightTop) * 0.45; // second CP well below endpoint → line is still climbing at exit
+                  const curvePath = `M 0 ${leftTop} C 45 ${cp1Y}, 80 ${cp2Y}, 100 ${rightTop}`;
+                  const fillPath = `${curvePath} L 100 100 L 0 100 Z`;
+                  return (
+                    <>
+                      {/* Curved fill */}
+                      <path d={fillPath} fill="url(#graphFill)" />
+                      {/* Glow overlay */}
+                      <path d={fillPath} fill="url(#graphGlowGrad)" className="animate-graph-glow" />
+                      {/* Curved top edge stroke */}
+                      <path d={curvePath} fill="none" stroke="#C94C1E" strokeWidth="0.5" strokeOpacity="0.5" />
+                    </>
+                  );
+                })()}
+              </svg>
               <div className="absolute inset-0 bg-gradient-to-t from-white/30 via-white/10 to-transparent dark:from-black/70 dark:via-black/30" />
-              <div className="animate-graph-glow absolute inset-0 bg-gradient-to-r from-transparent via-[#F48E56]/30 to-transparent" />
               {tailProgress > 0 && (
                 <div
                   className="animate-tail-sweep absolute inset-y-0 w-[36%] bg-gradient-to-r from-transparent via-[#FDBA74]/42 to-transparent"
@@ -219,7 +250,7 @@ export default function TheData() {
               )}
             </div>
 
-            {/* Marker — dashed line + dot */}
+            {/* Marker — dashed line + dot (moves with graph edge) */}
             <div
               className="absolute bottom-14 h-[58%] w-px border-l border-dashed border-slate-400/60 dark:border-white/30"
               style={{ left: `${MARKER_X}%` }}
