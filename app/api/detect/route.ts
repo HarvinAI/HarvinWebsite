@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { scanSingleUrl } = require('@/lib/scan/scan');
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

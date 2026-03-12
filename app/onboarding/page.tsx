@@ -447,8 +447,8 @@ export default function OnboardingPage() {
                       <div className="relative">
                         <Link2 size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
-                          type="url"
-                          placeholder="https://yourcompany.com"
+                          type="text"
+                          placeholder="yourcompany.com"
                           value={answers.companyLink ?? ''}
                           onChange={e => set({ companyLink: e.target.value })}
                           className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-4

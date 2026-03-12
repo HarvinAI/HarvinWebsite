@@ -358,7 +358,7 @@ export default function SignUpPage() {
                         <label className="block text-[12px] font-semibold text-gray-700 mb-1">
                           Website <span className="font-normal text-gray-300">(optional)</span>
                         </label>
-                        <input type="url" value={companyLink} onChange={e => setCompanyLink(e.target.value)}
+                        <input type="text" value={companyLink} onChange={e => setCompanyLink(e.target.value)}
                           placeholder="yourcompany.com" autoComplete="url"
                           className={inputCls} />
                       </div>

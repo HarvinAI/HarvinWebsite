@@ -88,6 +88,12 @@ export default function ThankYouPage() {
             <a href="mailto:admin@harvin.ai" className="text-[#C94C1E] font-semibold hover:underline">admin@harvin.ai</a>
           </p>
 
+          <a href="/"
+            className="inline-block px-6 py-2.5 bg-[#C94C1E] text-white text-[14px] font-semibold rounded-xl hover:bg-[#b3421a] transition-colors mb-4">
+            Back to Homepage
+          </a>
+
+          <br />
           <button onClick={handleLogout}
             className="text-[13px] font-medium text-slate-400 hover:text-slate-600 transition-colors">
             Sign out
