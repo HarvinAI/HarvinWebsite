@@ -539,7 +539,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   if (tabs[0]?.url) {
     try {
       const url = new URL(tabs[0].url);
-      currentUrl = url.hostname.replace(/^www\./, '');
+      currentUrl = url.hostname.replace(/^www\d*\./, '');
       siteUrlEl.textContent = currentUrl;
     } catch {
       siteUrlEl.textContent = tabs[0].url;
@@ -590,13 +590,111 @@ async function doScan(forceRefresh = false) {
   await fetchFresh(forceRefresh);
 }
 
+// ── Capture live page data from the active tab ────────────────────────
+async function capturePageData() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id || !tab?.url?.startsWith('http')) return null;
+
+  // 1. Inject script into the active tab to capture DOM + JS globals
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: () => {
+      // Capture full rendered HTML (cap at 2MB)
+      const html = document.documentElement.outerHTML.slice(0, 2_000_000);
+
+      // All script src URLs from the live DOM (includes dynamically loaded)
+      const scriptSrcs = [...document.querySelectorAll('script[src]')].map(s => s.src);
+
+      // Meta tags
+      const metaMap = {};
+      document.querySelectorAll('meta[content]').forEach(m => {
+        const key = (m.getAttribute('name') || m.getAttribute('property') || '').toLowerCase();
+        if (key) metaMap[key] = m.getAttribute('content');
+      });
+
+      // JS globals — reveals frameworks, analytics, etc. that may not be in HTML
+      const jsGlobals = {};
+      const checks = [
+        ['dataLayer', () => window.dataLayer],
+        ['nextjs', () => window.__NEXT_DATA__],
+        ['nuxt', () => window.__NUXT__],
+        ['shopify', () => window.Shopify],
+        ['webflow', () => window.Webflow],
+        ['wix', () => window.wixDeveloperAnalytics],
+        ['angular', () => window.angular || document.querySelector('[ng-version]')],
+        ['gatsby', () => window.__GATSBY],
+        ['remix', () => window.__remixContext],
+        ['sentry', () => window.Sentry || window.Raven],
+        ['facebookPixel', () => window.fbq],
+        ['gtm', () => window.gtag || window.google_tag_manager],
+        ['hotjar', () => window.hj || window._hjSettings],
+        ['intercom', () => window.Intercom],
+        ['drift', () => window.drift],
+        ['zendesk', () => window.zE || window.zESettings],
+        ['hubspot', () => window.HubSpotConversations || window._hsq],
+        ['stripe', () => window.Stripe],
+        ['klaviyo', () => window.klpiframe || document.querySelector('[class*="klaviyo"]')],
+        ['svelte', () => window.__svelte_meta],
+        ['react', () => window.React || document.querySelector('[data-reactroot]') || document.querySelector('#__next')],
+        ['vue', () => window.__VUE__ || document.querySelector('[data-v-]')],
+        ['akamai', () => window.Akamai || window.BOOMR],
+        ['optimizely', () => window.optimizely],
+        ['amplitude', () => window.amplitude],
+        ['mixpanel', () => window.mixpanel],
+        ['fullstory', () => window.FS || window._fs_namespace],
+        ['datadog', () => window.DD_RUM],
+        ['newrelic', () => window.newrelic || window.NREUM],
+        ['logrocket', () => window.LogRocket],
+        ['segment', () => window.analytics?.identify],
+        ['clarity', () => window.clarity],
+        ['tiktokPixel', () => window.ttq],
+        ['pinterest', () => window.pintrk],
+        ['linkedin', () => window._linkedin_data_partner_ids],
+      ];
+      for (const [key, check] of checks) {
+        try { if (check()) jsGlobals[key] = true; } catch {}
+      }
+
+      // Capture performance resource URLs (all network requests the browser made)
+      const networkUrls = performance.getEntriesByType('resource').map(e => e.name);
+
+      return { html, scriptSrcs, metaMap, jsGlobals, networkUrls };
+    },
+  });
+
+  // 2. Capture cookies via chrome.cookies API
+  let cookieStr = '';
+  try {
+    const cookies = await chrome.cookies.getAll({ url: tab.url });
+    cookieStr = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+  } catch {}
+
+  return { ...result, cookies: cookieStr };
+}
+
 async function fetchFresh(forceRefresh) {
   try {
     const refreshParam = forceRefresh ? '&refresh=1' : '';
+    const apiUrl = `${API_BASE}/api/detect?url=${encodeURIComponent(currentUrl)}${refreshParam}`;
 
-    const res = await fetch(
-      `${API_BASE}/api/detect?url=${encodeURIComponent(currentUrl)}${refreshParam}`
-    );
+    // Try to capture real page data from the active tab
+    let pageData = null;
+    try { pageData = await capturePageData(); } catch (e) {
+      console.warn('[HarvinAI] Could not capture page data:', e);
+    }
+
+    let res;
+    if (pageData) {
+      // POST rich page data — server skips re-fetching
+      res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageData }),
+      });
+    } else {
+      // Fallback to GET (e.g., chrome:// pages, permission denied)
+      res = await fetch(apiUrl);
+    }
 
     const text = await res.text();
     if (!text) throw new Error('Empty response from server');
@@ -646,6 +744,11 @@ function renderDetails(data) {
     const badgeClass = stores === 'Online' ? 'online-only' :
                        stores === 'Unknown' ? 'unknown' : 'has-stores';
     html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span></div></div>`;
+
+    // MAU / Estimated Traffic
+    if (companyMeta.monthlyVisitsFormatted) {
+      html += `<div class="detail-card"><div class="detail-label">Est. Traffic</div><div class="detail-value">${esc(companyMeta.monthlyVisitsFormatted)} <span class="mau-sub">visits/mo</span></div></div>`;
+    }
   }
 
   // Tech summary

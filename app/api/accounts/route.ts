@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getDb } = require('@/lib/scan/db');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { INDIA_STATES, INDIA_CITY_STATE, CITY_ALIASES, normalizeCity, formatDisplayLocation } = require('@/lib/scan/companyMeta');
+const { INDIA_STATES, INDIA_CITY_STATE, CITY_ALIASES, normalizeCity, formatDisplayLocation, lookupKnownBrand } = require('@/lib/scan/companyMeta');
 
 /* Set of known city names (lowercase) for validation */
 const KNOWN_CITIES = new Set<string>(Object.keys(INDIA_CITY_STATE as Record<string, string>));
@@ -71,7 +71,7 @@ const CATEGORY_MAP: Record<string, string> = {
   'Beauty & Skincare': 'Beauty & Personal Care',
   'Electronics & Gadgets': 'Electronics & Tech',
   'Jewelry & Accessories': 'Jewelry',
-  'Fitness & Sports': 'Outdoor & Sports',
+  'Fitness & Sports': 'Sports & Outdoor',
 };
 
 const REGION_MAP: Record<string, string> = {
@@ -90,15 +90,27 @@ const OFFLINE_PRESENCE_MAP: Record<string, string[]> = {
 };
 
 /* Map UI scale labels → monthlyVisits numeric ranges */
-const SCALE_RANGE_MAP: Record<string, { min: number; max: number }> = {
-  '<50K':     { min: 0,        max: 50000 },
-  '50K-200K': { min: 50000,    max: 200000 },
-  '200K-500K':{ min: 200000,   max: 500000 },
-  '500K-1M':  { min: 500000,   max: 1000000 },
-  '1M-5M':    { min: 1000000,  max: 5000000 },
-  '5M-20M':   { min: 5000000,  max: 20000000 },
-  '20M+':     { min: 20000000, max: Infinity },
-};
+const SCALE_BANDS = [
+  { label: '<50K',      min: 0,        max: 50000 },
+  { label: '50K-200K',  min: 50000,    max: 200000 },
+  { label: '200K-500K', min: 200000,   max: 500000 },
+  { label: '500K-1M',   min: 500000,   max: 1000000 },
+  { label: '1M-5M',     min: 1000000,  max: 5000000 },
+  { label: '5M-20M',    min: 5000000,  max: 20000000 },
+  { label: '20M+',      min: 20000000, max: Infinity },
+];
+const SCALE_RANGE_MAP: Record<string, { min: number; max: number }> = Object.fromEntries(
+  SCALE_BANDS.map(b => [b.label, { min: b.min, max: b.max }])
+);
+
+/** Map a monthlyVisits number to the matching scale band label */
+function toScaleBand(mv: number | null | undefined): string | null {
+  if (!mv || mv <= 0) return null;
+  for (const b of SCALE_BANDS) {
+    if (mv >= b.min && (b.max === Infinity || mv < b.max)) return b.label;
+  }
+  return null;
+}
 
 function mapValues(values: string[], mapping: Record<string, string>): string[] {
   return values.map(v => mapping[v] || v);
@@ -112,17 +124,12 @@ function domainHash(d: string): number {
 }
 
 const DEMO_BIZ = ['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'];
-const DEMO_TRAFFIC = ['<100K', '100K-500K', '500K-2M', '2M+'];
 const DEMO_APP = ['No App', 'iOS Only', 'Android Only', 'Both iOS & Android'];
 const DEMO_SIGNALS = ['Recently Funded', 'Hiring Surge', 'New Product Launch', 'International Expansion', 'Tech Migration'];
 const DEMO_FUNDING = ['Bootstrapped', 'Seed / Angel', 'Series A+', 'Late Stage'];
 
 function inferBusinessModel(domain: string): string {
   return DEMO_BIZ[domainHash(domain) % DEMO_BIZ.length];
-}
-
-function inferTrafficBand(domain: string): string {
-  return DEMO_TRAFFIC[(domainHash(domain) + 3) % DEMO_TRAFFIC.length];
 }
 
 function inferAppPresence(domain: string): string {
@@ -363,6 +370,7 @@ export async function GET(req: NextRequest) {
           trafficBand: 1,
           monthlyVisits: 1,
           monthlyVisitsFormatted: 1,
+          trafficSource: 1,
           appPresence: 1,
           activeSignals: 1,
           fundingStage: 1,
@@ -382,6 +390,7 @@ export async function GET(req: NextRequest) {
     const processed = accounts.map((a: Record<string, unknown>) => {
       const overrides = (a.overrides || {}) as Record<string, unknown>;
       const domain = a.normalizedDomain as string;
+      const knownBrand = lookupKnownBrand(domain);
       const signals = a.activeSignals as string[] | null;
       const loc = fixLocationFields(
         (overrides.region || a.region) as string | null,
@@ -405,6 +414,10 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      // Only show traffic data backed by real signals (not flat 5K/50K fallback)
+      const trafficSrc = a.trafficSource as string | null;
+      const hasRealTraffic = trafficSrc && trafficSrc !== 'estimate';
+
       // Normalize city and compute smart display location
       const normCity = normalizeCity(loc.city) as string | null;
       const { displayLocation, locationLevel } = formatDisplayLocation({
@@ -413,8 +426,8 @@ export async function GET(req: NextRequest) {
 
       return {
         normalizedDomain: domain,
-        category: overrides.category || a.category,
-        subCategory: overrides.subCategory || a.subCategory,
+        category: knownBrand?.category || overrides.category || a.category,
+        subCategory: knownBrand?.subCategory || overrides.subCategory || a.subCategory,
         region: loc.region,
         state: loc.state,
         city: normCity,
@@ -426,9 +439,9 @@ export async function GET(req: NextRequest) {
         techCount: a.techCount || (5 + Math.floor(Math.abs(Math.sin(domain.length * 9301 + 49297) * 25))),
         techStack: a.techStack || [],
         businessModel: a.businessModel || inferBusinessModel(domain),
-        trafficBand: a.trafficBand || inferTrafficBand(domain),
-        monthlyVisits: a.monthlyVisits || null,
-        monthlyVisitsFormatted: a.monthlyVisitsFormatted || null,
+        monthlyVisits: hasRealTraffic ? (a.monthlyVisits as number) : null,
+        monthlyVisitsFormatted: hasRealTraffic ? (a.monthlyVisitsFormatted as string) : null,
+        scaleBand: hasRealTraffic ? toScaleBand(a.monthlyVisits as number) : null,
         appPresence: a.appPresence || inferAppPresence(domain),
         activeSignals: (signals && signals.length > 0) ? signals : inferActiveSignals(domain),
         fundingStage: a.fundingStage || inferFundingStage(domain),

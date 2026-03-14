@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const db = await getDb();
-    const normalizedDomain = url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '').toLowerCase();
+    const normalizedDomain = url.replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').replace(/\/.*$/, '').toLowerCase();
 
     await db.collection('company_meta').updateOne(
       { normalizedDomain },

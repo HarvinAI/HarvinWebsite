@@ -5,14 +5,31 @@ export const maxDuration = 10;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getDb } = require('@/lib/scan/db');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { normalizeCity, formatDisplayLocation, INDIA_CITY_STATE } = require('@/lib/scan/companyMeta');
+const { normalizeCity, formatDisplayLocation, INDIA_CITY_STATE, lookupKnownBrand } = require('@/lib/scan/companyMeta');
+
+const SCALE_BANDS = [
+  { label: '<50K',      min: 0,        max: 50000 },
+  { label: '50K-200K',  min: 50000,    max: 200000 },
+  { label: '200K-500K', min: 200000,   max: 500000 },
+  { label: '500K-1M',   min: 500000,   max: 1000000 },
+  { label: '1M-5M',     min: 1000000,  max: 5000000 },
+  { label: '5M-20M',    min: 5000000,  max: 20000000 },
+  { label: '20M+',      min: 20000000, max: Infinity },
+];
+function toScaleBand(mv: number | null | undefined): string | null {
+  if (!mv || mv <= 0) return null;
+  for (const b of SCALE_BANDS) {
+    if (mv >= b.min && (b.max === Infinity || mv < b.max)) return b.label;
+  }
+  return null;
+}
 
 function normalizeDomain(raw: string): string {
-  return raw.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '').toLowerCase();
+  return raw.trim().replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').replace(/\/.*$/, '').toLowerCase();
 }
 
 function domainToName(domain: string): string {
-  const base = domain.replace(/^www\./, '').split('.')[0];
+  const base = domain.replace(/^www\d*\./, '').split('.')[0];
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
@@ -42,6 +59,8 @@ export async function GET(
     const doc = await col.findOne({ normalizedDomain });
 
     const overrides = doc?.overrides || {};
+    // Apply known brand data (always takes priority over DB)
+    const knownBrand = lookupKnownBrand(normalizedDomain);
     // Fix misclassified location fields (same logic as accounts list API)
     let region = overrides.region || doc?.region || 'Global';
     let state: string | null = doc?.state || null;
@@ -66,11 +85,13 @@ export async function GET(
     }
     const offlineStores = overrides.offlineStores || doc?.offlineStores || 'Unknown';
     const { displayLocation, locationLevel } = formatDisplayLocation({ region, state, city, offlineStores });
+    const trafficSrc = doc?.trafficSource as string | null;
+    const hasRealTraffic = trafficSrc && trafficSrc !== 'estimate';
     const meta = {
       normalizedDomain,
       name: domainToName(normalizedDomain),
-      category: overrides.category || doc?.category || 'Unknown',
-      subCategory: overrides.subCategory || doc?.subCategory || 'General',
+      category: knownBrand?.category || overrides.category || doc?.category || 'Unknown',
+      subCategory: knownBrand?.subCategory || overrides.subCategory || doc?.subCategory || 'General',
       region,
       state,
       city,
@@ -79,9 +100,9 @@ export async function GET(
       offlineStores,
       aiStoreCount: doc?.aiStoreCount || 0,
       storeConfidence: doc?.storeConfidence || null,
-      monthlyVisits: doc?.monthlyVisits || null,
-      monthlyVisitsFormatted: doc?.monthlyVisitsFormatted || null,
-      trafficBand: doc?.trafficBand || null,
+      monthlyVisits: hasRealTraffic ? (doc?.monthlyVisits || null) : null,
+      monthlyVisitsFormatted: hasRealTraffic ? (doc?.monthlyVisitsFormatted || null) : null,
+      scaleBand: hasRealTraffic ? toScaleBand(doc?.monthlyVisits) : null,
       updatedAt: doc?.updatedAt || null,
       createdAt: doc?.createdAt || null,
     };
@@ -136,7 +157,7 @@ export async function GET(
       storeConfidence: null,
       monthlyVisits: null,
       monthlyVisitsFormatted: null,
-      trafficBand: null,
+      scaleBand: null,
       updatedAt: null,
       createdAt: null,
       score: 40,

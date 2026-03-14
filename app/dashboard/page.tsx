@@ -40,9 +40,9 @@ type Account = {
   techCount: number;
   techStack: string[];
   businessModel: string | null;
-  trafficBand: string | null;
   monthlyVisits: number | null;
   monthlyVisitsFormatted: string | null;
+  scaleBand: string | null;
   appPresence: string | null;
   activeSignals: string[];
   fundingStage: string | null;
@@ -81,7 +81,7 @@ const TAB_TITLES: Record<SidebarTab, string> = {
 const emptyFilters = (): Filters => ({ category: [], region: [], state: [], city: [], businessModel: [], scale: [], offlinePresence: [], appPresence: [], techStack: [], activeSignals: [], funding: [] });
 
 function domainToName(domain: string): string {
-  const base = domain.replace(/^www\./, '').split('.')[0];
+  const base = domain.replace(/^www\d*\./, '').split('.')[0];
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
@@ -99,7 +99,7 @@ function domainHash(d: string): number {
 
 const DEMO_TECH = ['Shopify', 'Klaviyo', 'CleverTap', 'Razorpay', 'Google Analytics', 'Meta Pixel', 'Segment', 'Freshdesk', 'Shiprocket', 'Magento', 'WooCommerce', 'Stripe', 'Hotjar', 'Zendesk', 'Mailchimp'];
 const DEMO_BIZ = ['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'];
-const DEMO_TRAFFIC = ['<100K', '100K-500K', '500K-2M', '2M+'];
+const DEMO_SCALE = ['<50K', '50K-200K', '200K-500K', '500K-1M', '1M-5M', '5M-20M', '20M+'];
 const DEMO_APP = ['No App', 'iOS Only', 'Android Only', 'Both iOS & Android'];
 const DEMO_SIGNALS = ['Recently Funded', 'Hiring Surge', 'New Product Launch', 'International Expansion', 'Tech Migration'];
 const DEMO_FUNDING = ['Bootstrapped', 'Seed / Angel', 'Series A+', 'Late Stage'];
@@ -116,7 +116,7 @@ function demoFill(a: Account): Account {
     ...a,
     techStack: a.techStack?.length ? a.techStack : pickN(DEMO_TECH, h, 3 + (h % 3)),
     businessModel: a.businessModel || pick(DEMO_BIZ, h),
-    trafficBand: a.trafficBand || pick(DEMO_TRAFFIC, h + 3),
+    scaleBand: a.scaleBand || pick(DEMO_SCALE, h + 3),
     appPresence: a.appPresence || pick(DEMO_APP, h + 5),
     activeSignals: a.activeSignals?.length ? a.activeSignals : pickN(DEMO_SIGNALS, h + 2, 1 + (h % 2)),
     fundingStage: a.fundingStage || pick(DEMO_FUNDING, h + 7),
@@ -141,7 +141,7 @@ const ONBOARD_CAT_MAP: Record<string, string> = {
   'Beauty & Skincare': 'Beauty & Personal Care',
   'Electronics & Gadgets': 'Electronics & Tech',
   'Jewelry & Accessories': 'Jewelry',
-  'Fitness & Sports': 'Outdoor & Sports',
+  'Fitness & Sports': 'Sports & Outdoor',
 };
 const ONBOARD_REGION_MAP: Record<string, string> = {
   'United States': 'US',
@@ -1333,9 +1333,9 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
                           {/* Row 3: Detail pills */}
                           <div className="px-4 pb-2.5 flex items-center gap-2 flex-wrap">
-                            {(a.monthlyVisitsFormatted || a.trafficBand) && (
+                            {a.scaleBand && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-medium text-slate-600 dark:text-neutral-300">
-                                <TrendingUp size={10} className="text-blue-400" />{a.monthlyVisitsFormatted ? `${a.monthlyVisitsFormatted} visits/mo` : `${a.trafficBand} MAU`}
+                                <TrendingUp size={10} className="text-blue-400" />{a.scaleBand}{a.monthlyVisitsFormatted ? ` (${a.monthlyVisitsFormatted})` : ''}
                               </span>
                             )}
                             {a.appPresence && a.appPresence !== 'No App' && (
@@ -2046,7 +2046,7 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
 
   const runScan = async (domain: string) => {
     if (!domain.trim()) return;
-    const clean = domain.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+    const clean = domain.trim().replace(/^https?:\/\//, '').replace(/^www\d*\./, '').replace(/\/+$/, '');
     setScanDomain(clean);
     setScanResult(null);
     setScanError(null);

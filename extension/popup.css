@@ -299,6 +299,12 @@ body.dark .sun-icon { display: none; }
   color: var(--text-muted);
 }
 
+.mau-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .detail-url {
   font-size: 12px;
   color: var(--accent);

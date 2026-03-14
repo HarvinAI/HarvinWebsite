@@ -29,7 +29,7 @@ interface AccountData {
   storeConfidence: { level?: string; score?: number } | null;
   monthlyVisits: number | null;
   monthlyVisitsFormatted: string | null;
-  trafficBand: string | null;
+  scaleBand: string | null;
   updatedAt: string | null;
   createdAt: string | null;
   score: number;
@@ -594,7 +594,7 @@ export default function AccountDetailPage() {
                   <MetricCard icon={<Store size={16} className="text-violet-500" />} label="Offline Stores" value={account.offlineStores === 'Unknown' ? '\u2014' : account.offlineStores || 'Online'} sub={account.aiStoreCount > 0 ? `${account.aiStoreCount} AI-detected` : null} />
                   <MetricCard icon={<Building2 size={16} className="text-blue-500" />} label="Channel" value={channelType(account.offlineStores)} />
                   <MetricCard icon={<MapPin size={16} className="text-emerald-500" />} label="Location" value={account.displayLocation || account.region || 'Global'} sub={account.locationLevel === 'city' || account.locationLevel === 'state' ? account.region : null} />
-                  <MetricCard icon={<Users size={16} className="text-amber-500" />} label="MAU" value={account.monthlyVisitsFormatted || account.trafficBand || '\u2014'} sub={account.monthlyVisitsFormatted && account.trafficBand ? account.trafficBand : (account.monthlyVisits ? null : 'No data yet')} muted={!account.monthlyVisits && !account.trafficBand} />
+                  <MetricCard icon={<Users size={16} className="text-amber-500" />} label="Est. Traffic" value={account.monthlyVisitsFormatted || account.scaleBand || '\u2014'} sub={account.monthlyVisitsFormatted && account.scaleBand ? account.scaleBand : (account.monthlyVisits ? null : 'No data yet')} muted={!account.monthlyVisits} />
                 </div>
 
                 {/* Active Signals */}

@@ -9,7 +9,7 @@ export const maxDuration = 120;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
@@ -86,17 +86,14 @@ function detectSource(req: NextRequest): string {
   return 'unknown';
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
-}
-
-export async function GET(req: NextRequest) {
+/* ── Shared scan handler ─────────────────────────────────────────────── */
+async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) {
   const url = req.nextUrl.searchParams.get('url');
   if (!url) {
     return NextResponse.json({ error: 'url query param required' }, { status: 400, headers: corsHeaders });
   }
 
-  const domain = url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '').toLowerCase();
+  const domain = url.replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').replace(/\/.*$/, '').toLowerCase();
   const source = detectSource(req);
   const forceRefresh = req.nextUrl.searchParams.get('refresh') === '1';
 
@@ -111,8 +108,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await scanSingleUrl(url, { forceRefresh });
+    const result = await scanSingleUrl(url, { forceRefresh, pageData });
     logScan(req, domain, source, result, null);
+
+    // Enrich with MAU / traffic data from DB (skip flat fallback estimates)
+    try {
+      const db = await getDb();
+      const doc = await db.collection('company_meta').findOne(
+        { normalizedDomain: domain },
+        { projection: { monthlyVisits: 1, monthlyVisitsFormatted: 1, trafficSource: 1 } },
+      );
+      if (doc && result.companyMeta) {
+        // Only show traffic data backed by real signals (tranco rank or crux presence)
+        const hasRealData = doc.trafficSource && doc.trafficSource !== 'estimate';
+        result.companyMeta.monthlyVisits = hasRealData ? (doc.monthlyVisits || null) : null;
+        result.companyMeta.monthlyVisitsFormatted = hasRealData ? (doc.monthlyVisitsFormatted || null) : null;
+      }
+    } catch { /* non-critical — skip if DB unavailable */ }
+
     return NextResponse.json(result, { headers: corsHeaders });
   } catch (err: unknown) {
     const error = err as { message?: string };
@@ -126,4 +139,26 @@ export async function GET(req: NextRequest) {
   } finally {
     releaseSlot();
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
+/* GET — server-side fetch (dashboard, API callers, old extension versions) */
+export async function GET(req: NextRequest) {
+  return handleScan(req);
+}
+
+/* POST — extension sends pre-captured page data, server skips re-fetching */
+export async function POST(req: NextRequest) {
+  let pageData;
+  try {
+    const body = await req.json();
+    pageData = body.pageData;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: corsHeaders });
+  }
+
+  return handleScan(req, pageData);
 }

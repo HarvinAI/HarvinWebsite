@@ -38,7 +38,7 @@ export default function TechScanner() {
     // Clean up the domain for URL
     const domain = url.trim()
       .replace(/^https?:\/\//, '')
-      .replace(/^www\./, '')
+      .replace(/^www\d*\./, '')
       .replace(/\/+$/, '');
 
     router.push(`/scan/${encodeURIComponent(domain)}`);

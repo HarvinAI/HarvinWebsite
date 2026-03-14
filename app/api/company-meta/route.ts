@@ -9,7 +9,7 @@ function normalizeDomain(raw: string): string {
   return raw
     .trim()
     .replace(/^https?:\/\//i, '')
-    .replace(/^www\./i, '')
+    .replace(/^www\d*\./i, '')
     .replace(/\/.*$/, '')
     .toLowerCase();
 }

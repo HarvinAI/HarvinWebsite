@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
   // Add or remove domain from existing watchlist
   if (body.id && body.domain) {
-    const domain = body.domain.trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '');
+    const domain = body.domain.trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').replace(/\/.*$/, '');
 
     if (body.remove) {
       await col.updateOne(
