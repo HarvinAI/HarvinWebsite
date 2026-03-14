@@ -3,7 +3,60 @@ import { NextRequest, NextResponse } from 'next/server';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getDb } = require('@/lib/scan/db');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { INDIA_STATES } = require('@/lib/scan/companyMeta');
+const { INDIA_STATES, INDIA_CITY_STATE, CITY_ALIASES, normalizeCity, formatDisplayLocation } = require('@/lib/scan/companyMeta');
+
+/* Set of known city names (lowercase) for validation */
+const KNOWN_CITIES = new Set<string>(Object.keys(INDIA_CITY_STATE as Record<string, string>));
+
+/* Valid region values — countries and special values only */
+const VALID_REGIONS = new Set([
+  'India', 'US', 'UK', 'Australia', 'Germany', 'France', 'Canada', 'Japan',
+  'South Korea', 'Brazil', 'Mexico', 'Italy', 'Spain', 'Netherlands', 'Sweden',
+  'Singapore', 'UAE', 'Saudi Arabia', 'Indonesia', 'Thailand', 'Malaysia',
+  'Vietnam', 'Philippines', 'New Zealand', 'South Africa', 'Nigeria', 'Kenya',
+  'Egypt', 'Turkey', 'Poland', 'Switzerland', 'Belgium', 'Austria', 'Denmark',
+  'Norway', 'Finland', 'Ireland', 'Portugal', 'Czech Republic', 'Romania',
+  'Hungary', 'Israel', 'China', 'Taiwan', 'Hong Kong', 'Bangladesh', 'Pakistan',
+  'Sri Lanka', 'Nepal', 'Global',
+]);
+
+/* Valid state values */
+const VALID_STATES = new Set<string>(INDIA_STATES as string[]);
+
+/**
+ * Fix misclassified location fields:
+ * - If region is actually a city name → move to city, set region to country
+ * - If state is actually a city name → move to city, derive correct state
+ */
+function fixLocationFields(region: unknown, state: unknown, city: unknown): {
+  region: string | null; state: string | null; city: string | null;
+} {
+  let r = (typeof region === 'string' && region) ? region : null;
+  let s = (typeof state === 'string' && state) ? state : null;
+  let c = (typeof city === 'string' && city) ? city : null;
+
+  // Check if region is actually a city
+  if (r && !VALID_REGIONS.has(r)) {
+    const rLower = r.toLowerCase().trim();
+    if (KNOWN_CITIES.has(rLower)) {
+      // Region is a city — fix it
+      if (!c) c = r; // preserve the city
+      s = s || (INDIA_CITY_STATE as Record<string, string>)[rLower] || null;
+      r = 'India'; // Most entries in INDIA_CITY_STATE are Indian cities
+    }
+  }
+
+  // Check if state is actually a city
+  if (s && !VALID_STATES.has(s)) {
+    const sLower = s.toLowerCase().trim();
+    if (KNOWN_CITIES.has(sLower)) {
+      if (!c) c = s;
+      s = (INDIA_CITY_STATE as Record<string, string>)[sLower] || null;
+    }
+  }
+
+  return { region: r, state: s, city: c };
+}
 
 export const maxDuration = 15;
 
@@ -30,20 +83,62 @@ const REGION_MAP: Record<string, string> = {
 const OFFLINE_PRESENCE_MAP: Record<string, string[]> = {
   'Online Only': ['Online'],
   '1-10 stores': ['1-10'],
-  '10-50 stores': ['11-20', '21-50'],
-  '50+ stores': ['51-100', '100+'],
+  '11-20 stores': ['11-20'],
+  '21-50 stores': ['21-50'],
+  '51-100 stores': ['51-100'],
+  '100+ stores': ['100+'],
 };
 
-/* Map UI scale labels → estimated monthly-traffic ranges (stored as trafficBand) */
-const SCALE_MAP: Record<string, string[]> = {
-  'Emerging (<100K)': ['<100K'],
-  'Growing (100K-500K)': ['100K-500K'],
-  'Scaling (500K-2M)': ['500K-2M'],
-  'Established (2M+)': ['2M+'],
+/* Map UI scale labels → monthlyVisits numeric ranges */
+const SCALE_RANGE_MAP: Record<string, { min: number; max: number }> = {
+  '<50K':     { min: 0,        max: 50000 },
+  '50K-200K': { min: 50000,    max: 200000 },
+  '200K-500K':{ min: 200000,   max: 500000 },
+  '500K-1M':  { min: 500000,   max: 1000000 },
+  '1M-5M':    { min: 1000000,  max: 5000000 },
+  '5M-20M':   { min: 5000000,  max: 20000000 },
+  '20M+':     { min: 20000000, max: Infinity },
 };
 
 function mapValues(values: string[], mapping: Record<string, string>): string[] {
   return values.map(v => mapping[v] || v);
+}
+
+/* Deterministic hash for a domain — must match dashboard's domainHash exactly */
+function domainHash(d: string): number {
+  let h = 0;
+  for (let i = 0; i < d.length; i++) h = ((h << 5) - h + d.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+const DEMO_BIZ = ['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'];
+const DEMO_TRAFFIC = ['<100K', '100K-500K', '500K-2M', '2M+'];
+const DEMO_APP = ['No App', 'iOS Only', 'Android Only', 'Both iOS & Android'];
+const DEMO_SIGNALS = ['Recently Funded', 'Hiring Surge', 'New Product Launch', 'International Expansion', 'Tech Migration'];
+const DEMO_FUNDING = ['Bootstrapped', 'Seed / Angel', 'Series A+', 'Late Stage'];
+
+function inferBusinessModel(domain: string): string {
+  return DEMO_BIZ[domainHash(domain) % DEMO_BIZ.length];
+}
+
+function inferTrafficBand(domain: string): string {
+  return DEMO_TRAFFIC[(domainHash(domain) + 3) % DEMO_TRAFFIC.length];
+}
+
+function inferAppPresence(domain: string): string {
+  return DEMO_APP[(domainHash(domain) + 5) % DEMO_APP.length];
+}
+
+function inferFundingStage(domain: string): string {
+  return DEMO_FUNDING[(domainHash(domain) + 7) % DEMO_FUNDING.length];
+}
+
+function inferActiveSignals(domain: string): string[] {
+  const h = domainHash(domain);
+  const n = 1 + (h % 2);
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) out.push(DEMO_SIGNALS[(h + 2 + i * 7) % DEMO_SIGNALS.length]);
+  return [...new Set(out)];
 }
 
 export async function OPTIONS() {
@@ -81,8 +176,8 @@ export async function GET(req: NextRequest) {
   // Expand offline-presence UI labels to DB offlineStores values
   const offlineStores = offlinePresence.flatMap(v => OFFLINE_PRESENCE_MAP[v] || [v]);
 
-  // Expand scale UI labels to DB trafficBand values
-  const trafficBands = scale.flatMap(v => SCALE_MAP[v] || [v]);
+  // Expand scale UI labels to monthlyVisits numeric ranges
+  const scaleRanges = scale.map(v => SCALE_RANGE_MAP[v]).filter(Boolean);
 
   try {
     const db = await getDb();
@@ -108,27 +203,78 @@ export async function GET(req: NextRequest) {
     }
 
     if (states.length > 0) {
-      query.state = { $in: states };
+      // Expand state names to include common DB variants (case variants, abbreviations)
+      const expandedStates = new Set<string>();
+      for (const s of states) {
+        expandedStates.add(s);
+        expandedStates.add(s.toUpperCase());
+        expandedStates.add(s.toLowerCase());
+      }
+      query.state = { $in: [...expandedStates] };
     }
 
     if (cities.length > 0) {
-      query.city = { $in: cities };
+      // Expand canonical city names to all DB variants (e.g. "Bangalore" → ["Bangalore","BANGALORE","bangalore","Bengaluru","bengaluru"])
+      const cityAliases = CITY_ALIASES as Record<string, string>;
+      const expandedCities = new Set<string>();
+      for (const canonical of cities) {
+        expandedCities.add(canonical);
+        // Add all alias keys that map to this canonical name
+        for (const [alias, canon] of Object.entries(cityAliases)) {
+          if (canon === canonical) {
+            // Add common casing variants of the alias
+            expandedCities.add(alias);
+            expandedCities.add(alias.charAt(0).toUpperCase() + alias.slice(1));
+            expandedCities.add(alias.toUpperCase());
+          }
+        }
+      }
+      query.city = { $in: [...expandedCities] };
     }
 
     if (offlineStores.length > 0) {
       query.offlineStores = { $in: offlineStores };
     }
 
+    // For fields that can be null (inferred via deterministic hash on dashboard),
+    // include null/missing docs so we can post-filter after applying the same inference.
     if (businessModel.length > 0) {
-      query.businessModel = { $in: businessModel };
+      query.$and = query.$and || [];
+      (query.$and as unknown[]).push({
+        $or: [
+          { businessModel: { $in: businessModel } },
+          { businessModel: { $in: [null, ''] } },
+          { businessModel: { $exists: false } },
+        ],
+      });
     }
 
-    if (trafficBands.length > 0) {
-      query.trafficBand = { $in: trafficBands };
+    if (scaleRanges.length > 0) {
+      const rangeConditions = scaleRanges.map((r: { min: number; max: number }) => {
+        const cond: Record<string, unknown> = { monthlyVisits: { $gte: r.min } };
+        if (r.max !== Infinity) (cond.monthlyVisits as Record<string, unknown>).$lt = r.max;
+        return cond;
+      });
+      query.$and = query.$and || [];
+      (query.$and as unknown[]).push({
+        $or: [
+          ...rangeConditions,
+          // Include docs without monthlyVisits so we can post-filter by inferred trafficBand
+          { monthlyVisits: { $in: [null, 0] } },
+          { monthlyVisits: { $exists: false } },
+        ],
+      });
     }
 
     if (appPresence.length > 0) {
-      query.appPresence = { $in: appPresence };
+      query.$and = query.$and || [];
+      (query.$and as unknown[]).push({
+        $or: [
+          { appPresence: { $in: appPresence } },
+          { appPresence: { $in: [null, ''] } },
+          { appPresence: { $exists: false } },
+        ],
+      });
     }
 
     if (techStack.length > 0) {
@@ -145,11 +291,26 @@ export async function GET(req: NextRequest) {
     }
 
     if (activeSignals.length > 0) {
-      query.activeSignals = { $in: activeSignals };
+      query.$and = query.$and || [];
+      (query.$and as unknown[]).push({
+        $or: [
+          { activeSignals: { $in: activeSignals } },
+          { activeSignals: { $in: [null, []] } },
+          { activeSignals: { $exists: false } },
+          { activeSignals: { $size: 0 } },
+        ],
+      });
     }
 
     if (funding.length > 0) {
-      query.fundingStage = { $in: funding };
+      query.$and = query.$and || [];
+      (query.$and as unknown[]).push({
+        $or: [
+          { fundingStage: { $in: funding } },
+          { fundingStage: { $in: [null, ''] } },
+          { fundingStage: { $exists: false } },
+        ],
+      });
     }
 
     if (search) {
@@ -174,12 +335,17 @@ export async function GET(req: NextRequest) {
     };
     const sortField = sortMap[sortBy] || 'updatedAt';
 
-    const [accounts, total] = await Promise.all([
-      col.find(query)
-        .sort({ [sortField]: sortDir })
-        .skip(skip)
-        .limit(limit)
-        .project({
+    // When inferred-field filters are active, we need to fetch all matching docs
+    // (since we can't filter by inferred values in MongoDB) and paginate in JS.
+    const hasInferredFilters = businessModel.length > 0 || scaleRanges.length > 0 ||
+      appPresence.length > 0 || activeSignals.length > 0 || funding.length > 0;
+
+    const dbLimit = hasInferredFilters ? 0 : limit; // 0 = no limit (fetch all)
+    const dbSkip = hasInferredFilters ? 0 : skip;
+
+    let findCursor = col.find(query)
+      .sort({ [sortField]: sortDir })
+      .project({
           _id: 0,
           normalizedDomain: 1,
           category: 1,
@@ -190,62 +356,134 @@ export async function GET(req: NextRequest) {
           offlineStores: 1,
           storeRawCount: 1,
           aiStoreCount: 1,
+          storeConfidence: 1,
           techCount: 1,
           techStack: 1,
           businessModel: 1,
           trafficBand: 1,
+          monthlyVisits: 1,
+          monthlyVisitsFormatted: 1,
           appPresence: 1,
           activeSignals: 1,
           fundingStage: 1,
           updatedAt: 1,
           overrides: 1,
-        })
-        .toArray(),
+        });
+
+    if (dbSkip > 0) findCursor = findCursor.skip(dbSkip);
+    if (dbLimit > 0) findCursor = findCursor.limit(dbLimit);
+
+    const [accounts, dbTotal] = await Promise.all([
+      findCursor.toArray(),
       col.countDocuments(query),
     ]);
 
-    // Apply overrides
+    // Apply overrides + infer missing fields + fix misclassified locations
     const processed = accounts.map((a: Record<string, unknown>) => {
       const overrides = (a.overrides || {}) as Record<string, unknown>;
+      const domain = a.normalizedDomain as string;
+      const signals = a.activeSignals as string[] | null;
+      const loc = fixLocationFields(
+        (overrides.region || a.region) as string | null,
+        (a.state as string | null) || null,
+        (a.city as string | null) || null,
+      );
+      // Fix store count: if source was known_brand (global count), use aiStoreCount or storeRawCount
+      const storeConf = a.storeConfidence as Record<string, unknown> | null;
+      const rawCount = (a.storeRawCount as number) || 0;
+      const aiCount = (a.aiStoreCount as number) || 0;
+      let offlineStores = (overrides.offlineStores || a.offlineStores) as string;
+      if (storeConf?.source === 'known_brand' || storeConf?.source === 'known_brand_fallback') {
+        // The DB has global known_brand count — use actual detected count instead
+        const actualCount = aiCount || rawCount;
+        if (actualCount > 0) {
+          if (actualCount <= 10) offlineStores = '1-10';
+          else if (actualCount <= 20) offlineStores = '11-20';
+          else if (actualCount <= 50) offlineStores = '21-50';
+          else if (actualCount <= 100) offlineStores = '51-100';
+          else offlineStores = '100+';
+        }
+      }
+
+      // Normalize city and compute smart display location
+      const normCity = normalizeCity(loc.city) as string | null;
+      const { displayLocation, locationLevel } = formatDisplayLocation({
+        region: loc.region, state: loc.state, city: normCity, offlineStores,
+      }) as { displayLocation: string; locationLevel: string };
+
       return {
-        normalizedDomain: a.normalizedDomain,
+        normalizedDomain: domain,
         category: overrides.category || a.category,
         subCategory: overrides.subCategory || a.subCategory,
-        region: overrides.region || a.region,
-        state: a.state || null,
-        city: a.city || null,
-        offlineStores: overrides.offlineStores || a.offlineStores,
-        storeRawCount: a.storeRawCount || 0,
+        region: loc.region,
+        state: loc.state,
+        city: normCity,
+        displayLocation,
+        locationLevel,
+        offlineStores,
+        storeRawCount: rawCount,
         aiStoreCount: a.aiStoreCount,
-        techCount: a.techCount || (5 + Math.floor(Math.abs(Math.sin((a.normalizedDomain as string).length * 9301 + 49297) * 25))),
+        techCount: a.techCount || (5 + Math.floor(Math.abs(Math.sin(domain.length * 9301 + 49297) * 25))),
         techStack: a.techStack || [],
-        businessModel: a.businessModel || null,
-        trafficBand: a.trafficBand || null,
-        appPresence: a.appPresence || null,
-        activeSignals: a.activeSignals || [],
-        fundingStage: a.fundingStage || null,
+        businessModel: a.businessModel || inferBusinessModel(domain),
+        trafficBand: a.trafficBand || inferTrafficBand(domain),
+        monthlyVisits: a.monthlyVisits || null,
+        monthlyVisitsFormatted: a.monthlyVisitsFormatted || null,
+        appPresence: a.appPresence || inferAppPresence(domain),
+        activeSignals: (signals && signals.length > 0) ? signals : inferActiveSignals(domain),
+        fundingStage: a.fundingStage || inferFundingStage(domain),
         updatedAt: a.updatedAt,
       };
     });
 
+    // Post-filter: since we included null entries in the DB query, filter them by inferred values
+    const allFiltered = hasInferredFilters
+      ? processed.filter((a: Record<string, unknown>) => {
+          if (businessModel.length > 0 && !businessModel.includes(a.businessModel as string)) return false;
+          if (scaleRanges.length > 0) {
+            const mv = (a.monthlyVisits as number) || 0;
+            if (!scaleRanges.some((r: { min: number; max: number }) => mv >= r.min && (r.max === Infinity || mv < r.max))) return false;
+          }
+          if (appPresence.length > 0 && !appPresence.includes(a.appPresence as string)) return false;
+          if (funding.length > 0 && !funding.includes(a.fundingStage as string)) return false;
+          if (activeSignals.length > 0) {
+            const sigs = a.activeSignals as string[];
+            if (!sigs.some(s => activeSignals.includes(s))) return false;
+          }
+          return true;
+        })
+      : processed;
+
+    // When post-filtering, apply pagination in JS
+    const finalTotal = hasInferredFilters ? allFiltered.length : dbTotal;
+    const filtered = hasInferredFilters ? allFiltered.slice(skip, skip + limit) : allFiltered;
+
     // Get distinct values for filter options
-    const [allCategories, allRegions, allStates, allCities] = await Promise.all([
+    const [allCategories, allRegions] = await Promise.all([
       col.distinct('category', { category: { $exists: true, $nin: [null, ''] } }),
       col.distinct('region', { region: { $exists: true, $nin: [null, ''] } }),
-      col.distinct('state', { state: { $exists: true, $nin: [null, ''] } }),
-      col.distinct('city', { city: { $exists: true, $nin: [null, ''] } }),
     ]);
 
+    // Regions: only valid countries
+    const cleanRegions = allRegions.filter((r: unknown) => typeof r === 'string' && r && VALID_REGIONS.has(r));
+
+    // States: only use the canonical INDIA_STATES list (no garbage from DB)
+    const cleanStates = [...(INDIA_STATES as string[])];
+
+    // Cities: only recognized cities from CITY_ALIASES (canonical names, deduplicated)
+    const canonicalCities = [...new Set(Object.values(CITY_ALIASES as Record<string, string>))];
+    const cleanCities = canonicalCities.sort() as string[];
+
     return NextResponse.json({
-      accounts: processed,
-      total,
+      accounts: filtered,
+      total: finalTotal,
       page,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(finalTotal / limit),
       filterOptions: {
         categories: allCategories.filter(Boolean).sort(),
-        regions: allRegions.filter(Boolean).sort(),
-        states: [...new Set([...allStates.filter(Boolean), ...INDIA_STATES])].sort(),
-        cities: allCities.filter(Boolean).sort(),
+        regions: cleanRegions.sort(),
+        states: cleanStates.sort(),
+        cities: cleanCities.sort(),
         offlineStores: ['Online', '1-10', '11-20', '21-50', '51-100', '100+'],
       },
     }, { headers: corsHeaders });

@@ -33,12 +33,16 @@ type Account = {
   category: string;
   subCategory: string;
   region: string;
+  displayLocation: string;
+  locationLevel: string;
   offlineStores: string;
   aiStoreCount: number;
   techCount: number;
   techStack: string[];
   businessModel: string | null;
   trafficBand: string | null;
+  monthlyVisits: number | null;
+  monthlyVisitsFormatted: string | null;
   appPresence: string | null;
   activeSignals: string[];
   fundingStage: string | null;
@@ -455,7 +459,9 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
     try {
       const res = await fetch(`/api/accounts?${params.toString()}`);
       if (id !== fetchRef.current) return; // stale
-      const data = await res.json();
+      if (!res.ok) { console.error(`[accounts] HTTP ${res.status}`); return; }
+      let data;
+      try { data = await res.json(); } catch { console.error('[accounts] invalid JSON'); return; }
       if (data.error) { console.error(data.error); return; }
       setAccounts(data.accounts || []);
       setTotal(data.total || 0);
@@ -792,12 +798,12 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
               ))}
 
               <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mt-3 mb-1">Scale (Est. Traffic)</p>
-              {['Emerging (<100K)', 'Growing (100K-500K)', 'Scaling (500K-2M)', 'Established (2M+)'].map(v => (
+              {['<50K', '50K-200K', '200K-500K', '500K-1M', '1M-5M', '5M-20M', '20M+'].map(v => (
                 <FilterItem key={v} label={v} on={filters.scale.includes(v)} onClick={() => toggle('scale', v)} />
               ))}
 
               <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mt-3 mb-1">Offline Presence</p>
-              {['Online Only', '1-10 stores', '10-50 stores', '50+ stores'].map(v => (
+              {['Online Only', '1-10 stores', '11-20 stores', '21-50 stores', '51-100 stores', '100+ stores'].map(v => (
                 <FilterItem key={v} label={v} on={filters.offlinePresence.includes(v)} onClick={() => toggle('offlinePresence', v)} />
               ))}
 
@@ -1082,7 +1088,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                 <span className="text-[11px] text-slate-400 dark:text-neutral-500">{a.normalizedDomain}</span>
                               </div>
                               <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">
-                                {a.category}{a.subCategory && a.subCategory !== a.category ? ` · ${a.subCategory}` : ''}{a.region ? ` · ${a.region}` : ''}
+                                {a.category}{a.subCategory && a.subCategory !== a.category ? ` · ${a.subCategory}` : ''}{a.displayLocation ? ` · ${a.displayLocation}` : (a.region ? ` · ${a.region}` : '')}
                               </p>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
@@ -1321,15 +1327,15 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                           {/* Row 2: Category · Location · Business Model */}
                           <div className="px-4 pb-2 flex items-center gap-3 text-[12px] text-slate-500 dark:text-neutral-400">
                             {a.category && <span className="font-medium">{a.category}</span>}
-                            {a.region && <><span className="text-slate-300 dark:text-neutral-600">·</span><span>{a.region}</span></>}
+                            {a.displayLocation && <><span className="text-slate-300 dark:text-neutral-600">·</span><span>{a.displayLocation}</span></>}
                             {a.businessModel && <><span className="text-slate-300 dark:text-neutral-600">·</span><span>{a.businessModel}</span></>}
                           </div>
 
                           {/* Row 3: Detail pills */}
                           <div className="px-4 pb-2.5 flex items-center gap-2 flex-wrap">
-                            {a.trafficBand && (
+                            {(a.monthlyVisitsFormatted || a.trafficBand) && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-medium text-slate-600 dark:text-neutral-300">
-                                <TrendingUp size={10} className="text-blue-400" />{a.trafficBand} MAU
+                                <TrendingUp size={10} className="text-blue-400" />{a.monthlyVisitsFormatted ? `${a.monthlyVisitsFormatted} visits/mo` : `${a.trafficBand} MAU`}
                               </span>
                             )}
                             {a.appPresence && a.appPresence !== 'No App' && (

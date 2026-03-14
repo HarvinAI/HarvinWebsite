@@ -20,9 +20,16 @@ interface AccountData {
   category: string;
   subCategory: string;
   region: string;
+  state: string | null;
+  city: string | null;
+  displayLocation: string;
+  locationLevel: string;
   offlineStores: string;
   aiStoreCount: number;
   storeConfidence: { level?: string; score?: number } | null;
+  monthlyVisits: number | null;
+  monthlyVisitsFormatted: string | null;
+  trafficBand: string | null;
   updatedAt: string | null;
   createdAt: string | null;
   score: number;
@@ -586,8 +593,8 @@ export default function AccountDetailPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <MetricCard icon={<Store size={16} className="text-violet-500" />} label="Offline Stores" value={account.offlineStores === 'Unknown' ? '\u2014' : account.offlineStores || 'Online'} sub={account.aiStoreCount > 0 ? `${account.aiStoreCount} AI-detected` : null} />
                   <MetricCard icon={<Building2 size={16} className="text-blue-500" />} label="Channel" value={channelType(account.offlineStores)} />
-                  <MetricCard icon={<MapPin size={16} className="text-emerald-500" />} label="Region" value={account.region !== 'Global' ? account.region : 'Global'} />
-                  <MetricCard icon={<Users size={16} className="text-amber-500" />} label="MAU" value="\u2014" sub="Coming soon" muted />
+                  <MetricCard icon={<MapPin size={16} className="text-emerald-500" />} label="Location" value={account.displayLocation || account.region || 'Global'} sub={account.locationLevel === 'city' || account.locationLevel === 'state' ? account.region : null} />
+                  <MetricCard icon={<Users size={16} className="text-amber-500" />} label="MAU" value={account.monthlyVisitsFormatted || account.trafficBand || '\u2014'} sub={account.monthlyVisitsFormatted && account.trafficBand ? account.trafficBand : (account.monthlyVisits ? null : 'No data yet')} muted={!account.monthlyVisits && !account.trafficBand} />
                 </div>
 
                 {/* Active Signals */}
@@ -602,7 +609,7 @@ export default function AccountDetailPage() {
                     {account.offlineStores && account.offlineStores !== 'Unknown' && account.offlineStores !== 'Online' && (
                       <div className="flex items-center gap-3 bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/30 rounded-xl px-4 py-3">
                         <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                        <span className="text-[13px] text-slate-700 dark:text-neutral-200">{account.offlineStores} offline stores across {account.region}</span>
+                        <span className="text-[13px] text-slate-700 dark:text-neutral-200">{account.offlineStores} offline stores across {account.displayLocation || account.region}</span>
                       </div>
                     )}
                     {!techLoading && platform !== 'Custom' && (
@@ -668,7 +675,7 @@ export default function AccountDetailPage() {
                     <InfoRow label="Domain" value={account.normalizedDomain} />
                     <InfoRow label="Category" value={account.category !== 'Unknown' ? account.category : '\u2014'} />
                     <InfoRow label="Sub-category" value={account.subCategory !== 'General' ? account.subCategory : '\u2014'} />
-                    <InfoRow label="Region" value={account.region} />
+                    <InfoRow label="Location" value={account.displayLocation || account.region} />
                     <InfoRow label="Channel" value={channelType(account.offlineStores)} />
                     {!techLoading && <InfoRow label="Platform" value={platform} />}
                     <InfoRow label="Store Count" value={account.offlineStores === 'Unknown' ? '\u2014' : account.offlineStores} />

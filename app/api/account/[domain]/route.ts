@@ -4,6 +4,8 @@ export const maxDuration = 10;
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getDb } = require('@/lib/scan/db');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { normalizeCity, formatDisplayLocation, INDIA_CITY_STATE } = require('@/lib/scan/companyMeta');
 
 function normalizeDomain(raw: string): string {
   return raw.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '').toLowerCase();
@@ -40,15 +42,46 @@ export async function GET(
     const doc = await col.findOne({ normalizedDomain });
 
     const overrides = doc?.overrides || {};
+    // Fix misclassified location fields (same logic as accounts list API)
+    let region = overrides.region || doc?.region || 'Global';
+    let state: string | null = doc?.state || null;
+    let city: string | null = normalizeCity(doc?.city) || null;
+    const KNOWN_CITIES_MAP = INDIA_CITY_STATE as Record<string, string>;
+    // If region is actually a city name
+    if (region && region !== 'Global') {
+      const rLower = (typeof region === 'string' ? region : '').toLowerCase().trim();
+      if (rLower && KNOWN_CITIES_MAP[rLower]) {
+        if (!city) city = normalizeCity(region);
+        state = state || KNOWN_CITIES_MAP[rLower];
+        region = 'India';
+      }
+    }
+    // If state is actually a city name
+    if (state) {
+      const sLower = state.toLowerCase().trim();
+      if (KNOWN_CITIES_MAP[sLower] && !Object.values(KNOWN_CITIES_MAP).includes(state)) {
+        if (!city) city = normalizeCity(state);
+        state = KNOWN_CITIES_MAP[sLower];
+      }
+    }
+    const offlineStores = overrides.offlineStores || doc?.offlineStores || 'Unknown';
+    const { displayLocation, locationLevel } = formatDisplayLocation({ region, state, city, offlineStores });
     const meta = {
       normalizedDomain,
       name: domainToName(normalizedDomain),
       category: overrides.category || doc?.category || 'Unknown',
       subCategory: overrides.subCategory || doc?.subCategory || 'General',
-      region: overrides.region || doc?.region || 'Global',
-      offlineStores: overrides.offlineStores || doc?.offlineStores || 'Unknown',
+      region,
+      state,
+      city,
+      displayLocation,
+      locationLevel,
+      offlineStores,
       aiStoreCount: doc?.aiStoreCount || 0,
       storeConfidence: doc?.storeConfidence || null,
+      monthlyVisits: doc?.monthlyVisits || null,
+      monthlyVisitsFormatted: doc?.monthlyVisitsFormatted || null,
+      trafficBand: doc?.trafficBand || null,
       updatedAt: doc?.updatedAt || null,
       createdAt: doc?.createdAt || null,
     };
@@ -94,9 +127,16 @@ export async function GET(
       category: 'Unknown',
       subCategory: 'General',
       region: 'Global',
+      state: null,
+      city: null,
+      displayLocation: 'Global',
+      locationLevel: 'global',
       offlineStores: 'Unknown',
       aiStoreCount: 0,
       storeConfidence: null,
+      monthlyVisits: null,
+      monthlyVisitsFormatted: null,
+      trafficBand: null,
       updatedAt: null,
       createdAt: null,
       score: 40,
