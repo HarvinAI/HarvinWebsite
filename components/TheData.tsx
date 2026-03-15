@@ -179,10 +179,10 @@ export default function TheData() {
           <div className="flex flex-col gap-7 md:flex-row md:items-start md:justify-between">
             <div className="max-w-[620px]">
               <h2 className="text-[36px] font-semibold leading-[1.03] tracking-[-0.025em] text-slate-900 dark:text-white md:text-[44px]">
-                The longer it runs,<br />the stronger it gets
+                Your pipeline compounds<br />every month
               </h2>
               <p className="mt-4 max-w-[620px] text-[18px] leading-relaxed text-slate-700 dark:text-white/40 md:text-[16px]">
-                More D2C brands tracked, more funding signals captured, more buying windows identified. Every month Harvin compounds your pipeline.
+                Week 1, you get a handful of leads. By month 6, the system knows your ICP well enough to surface dozens of qualified accounts per week without you touching a filter.
               </p>
             </div>
             <div className="md:pt-2 md:text-right">

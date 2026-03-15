@@ -6,15 +6,25 @@ import Link from 'next/link';
 const NAV_COLS = [
   {
     heading: 'Product',
-    links: ['Features', 'Pricing', 'Integrations', 'Changelog', 'Roadmap'],
+    links: [
+      { label: 'Product', href: '/product' },
+      { label: 'Pricing', href: '/pricing' },
+      { label: 'Tech Scanner', href: '/dashboard?tab=tech-scanner' },
+    ],
   },
   {
     heading: 'Company',
-    links: ['About', 'Blog', 'Careers', 'Press', 'Contact'],
+    links: [
+      { label: 'Blog', href: '/blog' },
+      { label: 'Contact', href: 'mailto:admin@harvin.ai' },
+    ],
   },
   {
-    heading: 'Resources',
-    links: ['Documentation', 'API Reference', 'Status', 'Privacy', 'Terms'],
+    heading: 'Legal',
+    links: [
+      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Terms of Service', href: '/terms' },
+    ],
   },
 ];
 
@@ -92,13 +102,14 @@ export default function Footer() {
                            text-white/30 mb-2">
               {col.heading}
             </p>
-            {col.links.map((label) => (
-              <span
-                key={label}
-                className="text-[13.5px] font-sans text-white/40 cursor-default w-fit"
+            {col.links.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className="text-[13.5px] font-sans text-white/40 hover:text-white/70 transition-colors w-fit"
               >
-                {label}
-              </span>
+                {link.label}
+              </Link>
             ))}
           </div>
         ))}
@@ -150,13 +161,17 @@ export default function Footer() {
           </p>
 
           <div className="flex items-center gap-6">
-            {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((item) => (
-              <span
-                key={item}
-                className="text-[12px] font-sans text-white/25 cursor-default"
+            {[
+              { label: 'Privacy', href: '/privacy' },
+              { label: 'Terms', href: '/terms' },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="text-[12px] font-sans text-white/25 hover:text-white/50 transition-colors"
               >
-                {item}
-              </span>
+                {item.label}
+              </Link>
             ))}
           </div>
         </div>

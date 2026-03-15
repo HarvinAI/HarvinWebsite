@@ -68,6 +68,7 @@ export default function ScanResultPage() {
   const params = useParams();
   const router = useRouter();
   const domain = decodeURIComponent(params.domain as string);
+  const brandName = domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
 
   const [loading, setLoading] = useState(true);
   const [techLoading, setTechLoading] = useState(false);
@@ -75,21 +76,10 @@ export default function ScanResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const [backLabel, setBackLabel] = useState('Back');
-
-  useEffect(() => {
-    const ref = document.referrer;
-    if (ref.includes('/dashboard')) setBackLabel('Back to Dashboard');
-    else if (ref.includes('/account/')) setBackLabel('Back to Account');
-    else if (ref.includes('/scan')) setBackLabel('Back to Scanner');
-    else if (ref.includes('/onboarding')) setBackLabel('Back to Onboarding');
-    else if (window.history.length > 1) setBackLabel('Go Back');
-    else setBackLabel('Back to Home');
-  }, []);
 
   useEffect(() => {
     const CACHE_KEY = 'harvin_scan_cache';
-    const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+    const CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
 
     function getCached(d: string) {
       try {
@@ -113,7 +103,6 @@ export default function ScanResultPage() {
       } catch {}
     }
 
-    // Show cached data instantly
     const cached = getCached(domain);
     if (cached) {
       setResult(cached);
@@ -123,7 +112,6 @@ export default function ScanResultPage() {
     let stale = false;
 
     async function runScan() {
-      // Phase 1: Quick DB lookup for pre-processed company meta
       let dbMeta: CompanyMeta | null = null;
       try {
         const metaRes = await fetch(`/api/company-meta?domain=${encodeURIComponent(domain)}`);
@@ -136,74 +124,42 @@ export default function ScanResultPage() {
             region: metaJson.data.region || '',
             offlineStores: metaJson.data.offlineStores || '',
           };
-          // Show company info immediately (only if no cache)
           if (!cached) {
-            setResult({
-              url: domain,
-              technologies: [],
-              count: 0,
-              companyMeta: dbMeta,
-            });
+            setResult({ url: domain, technologies: [], count: 0, companyMeta: dbMeta });
             setLoading(false);
             setTechLoading(true);
           }
         }
-      } catch {
-        // Phase 1 failed — no problem, Phase 2 handles everything
-      }
+      } catch {}
 
       if (stale) return;
 
-      // Phase 2: Full tech scan
-      if (!cached && !dbMeta) {
-        setLoading(true);
-        setError(null);
-      }
+      if (!cached && !dbMeta) { setLoading(true); setError(null); }
       try {
         const res = await fetch(`/api/detect?url=${encodeURIComponent(domain)}`);
         if (stale) return;
         const text = await res.text();
         if (!text) throw new Error('No response from server');
-
         let data: ScanResult;
         try { data = JSON.parse(text); } catch { throw new Error('Unexpected response — please try again'); }
         if (!res.ok) throw new Error((data as unknown as { error: string }).error || 'Detection failed');
-
-        // Merge: prefer detect endpoint's companyMeta, fall back to DB meta
-        if (!data.companyMeta && dbMeta) {
-          data.companyMeta = dbMeta;
-        }
-
-        // Don't overwrite good cached data with an empty scan result
+        if (!data.companyMeta && dbMeta) data.companyMeta = dbMeta;
         if (cached && cached.count > 0 && data.count === 0) {
-          // Keep cached techs, but update companyMeta if detect brought one
-          if (data.companyMeta) {
-            setResult({ ...cached, companyMeta: data.companyMeta });
-          }
+          if (data.companyMeta) setResult({ ...cached, companyMeta: data.companyMeta });
         } else {
           setResult(data);
           setCache(domain, data);
         }
-
-        // Mark free scan as used (only if not logged in)
         try {
-          if (!localStorage.getItem('harvin_user')) {
-            localStorage.setItem('harvin_free_scan_used', '1');
-          }
+          if (!localStorage.getItem('harvin_user')) localStorage.setItem('harvin_free_scan_used', '1');
         } catch {}
       } catch (err: unknown) {
-        if (!cached && !dbMeta) {
-          setError(err instanceof Error ? err.message : 'Something went wrong');
-        }
+        if (!cached && !dbMeta) setError(err instanceof Error ? err.message : 'Something went wrong');
       } finally {
-        if (!stale) {
-          setLoading(false);
-          setTechLoading(false);
-        }
+        if (!stale) { setLoading(false); setTechLoading(false); }
       }
     }
     runScan();
-
     return () => { stale = true; };
   }, [domain]);
 
@@ -214,118 +170,79 @@ export default function ScanResultPage() {
   const visibleCategories = shouldCollapse ? filteredCategories.slice(0, INITIAL_SHOW) : filteredCategories;
   const hiddenCount = filteredCategories.length - INITIAL_SHOW;
 
+  const meta = result?.companyMeta;
+  const metaItems = meta ? [
+    { label: 'Category', value: meta.category },
+    { label: 'Sub-Category', value: meta.subCategory },
+    { label: 'Region', value: meta.region },
+    { label: 'Stores', value: meta.offlineStores },
+  ].filter(m => m.value && m.value !== 'Unknown' && m.value !== 'General') : [];
+
   return (
-    <div className="min-h-screen bg-[#0a0a1a] text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a0a1a] text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {/* Top bar */}
-      <div className="sticky top-0 z-10 bg-[#0a0a1a]/80 backdrop-blur-md border-b border-white/[0.06]">
+      <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#0a0a1a]/80 backdrop-blur-md border-b border-slate-200 dark:border-white/[0.06]">
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
           <button
             onClick={() => window.history.length > 1 ? router.back() : router.push('/')}
-            className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 hover:text-slate-200 transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
               <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            {backLabel}
+            Back
           </button>
-          <div className="flex items-center gap-2">
-            <span className="text-[12px] font-mono text-[#C94C1E] bg-[#C94C1E]/10 px-2.5 py-1 rounded-lg">
-              {domain}
-            </span>
-          </div>
+          <button
+            onClick={() => router.push('/')}
+            className="text-[13px] font-medium text-[#C94C1E] hover:underline"
+          >
+            Scan another
+          </button>
         </div>
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* Loading state */}
+        {/* Loading */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-24">
-            <div className="relative w-16 h-16 mb-6">
-              <div className="absolute inset-0 rounded-full border-[3px] border-white/[0.08]" />
+            <div className="relative w-14 h-14 mb-5">
+              <div className="absolute inset-0 rounded-full border-[3px] border-slate-200 dark:border-white/[0.08]" />
               <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#C94C1E] animate-spin" />
             </div>
-            <h2 className="text-[18px] font-semibold text-slate-100 mb-2">
-              Scanning {domain}
-            </h2>
-            <p className="text-[13px] text-slate-400">
-              Detecting technologies, store data, and company info&hellip;
+            <h2 className="text-[18px] font-semibold mb-1">Scanning {domain}</h2>
+            <p className="text-[13px] text-slate-500 dark:text-slate-400">
+              Detecting technologies and company info&hellip;
             </p>
-            <div className="mt-6 w-64 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-              <div className="h-full rounded-full bg-[#C94C1E] animate-[scan_1.8s_ease-in-out_infinite] w-1/3" />
-            </div>
           </div>
         )}
 
-        {/* Error state */}
+        {/* Error */}
         {error && !loading && (
           <div className="flex flex-col items-center justify-center py-24">
-            <div className="w-14 h-14 mb-4 rounded-xl bg-red-900/20 flex items-center justify-center">
-              <svg className="w-7 h-7 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
+            <div className="w-12 h-12 mb-4 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+              <svg className="w-6 h-6 text-red-500 dark:text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
               </svg>
             </div>
-            <h2 className="text-[18px] font-semibold text-slate-100 mb-2">
-              Scan failed
-            </h2>
-            <p className="text-[14px] text-slate-400 mb-6 max-w-md text-center">
-              {error}
-            </p>
+            <h2 className="text-[18px] font-semibold mb-1">Scan failed</h2>
+            <p className="text-[14px] text-slate-500 dark:text-slate-400 mb-5 max-w-md text-center">{error}</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => window.location.reload()}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-semibold text-white bg-[#C94C1E] hover:bg-[#b5431a] transition-all shadow-sm"
-              >
-                Retry scan
-              </button>
-              <button
-                onClick={() => router.push('/')}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-medium text-slate-300 border border-white/[0.1] hover:bg-white/[0.05] transition-all"
-              >
-                Go back
-              </button>
+              <button onClick={() => window.location.reload()} className="px-5 py-2.5 rounded-lg text-[14px] font-semibold text-white bg-[#C94C1E] hover:bg-[#b5431a] transition-all">Retry</button>
+              <button onClick={() => router.push('/')} className="px-5 py-2.5 rounded-lg text-[14px] font-medium text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/[0.1] hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all">Go back</button>
             </div>
           </div>
         )}
 
-        {/* Phase 1: Company meta shown while tech scan loads */}
+        {/* Phase 1: Company meta while tech loads */}
         {result && !loading && techLoading && (
           <div className="animate-[fadeUp_0.4s_ease-out_forwards]">
-            {result.companyMeta && (
-              <div className="mb-6 p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] shadow-sm">
-                <h3 className="text-[12px] font-semibold tracking-wide uppercase text-slate-400 flex items-center gap-2 mb-4">
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="3" y="4" width="14" height="14" rx="2" />
-                    <path d="M7 4V2M13 4V2M7 10h6M7 14h4" strokeLinecap="round" />
-                  </svg>
-                  Company Info
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {([
-                    { key: 'category' as const, label: 'Category' },
-                    { key: 'subCategory' as const, label: 'Sub-Category' },
-                    { key: 'region' as const, label: 'Region' },
-                    { key: 'offlineStores' as const, label: 'Stores' },
-                  ]).map(({ key, label }) => (
-                    <div key={key}>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#C94C1E] mb-1">{label}</p>
-                      <p className="text-[14px] font-medium text-slate-200 px-3 py-2 rounded-lg bg-white/[0.04]">
-                        {result.companyMeta![key] || '\u2014'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {renderHeader()}
             <div className="flex flex-col items-center py-12">
-              <div className="relative w-12 h-12 mb-4">
-                <div className="absolute inset-0 rounded-full border-[3px] border-white/[0.08]" />
+              <div className="relative w-10 h-10 mb-3">
+                <div className="absolute inset-0 rounded-full border-[3px] border-slate-200 dark:border-white/[0.08]" />
                 <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#C94C1E] animate-spin" />
               </div>
-              <p className="text-[13px] text-slate-400">Loading technologies&hellip;</p>
-              <div className="mt-4 w-48 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                <div className="h-full rounded-full bg-[#C94C1E] animate-[scan_1.8s_ease-in-out_infinite] w-1/3" />
-              </div>
+              <p className="text-[13px] text-slate-500 dark:text-slate-400">Scanning tech stack&hellip;</p>
             </div>
           </div>
         )}
@@ -333,72 +250,29 @@ export default function ScanResultPage() {
         {/* Full results */}
         {result && !loading && !techLoading && (
           <div className="animate-[fadeUp_0.4s_ease-out_forwards]">
-            {/* Header */}
-            <div className="mb-6">
-              <h1 className="text-[22px] sm:text-[26px] font-bold text-slate-100 tracking-[-0.02em] mb-1">
-                Scan Results
-              </h1>
-              <p className="text-[14px] text-slate-400">
-                Found{' '}
-                <span className="font-bold text-slate-100">
-                  {result.count} {result.count === 1 ? 'technology' : 'technologies'}
-                </span>
-                {' '}across{' '}
-                <span className="font-bold text-slate-100">
-                  {categories.length} {categories.length === 1 ? 'category' : 'categories'}
-                </span>
-                {' '}on{' '}
-                <span className="font-mono text-[#C94C1E] text-[13px]">
-                  {result.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                </span>
-              </p>
-            </div>
-
-            {/* Company meta */}
-            {result.companyMeta && (
-              <div className="mb-6 p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] shadow-sm">
-                <h3 className="text-[12px] font-semibold tracking-wide uppercase text-slate-400 flex items-center gap-2 mb-4">
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="3" y="4" width="14" height="14" rx="2" />
-                    <path d="M7 4V2M13 4V2M7 10h6M7 14h4" strokeLinecap="round" />
-                  </svg>
-                  Company Info
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {([
-                    { key: 'category' as const, label: 'Category' },
-                    { key: 'subCategory' as const, label: 'Sub-Category' },
-                    { key: 'region' as const, label: 'Region' },
-                    { key: 'offlineStores' as const, label: 'Stores' },
-                  ]).map(({ key, label }) => (
-                    <div key={key}>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#C94C1E] mb-1">{label}</p>
-                      <p className="text-[14px] font-medium text-slate-200 px-3 py-2 rounded-lg bg-white/[0.04]">
-                        {result.companyMeta![key] || '\u2014'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {renderHeader()}
 
             {result.count === 0 ? (
               <div className="text-center py-16">
                 <p className="text-[14px] text-slate-500">
-                  No recognisable technologies detected — the site may block bots or require JavaScript to load.
+                  No technologies detected — the site may block automated scanning.
                 </p>
               </div>
             ) : (
               <>
                 {/* Category filter pills */}
-                <div className="mb-5 -mx-1 overflow-x-auto" style={{ scrollbarWidth: 'none' } as React.CSSProperties}>
+                <div className="mb-6 -mx-1 overflow-x-auto" style={{ scrollbarWidth: 'none' } as React.CSSProperties}>
                   <div className="flex gap-1.5 px-1 w-max">
                     <button
                       onClick={() => setActiveFilter(null)}
-                      className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-150 ${!activeFilter ? 'bg-[#C94C1E] text-white shadow-sm' : 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.08] border border-white/[0.08]'}`}
+                      className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                        !activeFilter
+                          ? 'bg-[#C94C1E] text-white shadow-sm'
+                          : 'bg-white dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:bg-white/[0.08]'
+                      }`}
                     >
                       All
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${!activeFilter ? 'bg-white/20 text-white' : 'bg-white/[0.06] text-slate-500'}`}>
+                      <span className={`text-[11px] font-bold px-1.5 rounded ${!activeFilter ? 'bg-white/20' : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500'}`}>
                         {result.count}
                       </span>
                     </button>
@@ -406,10 +280,14 @@ export default function ScanResultPage() {
                       <button
                         key={cat}
                         onClick={() => setActiveFilter(activeFilter === cat ? null : cat)}
-                        className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-150 ${activeFilter === cat ? 'bg-[#C94C1E] text-white shadow-sm' : 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.08] border border-white/[0.08]'}`}
+                        className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                          activeFilter === cat
+                            ? 'bg-[#C94C1E] text-white shadow-sm'
+                            : 'bg-white dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:bg-white/[0.08]'
+                        }`}
                       >
                         {cat}
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${activeFilter === cat ? 'bg-white/20 text-white' : 'bg-white/[0.06] text-slate-500'}`}>
+                        <span className={`text-[11px] font-bold px-1.5 rounded ${activeFilter === cat ? 'bg-white/20' : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500'}`}>
                           {grouped[cat].length}
                         </span>
                       </button>
@@ -420,15 +298,17 @@ export default function ScanResultPage() {
                 {/* Tech grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {visibleCategories.map(cat => (
-                    <div key={cat} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:bg-white/[0.05] transition-colors">
-                      <div className="flex items-center gap-2 mb-3">
-                        <h3 className="text-[11px] font-semibold tracking-wide uppercase text-slate-400 leading-none">{cat}</h3>
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/[0.06] text-slate-500">{grouped[cat].length}</span>
+                    <div key={cat} className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] rounded-xl p-5 hover:shadow-md dark:hover:bg-white/[0.05] transition-all">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-[13px] font-semibold text-slate-900 dark:text-slate-200">{cat}</h3>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded">
+                          {grouped[cat].length}
+                        </span>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-2">
                         {grouped[cat].map(tech => (
-                          <span key={tech.name} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.05] text-[12px] font-medium text-slate-300">
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tech.color }} />
+                          <span key={tech.name} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-white/[0.05] border border-slate-100 dark:border-white/[0.04] text-[13px] font-medium text-slate-700 dark:text-slate-300">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: tech.color }} />
                             {tech.name}
                           </span>
                         ))}
@@ -442,7 +322,7 @@ export default function ScanResultPage() {
                   <div className="mt-5 text-center">
                     <button
                       onClick={() => setExpanded(true)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium text-slate-400 bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] transition-all duration-150"
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[13px] font-medium text-slate-600 dark:text-slate-400 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:bg-white/[0.08] transition-all"
                     >
                       Show {hiddenCount} more {hiddenCount === 1 ? 'category' : 'categories'}
                       <svg className="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none">
@@ -451,19 +331,6 @@ export default function ScanResultPage() {
                     </button>
                   </div>
                 )}
-
-                {/* Scan another CTA */}
-                <div className="mt-8 text-center">
-                  <button
-                    onClick={() => router.push('/')}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-semibold text-[#C94C1E] border border-[#C94C1E]/30 hover:bg-[#C94C1E]/10 transition-all"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
-                      <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Scan another brand
-                  </button>
-                </div>
               </>
             )}
           </div>
@@ -471,11 +338,6 @@ export default function ScanResultPage() {
       </div>
 
       <style>{`
-        @keyframes scan {
-          0% { transform: translateX(-100%); }
-          50% { transform: translateX(200%); }
-          100% { transform: translateX(-100%); }
-        }
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
@@ -483,4 +345,45 @@ export default function ScanResultPage() {
       `}</style>
     </div>
   );
+
+  function renderHeader() {
+    return (
+      <div className="mb-8">
+        {/* Brand identity */}
+        <div className="flex items-center gap-4 mb-5">
+          <img
+            src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+            alt=""
+            className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/[0.06] p-0.5"
+          />
+          <div>
+            <h1 className="text-[24px] sm:text-[28px] font-bold tracking-[-0.02em] leading-tight">
+              {brandName}
+            </h1>
+            <p className="text-[14px] text-slate-500 dark:text-slate-400 font-mono">
+              {domain}
+            </p>
+          </div>
+          {result && result.count > 0 && (
+            <div className="ml-auto hidden sm:block text-right">
+              <p className="text-[28px] font-bold text-[#C94C1E] leading-none">{result.count}</p>
+              <p className="text-[12px] text-slate-500 dark:text-slate-400">technologies</p>
+            </div>
+          )}
+        </div>
+
+        {/* Company meta pills */}
+        {metaItems.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {metaItems.map(m => (
+              <div key={m.label} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.06]">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{m.label}</span>
+                <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-200">{m.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 }

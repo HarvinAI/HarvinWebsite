@@ -39,13 +39,24 @@ const styles = `
 /* ── Step Visual Mockups (live animated, mirrors the actual product) ────── */
 
 const ALL_ACCOUNTS = [
-  { i: 'M', c: '#C94C1E', name: 'Mamaearth', cat: 'Beauty · US · Pure D2C', tech: 8, signals: 1, tags: ['Shopify', 'Klaviyo'] },
-  { i: 'B', c: '#1A9A82', name: 'Bunnings', cat: 'Retail · Australia · Omnichannel', tech: 9, signals: 2, tags: ['Shiprocket', 'Shopify'] },
-  { i: 'I', c: '#0058A3', name: 'Ikea', cat: 'Home · India · Omnichannel', tech: 29, signals: 2, tags: ['Meta Pixel', 'Hotjar'] },
-  { i: 'S', c: '#A93D18', name: 'Sugar', cat: 'Beauty · Mumbai · D2C', tech: 12, signals: 3, tags: ['Shopify', 'WebEngage'] },
-  { i: 'P', c: '#343330', name: 'Plum', cat: 'Beauty · Mumbai · Pure D2C', tech: 15, signals: 1, tags: ['Magento', 'Segment'] },
-  { i: 'N', c: '#4A4842', name: 'Noise', cat: 'Electronics · Gurgaon · D2C', tech: 11, signals: 2, tags: ['Custom', 'MoEngage'] },
+  { domain: 'mamaearth.in', name: 'Mamaearth', cat: 'Beauty · US · Pure D2C', tech: 8, signals: 1, tags: ['Shopify', 'Klaviyo'] },
+  { domain: 'bunnings.com.au', name: 'Bunnings', cat: 'Retail · Australia · Omnichannel', tech: 9, signals: 2, tags: ['Shiprocket', 'Shopify'] },
+  { domain: 'ikea.com', name: 'Ikea', cat: 'Home · India · Omnichannel', tech: 29, signals: 2, tags: ['Meta Pixel', 'Hotjar'] },
+  { domain: 'sugarcosmetics.com', name: 'Sugar', cat: 'Beauty · Mumbai · D2C', tech: 12, signals: 3, tags: ['Shopify', 'WebEngage'] },
+  { domain: 'plumgoodness.com', name: 'Plum', cat: 'Beauty · Mumbai · Pure D2C', tech: 15, signals: 1, tags: ['Magento', 'Segment'] },
+  { domain: 'gonoise.com', name: 'Noise', cat: 'Electronics · Gurgaon · D2C', tech: 11, signals: 2, tags: ['Custom', 'MoEngage'] },
 ];
+
+function BrandLogo({ domain, size = 28 }: { domain: string; size?: number }) {
+  return (
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=${size * 2}`}
+      alt=""
+      className="rounded-md bg-slate-100 dark:bg-white/10"
+      style={{ width: size, height: size }}
+    />
+  );
+}
 
 const ALL_FILTERS = [
   ['Beauty & Personal Care', 'India', 'Series B+', 'Omnichannel'],
@@ -97,7 +108,7 @@ function DiscoverVisual() {
           style={{ animation: 'slideUpFade 0.45s ease forwards', animationDelay: `${200 + idx * 100}ms`, opacity: 0 }}>
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[11px] font-bold" style={{ backgroundColor: a.c }}>{a.i}</div>
+              <BrandLogo domain={a.domain} size={28} />
               <span className="text-[13px] font-bold text-gray-900">{a.name}</span>
               <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-bold">{a.tech} tech</span>
               <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[9px] font-bold">{a.signals} signal{a.signals > 1 ? 's' : ''}</span>
@@ -117,14 +128,14 @@ function DiscoverVisual() {
 
 /* Step 2: Live signal feed — signals slide in from top one by one, loop */
 const ALL_SIGNALS = [
-  { icon: '💰', label: 'Raised ₹280Cr Series D', brand: 'Mamaearth', type: 'Funding', color: '#C94C1E' },
-  { icon: '🏪', label: 'Opened 14 stores', brand: 'Sugar Cosmetics', type: 'Expansion', color: '#1A9A82' },
-  { icon: '📱', label: 'Launched Android app', brand: 'boAt', type: 'Digital', color: '#7C3AED' },
-  { icon: '👤', label: 'Hiring VP Growth', brand: 'Mokobara', type: 'Hiring', color: '#2563EB' },
-  { icon: '💰', label: 'Raised $12M Series C', brand: 'Noise', type: 'Funding', color: '#C94C1E' },
-  { icon: '🏪', label: '5 new stores in tier-2', brand: 'Wakefit', type: 'Expansion', color: '#1A9A82' },
-  { icon: '📱', label: 'Relaunched D2C site', brand: 'Lenskart', type: 'Digital', color: '#7C3AED' },
-  { icon: '👤', label: 'New CTO appointed', brand: 'Plum Goodness', type: 'Hiring', color: '#2563EB' },
+  { domain: 'mamaearth.in', label: 'Raised ₹280Cr Series D', brand: 'Mamaearth', type: 'Funding', color: '#C94C1E' },
+  { domain: 'sugarcosmetics.com', label: 'Opened 14 stores', brand: 'Sugar Cosmetics', type: 'Expansion', color: '#1A9A82' },
+  { domain: 'boat-lifestyle.com', label: 'Launched Android app', brand: 'boAt', type: 'Digital', color: '#7C3AED' },
+  { domain: 'mokobara.com', label: 'Hiring VP Growth', brand: 'Mokobara', type: 'Hiring', color: '#2563EB' },
+  { domain: 'gonoise.com', label: 'Raised $12M Series C', brand: 'Noise', type: 'Funding', color: '#C94C1E' },
+  { domain: 'wakefit.co', label: '5 new stores in tier-2', brand: 'Wakefit', type: 'Expansion', color: '#1A9A82' },
+  { domain: 'lenskart.com', label: 'Relaunched D2C site', brand: 'Lenskart', type: 'Digital', color: '#7C3AED' },
+  { domain: 'plumgoodness.com', label: 'New CTO appointed', brand: 'Plum Goodness', type: 'Hiring', color: '#2563EB' },
 ];
 
 function SignalsVisual() {
@@ -158,9 +169,9 @@ function SignalsVisual() {
           <div className={`flex items-center gap-3 rounded-xl border bg-white p-3 shadow-sm transition-all duration-300 ${
             i === 0 ? 'border-[#C94C1E]/20 ring-1 ring-[#C94C1E]/10' : 'border-gray-100'
           }`}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-100 bg-gray-50 text-[18px] leading-none flex-shrink-0">
-              {s.icon}
-            </span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-100 bg-gray-50 flex-shrink-0">
+              <BrandLogo domain={s.domain} size={24} />
+            </div>
             <div className="min-w-0 flex-1">
               <p className="text-[12px] font-semibold text-gray-900 leading-tight">{s.label}</p>
               <p className="text-[10px] text-gray-400 mt-0.5">{s.brand} · {times[i]}</p>
@@ -233,7 +244,7 @@ function TimingVisual() {
       <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-md">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl text-[14px] font-bold text-white shadow-sm" style={{ backgroundColor: '#C94C1E' }}>M</div>
+            <BrandLogo domain="mamaearth.in" size={40} />
             <div>
               <p className="text-[14px] font-bold text-gray-900">Mamaearth</p>
               <p className="text-[11px] text-gray-400">Beauty & Personal Care · US · Pure D2C</p>
@@ -327,23 +338,23 @@ function DealVisual() {
   }, [phase, synced]);
 
   const accounts = [
-    { i: 'M', c: '#C94C1E', n: 'Mamaearth', s: 92 },
-    { i: 'S', c: '#A93D18', n: 'Sugar Cosmetics', s: 85 },
-    { i: 'P', c: '#343330', n: 'Plum Goodness', s: 94 },
+    { domain: 'mamaearth.in', n: 'Mamaearth', s: 92 },
+    { domain: 'sugarcosmetics.com', n: 'Sugar Cosmetics', s: 85 },
+    { domain: 'plumgoodness.com', n: 'Plum Goodness', s: 94 },
   ];
 
   return (
     <div className="mx-auto flex w-full max-w-sm flex-col gap-3">
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-md">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[13px] font-bold text-gray-800">🎯 High-Intent D2C Brands</span>
+          <span className="text-[13px] font-bold text-gray-800">High-Intent D2C Brands</span>
           <span className="text-[10px] text-gray-400 font-medium">12 accounts</span>
         </div>
 
         {accounts.map((a, idx) => (
           <div key={a.n} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: a.c }}>{a.i}</div>
+              <BrandLogo domain={a.domain} size={28} />
               <span className="text-[12px] font-semibold text-gray-800">{a.n}</span>
             </div>
             <div className="flex items-center gap-2">
@@ -393,30 +404,26 @@ function DealVisual() {
 const STEPS = [
   {
     number: '01',
-    title: 'Explore the Account Explorer',
-    desc: 'Filter 500K+ D2C brands by category, location, funding, tech stack, traffic, and more. Find exactly the accounts that match your ICP.',
-    scanLabel: 'Scanning 500,000+ brand profiles',
+    title: 'Find brands that match your ICP',
+    desc: 'Filter by category, geography, funding stage, tech stack, traffic — whatever matters to your team. No more guessing from LinkedIn.',
     Visual: DiscoverVisual,
   },
   {
     number: '02',
-    title: 'Track Real-Time Signals',
-    desc: 'Get instant alerts on funding rounds, store openings, app launches, and hiring activity — the buying signals that matter.',
-    scanLabel: 'Monitoring live buying signals',
+    title: 'Spot buying signals before competitors',
+    desc: 'A brand just raised a Series B? Opened 5 new stores? Hired a VP of Growth? You\'ll know within hours, not weeks.',
     Visual: SignalsVisual,
   },
   {
     number: '03',
-    title: 'Analyze Tech & Timing',
-    desc: 'See every brand\'s full tech stack, funding stage, traffic, and intent score. Know exactly when they\'re in a buying window.',
-    scanLabel: 'Detecting tech stack & intent',
+    title: 'Score and prioritize accounts',
+    desc: 'Every brand gets a score based on tech maturity, growth trajectory, and recent activity. Focus on the ones most likely to buy.',
     Visual: TimingVisual,
   },
   {
     number: '04',
-    title: 'Export & Close Deals',
-    desc: 'Build watchlists, export to your CRM, or download as CSV. Reach out with full context at the perfect moment.',
-    scanLabel: 'Syncing to your CRM',
+    title: 'Push to CRM and start outreach',
+    desc: 'One click to sync a shortlist to HubSpot, Salesforce, or a CSV. Your team reaches out with context, not cold intros.',
     Visual: DealVisual,
   },
 ];
@@ -486,10 +493,10 @@ export default function HowItWorks() {
       <div className="mx-auto w-full max-w-[1300px]">
         <div className="mx-auto mb-14 max-w-6xl text-center lg:mb-16">
           <h2 className="text-[24px] font-bold leading-[1.1] tracking-tight text-gray-900 md:text-[36px] lg:text-[36px]">
-            How HarvinAI turns signals into signed deals
+            From cold list to closed deal in 4 steps
           </h2>
-          <p className="mx-auto mt-5 max-w-3xl text-lg leading-relaxed text-gray-600 md:text-xl">
-            Discover high-intent D2C brands, track real-time buying signals, and reach out at the right moment to convert intelligence into revenue.
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl">
+            Most sales teams waste weeks researching accounts. Here&rsquo;s how our customers cut that to minutes.
           </p>
         </div>
 
@@ -544,42 +551,11 @@ export default function HowItWorks() {
               <div key={activeStep} className="relative z-10 flex h-full w-full animate-subtle-fade items-center justify-center">
                 <ActiveVisual />
               </div>
-              {/* Scan sweep — translateY % is relative to this element's height (h-full = container height) */}
-              <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-full animate-scan-sweep">
-
-                {/* Illuminated region below the scan line */}
-                <div
-                  className="absolute left-0 right-0 top-0 h-[110px]"
-                  style={{
-                    background: 'linear-gradient(to bottom, rgba(201,76,30,0.13) 0%, rgba(201,76,30,0.06) 60%, transparent 100%)',
-                  }}
-                />
-
-                {/* Scan line */}
-                <div
-                  className="absolute left-0 right-0 top-0 h-[1.5px]"
-                  style={{
-                    background: 'linear-gradient(to right, transparent 2%, rgba(201,76,30,0.7) 15%, #C94C1E 40%, #F48E56 50%, #C94C1E 60%, rgba(201,76,30,0.7) 85%, transparent 98%)',
-                    boxShadow: '0 0 6px 1px rgba(201,76,30,0.45), 0 2px 16px rgba(201,76,30,0.2)',
-                  }}
-                />
-
-                {/* Pill — centered on the scan line */}
-                <div
-                  className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 whitespace-nowrap rounded-full bg-white px-3.5 py-[7px]"
-                  style={{
-                    border: '1.5px solid #C94C1E',
-                    boxShadow: '0 2px 14px rgba(201,76,30,0.22), 0 0 0 3px rgba(201,76,30,0.08)',
-                  }}
-                >
-                  <svg className="h-3.5 w-3.5 flex-shrink-0 text-[#C94C1E]" viewBox="0 0 16 16" fill="none">
-                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.6"/>
-                    <path d="M11 11L14 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                  </svg>
-                  <span className="text-[11.5px] font-semibold text-slate-800 tracking-wide">
-                    {currentData.scanLabel}
-                  </span>
-                </div>
+              {/* Step indicator */}
+              <div className="pointer-events-none absolute top-4 right-4 z-20">
+                <span className="text-[11px] font-mono font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-md">
+                  Step {currentData.number} of 04
+                </span>
               </div>
             </div>
           </div>

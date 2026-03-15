@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import Image from 'next/image';
 import { useTheme } from '@/components/ThemeProvider';
+import DashboardTour from '@/components/DashboardTour';
 import {
   Search, ChevronDown, ChevronUp, X,
   ChevronLeft, ChevronRight,
@@ -208,47 +209,114 @@ const FilterSection = ({ title, count, children, defaultOpen = true }: {
 const LocationSubFilter = ({ label, options, selected, onToggle }: {
   label: string; options: string[]; selected: string[]; onToggle: (v: string) => void;
 }) => {
+  const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const visible = q.trim()
     ? options.filter(o => o.toLowerCase().includes(q.toLowerCase()))
     : options;
 
-  // Don't render the filter section at all if there are no options
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [open]);
+
   if (options.length === 0) return null;
 
   return (
-    <div className="mt-2.5 mb-1">
-      <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mb-1.5">{label}</p>
+    <div className="mt-2.5 mb-1 px-3 relative" ref={containerRef}>
+      <p className="text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mb-1.5">{label}</p>
 
-      {/* Search input */}
-      <div className="mx-3 mb-1.5">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" size={12} />
-          <input
-            type="text" value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder={`Search ${label.toLowerCase()}...`}
-            className="w-full pl-8 pr-3 py-[7px] bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-md text-[12px] outline-none focus:border-[#C94C1E]/50 focus:shadow-[0_0_0_2px_rgba(201,76,30,0.08)] transition-all placeholder:text-slate-400 dark:placeholder:text-neutral-500 dark:text-white"
-          />
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`w-full flex items-center justify-between px-3 py-[8px] rounded-lg border text-[12px] transition-all ${
+          open
+            ? 'border-[#C94C1E]/50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)] bg-white dark:bg-[#141414]'
+            : selected.length > 0
+              ? 'border-[#C94C1E]/30 bg-orange-50/50 dark:bg-[#C94C1E]/10'
+              : 'border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#141414] hover:border-slate-300 dark:hover:border-white/[0.15]'
+        }`}
+      >
+        <span className={`truncate ${selected.length > 0 ? 'text-[#C94C1E] font-medium' : 'text-slate-400 dark:text-neutral-500'}`}>
+          {selected.length > 0 ? `${selected.length} selected` : `Select ${label.toLowerCase()}...`}
+        </span>
+        <svg className={`w-3.5 h-3.5 flex-shrink-0 text-slate-400 dark:text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 14 14" fill="none">
+          <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {/* Selected chips */}
+      {selected.length > 0 && !open && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {selected.map(v => (
+            <span key={v} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#C94C1E]/10 text-[10px] font-medium text-[#C94C1E]">
+              {v}
+              <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(v); }} className="hover:text-[#b5431a]">
+                <X size={10} />
+              </button>
+            </span>
+          ))}
         </div>
-      </div>
+      )}
 
-      {/* Scrollable list — always visible */}
-      <div className="max-h-[140px] overflow-y-auto custom-scrollbar">
-        {visible.length === 0 && <p className="px-3 py-2 text-[11px] text-slate-400 dark:text-neutral-500 text-center">No matches</p>}
-        {visible.map(v => {
-          const isOn = selected.includes(v);
-          return (
-            <button key={v} onClick={() => onToggle(v)}
-              className={`w-full flex items-center justify-between px-3 py-[6px] text-left transition-colors ${isOn ? 'bg-orange-50/70 dark:bg-[#C94C1E]/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'}`}>
-              <span className={`text-[12px] ${isOn ? 'text-[#C94C1E] font-medium' : 'text-slate-600 dark:text-neutral-300'}`}>{v}</span>
-              <span className={`text-[10px] font-medium ${isOn ? 'text-[#C94C1E]' : 'text-slate-400 dark:text-neutral-500'}`}>
-                {isOn ? 'Included' : 'Include'}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/[0.1] rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b border-slate-100 dark:border-white/[0.06]">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" size={12} />
+              <input
+                ref={inputRef}
+                type="text" value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}...`}
+                className="w-full pl-8 pr-3 py-[7px] bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] rounded-lg text-[12px] outline-none focus:border-[#C94C1E]/50 transition-all placeholder:text-slate-400 dark:placeholder:text-neutral-500 dark:text-white"
+              />
+            </div>
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-[220px] overflow-y-auto custom-scrollbar py-1">
+            {visible.length === 0 && <p className="px-3 py-3 text-[11px] text-slate-400 dark:text-neutral-500 text-center">No matches</p>}
+            {visible.map(v => {
+              const isOn = selected.includes(v);
+              return (
+                <button key={v} onClick={() => onToggle(v)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-[7px] text-left transition-colors ${
+                    isOn ? 'bg-orange-50/70 dark:bg-[#C94C1E]/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                  }`}>
+                  {/* Checkbox */}
+                  <div className={`w-4 h-4 rounded flex-shrink-0 border-[1.5px] flex items-center justify-center transition-colors ${
+                    isOn ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-neutral-600'
+                  }`}>
+                    {isOn && (
+                      <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none">
+                        <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <span className={`text-[12px] ${isOn ? 'text-slate-900 dark:text-white font-medium' : 'text-slate-600 dark:text-neutral-300'}`}>{v}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -349,7 +417,11 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const [activeTab, setActiveTab] = useState<SidebarTab>(paramTab && paramTab in TAB_TITLES ? paramTab : 'account-explorer');
   const [initialScanDomain] = useState(paramScan || '');
   const { isDark, toggle: onToggleTheme } = useTheme();
-  // filtersOpen removed — filters always visible, nav always collapsed
+
+  // Filter panel collapse + resize
+  const [filterCollapsed, setFilterCollapsed] = useState(false);
+  const [filterWidth, setFilterWidth] = useState(280);
+  const filterResizing = useRef(false);
 
   // Data from API
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -648,6 +720,30 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
   const activeCount = countFilters(filters);
 
+  // Filter panel resize handlers
+  const onResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    filterResizing.current = true;
+    const startX = e.clientX;
+    const startW = filterWidth;
+    const onMove = (ev: MouseEvent) => {
+      if (!filterResizing.current) return;
+      const newW = Math.min(480, Math.max(220, startW + (ev.clientX - startX)));
+      setFilterWidth(newW);
+    };
+    const onUp = () => {
+      filterResizing.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [filterWidth]);
+
   if (!ready) return null;
   const firstName = user?.name?.split(' ')[0] || 'there';
 
@@ -681,13 +777,13 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
               <div className="space-y-0.5">
                 <NavBtn icon={<Satellite size={18} />} label="Market Intelligence" active={activeTab === 'market-intelligence'} onClick={() => setActiveTab('market-intelligence')} />
                 <NavBtn icon={<Search size={18} />} label="Account Explorer" active={activeTab === 'account-explorer'} onClick={() => setActiveTab('account-explorer')} />
-                <NavBtn icon={<Radar size={18} />} label="Tech Scanner" active={activeTab === 'tech-scanner'} onClick={() => setActiveTab('tech-scanner')} />
+                <span data-tour="tech-scanner"><NavBtn icon={<Radar size={18} />} label="Tech Scanner" active={activeTab === 'tech-scanner'} onClick={() => setActiveTab('tech-scanner')} /></span>
               </div>
             </div>
 
             <div>
               <h3 className="px-3 mb-1 text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">Watchlists</h3>
-              <div className="space-y-0.5">
+              <div className="space-y-0.5" data-tour="watchlists">
                 <NavBtn icon={<Star size={18} />} label="My Watchlists" active={activeTab === 'my-watchlists'} onClick={() => setActiveTab('my-watchlists')}
                   badge={watchlists.length > 0 ? String(watchlists.length) : undefined} />
                 <NavBtn icon={<Target size={18} />} label="Recently Funded" locked />
@@ -749,8 +845,30 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
       {/* ── Filter Panel (Account Explorer only) ──────── */}
       {activeTab === 'account-explorer' && (
-        <aside className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0 w-[280px]">
-          <div className="h-[56px] px-5 flex items-center border-b border-slate-100 dark:border-white/[0.06] flex-shrink-0">
+        <aside
+          className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0 relative transition-[width] duration-200 ease-out"
+          style={{ width: filterCollapsed ? 0 : filterWidth, minWidth: filterCollapsed ? 0 : 220, overflow: filterCollapsed ? 'hidden' : undefined }}
+        >
+          {/* Collapse toggle */}
+          <button
+            onClick={() => setFilterCollapsed(!filterCollapsed)}
+            className="absolute -right-3 top-[18px] z-20 w-6 h-6 rounded-full bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/[0.1] shadow-sm flex items-center justify-center text-slate-400 dark:text-neutral-500 hover:text-slate-700 dark:hover:text-white hover:border-slate-300 dark:hover:border-white/[0.2] transition-colors"
+            title={filterCollapsed ? 'Show filters' : 'Hide filters'}
+          >
+            <svg className={`w-3 h-3 transition-transform ${filterCollapsed ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="none">
+              <path d="M7.5 2.5L4 6l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          {/* Resize handle */}
+          {!filterCollapsed && (
+            <div
+              onMouseDown={onResizeStart}
+              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-10 hover:bg-[#C94C1E]/20 active:bg-[#C94C1E]/30 transition-colors"
+            />
+          )}
+
+          <div className="h-[56px] px-5 flex items-center border-b border-slate-100 dark:border-white/[0.06] flex-shrink-0" data-tour="filters">
             <div className="flex items-center gap-2">
               <Filter size={15} className="text-[#C94C1E]" />
               <h2 className="font-bold text-slate-800 dark:text-white text-[14px]">Filters</h2>
@@ -758,7 +876,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             </div>
           </div>
 
-          <div className="px-4 pt-3 pb-2">
+          <div className="px-4 pt-3 pb-2" data-tour="search">
             <div className="relative flex items-center">
               <Search className="absolute left-3 text-slate-400 dark:text-neutral-500" size={14} />
               <input type="text" placeholder="Search brands..." value={search} onChange={e => setSearch(e.target.value)}
@@ -860,6 +978,19 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         {/* Header */}
         <header className="h-[64px] border-b border-slate-100 dark:border-white/[0.06] bg-white dark:bg-[#141414] px-8 flex items-center justify-between flex-shrink-0 z-10">
           <div className="flex items-center gap-3">
+            {filterCollapsed && activeTab === 'account-explorer' && (
+              <button
+                onClick={() => setFilterCollapsed(false)}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold
+                           bg-[#C94C1E] text-white shadow-[0_2px_8px_rgba(201,76,30,0.3)] hover:bg-[#b5431a] transition-all"
+              >
+                <Filter size={14} />
+                Show Filters
+                {activeCount > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white">{activeCount}</span>
+                )}
+              </button>
+            )}
             <div className="h-2 w-2 rounded-full bg-[#C94C1E]" />
             <h1 className="text-[18px] font-bold text-slate-800 dark:text-white">{TAB_TITLES[activeTab]}</h1>
             {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{total} results</span>}
@@ -867,7 +998,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
           </div>
 
           {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && !isTechScannerTab && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-tour="sort-export">
               {/* Sort */}
               <div className="relative">
                 <button onClick={() => setShowSortMenu(p => !p)}
@@ -1261,7 +1392,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
               </div>
 
               {/* ── Account Cards Grid ──────────────────────────────── */}
-              <div className="space-y-3">
+              <div className="space-y-3" data-tour="account-list">
                 {accounts.map(raw => {
                   const a = demoFill(raw);
                   const isSelected = selectedAccounts.has(a.normalizedDomain);
@@ -1435,6 +1566,9 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
         .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
       `}</style>
+
+      {/* Guided tour for new users */}
+      <DashboardTour />
     </div>
   );
 }
