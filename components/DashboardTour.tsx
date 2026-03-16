@@ -80,7 +80,7 @@ export default function DashboardTour({ onComplete }: { onComplete?: () => void 
 
     // Calculate tooltip position with viewport clamping
     requestAnimationFrame(() => {
-      const tw = 320; // tooltip width
+      const tw = Math.min(320, window.innerWidth - 32); // tooltip width, clamped for mobile
       const th = tooltipRef.current?.offsetHeight || 200;
       const gap = 16;
       const vw = window.innerWidth;
@@ -154,7 +154,7 @@ export default function DashboardTour({ onComplete }: { onComplete?: () => void 
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-center animate-[tourFadeIn_0.3s_ease]">
         <div className="absolute inset-0 bg-black/30" onClick={finish} />
-        <div className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl max-w-[400px] w-full mx-6 overflow-hidden animate-[tourSlideUp_0.4s_cubic-bezier(0.16,1,0.3,1)]">
+        <div className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl max-w-[400px] w-full mx-4 sm:mx-6 overflow-hidden animate-[tourSlideUp_0.4s_cubic-bezier(0.16,1,0.3,1)]">
           <div className="px-7 pt-7 pb-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-9 h-9 rounded-lg bg-slate-900 dark:bg-white flex items-center justify-center flex-shrink-0">

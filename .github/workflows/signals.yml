@@ -1,0 +1,25 @@
+name: Daily Signal Scan
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # daily at 2 AM UTC
+  workflow_dispatch: {}    # manual trigger
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - name: Run signal news scan
+        run: node scripts/signal-news-scan.js --limit 5000
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - name: Recompute all scores
+        run: node scripts/signal-score.js
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}

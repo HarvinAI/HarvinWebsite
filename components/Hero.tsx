@@ -56,7 +56,7 @@ export default function Hero() {
           </div>
 
           {/* Secondary CTA */}
-          <div className="mt-14 flex items-center justify-center gap-6">
+          <div className="mt-8 sm:mt-14 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
             <button
               onClick={() => openModal('early-access')}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-[14px] font-semibold
@@ -76,7 +76,7 @@ export default function Hero() {
         </div>
 
         {/* ── Product Screenshot ─────────────────────────────────────────── */}
-        <div className="px-4 pb-20 pt-4">
+        <div className="px-4 pb-12 sm:pb-20 pt-2 sm:pt-4">
           <div className="relative max-w-[1100px] mx-auto">
             {/*
               Replace this with a real screenshot of your dashboard.
@@ -103,7 +103,7 @@ export default function Hero() {
           </div>
 
           {/* Stats */}
-          <div className="relative z-20 max-w-[900px] mx-auto mt-10 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+          <div className="relative z-20 max-w-[900px] mx-auto mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 text-center">
             {[
               { value: '523,847', label: 'D2C brands indexed' },
               { value: '4,218',   label: 'Technologies tracked' },

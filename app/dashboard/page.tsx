@@ -1515,7 +1515,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         </div>
 
         {/* Footer */}
-        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && (
+        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && (
           <footer className="h-[64px] border-t border-slate-100 dark:border-white/[0.06] bg-white dark:bg-[#141414] px-8 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-4 text-[12px] text-slate-400 dark:text-neutral-500 font-medium">
               <span>Showing <span className="text-slate-800 dark:text-white font-bold">{total === 0 ? 0 : ((page - 1) * PAGE_SIZE) + 1}&ndash;{Math.min(page * PAGE_SIZE, total)}</span> of <span className="text-slate-800 dark:text-white font-bold">{total}</span></span>
@@ -1606,61 +1606,113 @@ function NavBtn({ icon, label, active, locked, onClick, badge }: {
 
 /* ── Market Intelligence View ─────────────────────────────────────────── */
 const SIGNAL_SECTIONS = [
-  { key: 'funding', label: 'Funding Activity', icon: <DollarSign size={18} />, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-  { key: 'stores', label: 'Store Expansion', icon: <Store size={18} />, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-  { key: 'apps', label: 'App Launches', icon: <Smartphone size={18} />, color: 'text-violet-400', bg: 'bg-violet-400/10' },
-  { key: 'hiring', label: 'Key Hiring', icon: <Users size={18} />, color: 'text-cyan-400', bg: 'bg-cyan-400/10' },
-  { key: 'marketplace', label: 'Marketplace Expansion', icon: <Layers size={18} />, color: 'text-rose-400', bg: 'bg-rose-400/10' },
-  { key: 'growth', label: 'High Growth', icon: <TrendingUp size={18} />, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+  { key: 'funding', label: 'Funding Activity', icon: <DollarSign size={18} />, color: 'text-amber-400', bg: 'bg-amber-400/10', apiType: 'funding' },
+  { key: 'hiring', label: 'Key Hiring', icon: <Users size={18} />, color: 'text-cyan-400', bg: 'bg-cyan-400/10', apiType: 'key_hire' },
+  { key: 'stores', label: 'Store Expansion', icon: <Store size={18} />, color: 'text-blue-400', bg: 'bg-blue-400/10', apiType: 'store_expansion' },
+  { key: 'apps', label: 'App Launches', icon: <Smartphone size={18} />, color: 'text-violet-400', bg: 'bg-violet-400/10', apiType: 'app_launch' },
+  { key: 'marketplace', label: 'Marketplace Expansion', icon: <Layers size={18} />, color: 'text-rose-400', bg: 'bg-rose-400/10', apiType: 'marketplace' },
+  { key: 'growth', label: 'High Growth', icon: <TrendingUp size={18} />, color: 'text-emerald-400', bg: 'bg-emerald-400/10', apiType: 'traffic_growth' },
 ] as const;
 
-const STAT_CARDS = [
-  { label: 'FUNDING ROUNDS', value: '7', sub: '+3 vs last week', icon: <DollarSign size={16} /> },
-  { label: 'STORE OPENINGS', value: '18', sub: 'across 5 brands', icon: <Store size={16} /> },
-  { label: 'APP LAUNCHES', value: '4', sub: '3 iOS-first', icon: <Smartphone size={16} /> },
-  { label: 'KEY HIRES', value: '11', sub: 'VP+ level roles', icon: <Users size={16} /> },
-  { label: 'HIGH GROWTH', value: '9', sub: '>30% QoQ', icon: <TrendingUp size={16} /> },
+type SignalItem = {
+  domain: string;
+  signalType: string;
+  headline: string;
+  details: Record<string, unknown>;
+  sourceUrl: string;
+  confidence: number;
+  detectedAt: string;
+  signalDate?: string;
+};
+
+type RecommendedAccount = {
+  domain: string;
+  name: string;
+  category: string | null;
+  region: string | null;
+  score: number;
+  signalCount: number;
+  signals: { signalType: string; headline: string; detectedAt: string }[];
+  topSignal: string | null;
+  reason: string | null;
+};
+
+const PERIOD_MAP = { week: '7d', '2weeks': '14d', month: '30d' } as const;
+
+const STAT_CARD_CONFIG = [
+  { key: 'funding', label: 'FUNDING ROUNDS', icon: <DollarSign size={16} /> },
+  { key: 'key_hire', label: 'KEY HIRES', icon: <Users size={16} /> },
 ];
 
-const MOCK_SIGNALS: Record<string, { brand: string; domain: string; headline: string; date: string }[]> = {
-  funding: [
-    { brand: 'Mamaearth', domain: 'mamaearth.in', headline: 'Raised $30M Series D led by Sequoia Capital', date: '2 days ago' },
-    { brand: 'boAt', domain: 'boat-lifestyle.com', headline: 'IPO filing — valued at $1.5B', date: '3 days ago' },
-    { brand: 'Lenskart', domain: 'lenskart.com', headline: 'Raised $100M from Abu Dhabi Investment Authority', date: '5 days ago' },
-  ],
-  stores: [
-    { brand: 'Nykaa', domain: 'nykaa.com', headline: 'Opened 12 new Nykaa On-Trend stores across Tier-2 cities', date: '1 day ago' },
-    { brand: 'Licious', domain: 'licious.in', headline: 'Expanded to 6 new dark stores in Bangalore', date: '4 days ago' },
-  ],
-  apps: [
-    { brand: 'Sugar Cosmetics', domain: 'sugarcosmetics.com', headline: 'Launched iOS app with AR try-on feature', date: '2 days ago' },
-    { brand: 'Bewakoof', domain: 'bewakoof.com', headline: 'Released redesigned Android app with AI recommendations', date: '6 days ago' },
-  ],
-  hiring: [
-    { brand: 'Zepto', domain: 'zepto.co', headline: 'Hired ex-Amazon VP as Chief Supply Chain Officer', date: '1 day ago' },
-    { brand: 'Meesho', domain: 'meesho.com', headline: 'Appointed new CTO from Google India leadership', date: '3 days ago' },
-  ],
-  marketplace: [
-    { brand: 'Mokobara', domain: 'mokobara.com', headline: 'Listed on Amazon US — international expansion begins', date: '2 days ago' },
-    { brand: 'Noise', domain: 'gonoise.com', headline: 'Expanded to Flipkart and Myntra channels', date: '5 days ago' },
-  ],
-  growth: [
-    { brand: 'Perfora', domain: 'perfora.in', headline: 'Monthly traffic up 42% QoQ — oral care breakout', date: '1 day ago' },
-  ],
-};
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'today';
+  if (days === 1) return '1 day ago';
+  if (days < 7) return `${days} days ago`;
+  if (days < 14) return '1 week ago';
+  return `${Math.floor(days / 7)} weeks ago`;
+}
+
+function domainToBrand(domain: string): string {
+  return domain
+    .replace(/^www\d*\./, '')
+    .replace(/\.(com|in|co|io|net|org|co\.in|com\.au|co\.uk)$/i, '')
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
 
 function MarketIntelligenceView() {
   const [period, setPeriod] = useState<'week' | '2weeks' | 'month'>('week');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [signals, setSignals] = useState<SignalItem[]>([]);
+  const [stats, setStats] = useState<Record<string, number>>({});
+  const [recommendations, setRecommendations] = useState<RecommendedAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [recsLoading, setRecsLoading] = useState(true);
 
   const toggleSection = (key: string) => setExpanded(prev => prev === key ? null : key);
+
+  // Fetch signals when period changes
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const apiPeriod = PERIOD_MAP[period];
+    fetch(`/api/signals?period=${apiPeriod}&limit=100`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        setSignals(data.signals || []);
+        setStats(data.stats || {});
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) { setSignals([]); setStats({}); setLoading(false); }
+      });
+    return () => { cancelled = true; };
+  }, [period]);
+
+  // Fetch recommendations once
+  useEffect(() => {
+    fetch('/api/signals/recommendations')
+      .then(r => r.json())
+      .then(data => { setRecommendations(data.accounts || []); setRecsLoading(false); })
+      .catch(() => { setRecommendations([]); setRecsLoading(false); });
+  }, []);
+
+  // Group signals by type
+  const groupedSignals: Record<string, SignalItem[]> = {};
+  for (const sig of signals) {
+    if (!groupedSignals[sig.signalType]) groupedSignals[sig.signalType] = [];
+    groupedSignals[sig.signalType].push(sig);
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Sub-header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[13px] text-slate-400 dark:text-neutral-500">Signals filtered by your ICP — Beauty, Fashion, Food &amp; Bev · India</p>
+          <p className="text-[13px] text-slate-400 dark:text-neutral-500">Live buying signals from news &amp; hiring data</p>
         </div>
         <div className="flex items-center gap-1 bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl p-1">
           {([['week', 'This Week'], ['2weeks', 'Last 2 Weeks'], ['month', 'Last Month']] as const).map(([key, label]) => (
@@ -1677,65 +1729,122 @@ function MarketIntelligenceView() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-5 gap-4">
-        {STAT_CARDS.map(card => (
-          <div key={card.label}
+      <div className="grid grid-cols-2 gap-4">
+        {STAT_CARD_CONFIG.map(card => (
+          <div key={card.key}
             className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5 hover:border-slate-300 dark:hover:border-white/[0.12] hover:shadow-sm dark:hover:shadow-none transition-all">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">{card.label}</span>
               <span className="text-slate-300 dark:text-neutral-600">{card.icon}</span>
             </div>
-            <p className="text-[28px] font-extrabold leading-none text-slate-800 dark:text-white mb-1">{card.value}</p>
-            <p className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium">{card.sub}</p>
+            <p className="text-[28px] font-extrabold leading-none text-slate-800 dark:text-white mb-1">
+              {loading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : (stats[card.key] || 0)}
+            </p>
+            <p className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium">in selected period</p>
           </div>
         ))}
       </div>
 
+      {/* Recommended This Week */}
+      {recommendations.length > 0 && (
+        <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Target size={18} className="text-[#C94C1E]" />
+            <span className="text-[15px] font-bold text-slate-800 dark:text-white">Recommended This Week</span>
+            <span className="w-6 h-6 rounded-full bg-[#C94C1E]/10 text-[#C94C1E] text-[11px] font-bold flex items-center justify-center">
+              {recommendations.length}
+            </span>
+          </div>
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            {recommendations.slice(0, 20).map(acc => (
+              <div key={acc.domain} className="flex items-center gap-4 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors">
+                <img src={`https://www.google.com/s2/favicons?domain=${acc.domain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 dark:bg-white dark:p-[2px]" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-bold text-slate-800 dark:text-white">{acc.name}</span>
+                    <span className="text-[11px] text-slate-400 dark:text-neutral-500">{acc.domain}</span>
+                    {acc.category && <span className="text-[10px] bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-neutral-400 px-1.5 py-0.5 rounded">{acc.category}</span>}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate">{acc.reason}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-[13px] font-bold text-[#C94C1E]">{acc.score}</div>
+                  <div className="text-[10px] text-slate-400 dark:text-neutral-500">score</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Signal accordion sections */}
       <div className="space-y-3">
-        {SIGNAL_SECTIONS.map(section => {
-          const signals = MOCK_SIGNALS[section.key] || [];
-          const isOpen = expanded === section.key;
-          return (
-            <div key={section.key}
-              className={`bg-white dark:bg-[#141414]/60 border rounded-2xl transition-all ${isOpen ? 'border-slate-300 dark:border-white/[0.12] shadow-sm dark:shadow-none' : 'border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.12]'}`}>
-              <button onClick={() => toggleSection(section.key)}
-                className="w-full flex items-center justify-between px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-xl ${section.bg} flex items-center justify-center ${section.color}`}>
-                    {section.icon}
-                  </div>
-                  <span className="text-[15px] font-bold text-slate-800 dark:text-white">{section.label}</span>
-                  <span className="w-6 h-6 rounded-full bg-[#C94C1E]/10 text-[#C94C1E] text-[11px] font-bold flex items-center justify-center">
-                    {signals.length}
-                  </span>
-                </div>
-                <ChevronDown size={18} className={`text-slate-300 dark:text-neutral-600 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isOpen && (
-                <div className="px-6 pb-5 space-y-3 border-t border-slate-100 dark:border-white/[0.06] pt-4">
-                  {signals.map((s, i) => (
-                    <div key={i} className="flex items-start gap-4 p-4 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors group/card">
-                      <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`} alt="" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 mt-0.5 dark:bg-white dark:p-[3px]" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[13px] font-bold text-slate-800 dark:text-white">{s.brand}</span>
-                          <span className="text-[11px] text-slate-400 dark:text-neutral-500">{s.domain}</span>
-                        </div>
-                        <p className="text-[13px] text-slate-600 dark:text-neutral-300 leading-snug">{s.headline}</p>
-                      </div>
-                      <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium flex-shrink-0 mt-1">{s.date}</span>
-                      <button className="opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 hover:bg-white dark:hover:bg-white/[0.06] rounded-lg flex-shrink-0 mt-0.5">
-                        <ExternalLink size={14} className="text-slate-400 dark:text-neutral-500" />
-                      </button>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={24} className="animate-spin text-slate-300 dark:text-neutral-600" />
+            <span className="ml-3 text-[13px] text-slate-400 dark:text-neutral-500">Loading signals...</span>
+          </div>
+        ) : signals.length === 0 ? (
+          <div className="text-center py-12">
+            <Radar size={40} className="mx-auto text-slate-200 dark:text-neutral-700 mb-3" />
+            <p className="text-[14px] font-semibold text-slate-500 dark:text-neutral-400">No signals detected yet</p>
+            <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1">Run the signal scanner to populate live data</p>
+          </div>
+        ) : (
+          SIGNAL_SECTIONS.map(section => {
+            const sectionSignals = groupedSignals[section.apiType] || [];
+            if (sectionSignals.length === 0) return null;
+            const isOpen = expanded === section.key;
+            return (
+              <div key={section.key}
+                className={`bg-white dark:bg-[#141414]/60 border rounded-2xl transition-all ${isOpen ? 'border-slate-300 dark:border-white/[0.12] shadow-sm dark:shadow-none' : 'border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.12]'}`}>
+                <button onClick={() => toggleSection(section.key)}
+                  className="w-full flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl ${section.bg} flex items-center justify-center ${section.color}`}>
+                      {section.icon}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                    <span className="text-[15px] font-bold text-slate-800 dark:text-white">{section.label}</span>
+                    <span className="w-6 h-6 rounded-full bg-[#C94C1E]/10 text-[#C94C1E] text-[11px] font-bold flex items-center justify-center">
+                      {sectionSignals.length}
+                    </span>
+                  </div>
+                  <ChevronDown size={18} className={`text-slate-300 dark:text-neutral-600 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isOpen && (
+                  <div className="px-6 pb-5 space-y-3 border-t border-slate-100 dark:border-white/[0.06] pt-4">
+                    {sectionSignals.map((s, i) => (
+                      <div key={i} className="flex items-start gap-4 p-4 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors group/card">
+                        <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`} alt="" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 mt-0.5 dark:bg-white dark:p-[3px]" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[13px] font-bold text-slate-800 dark:text-white">{domainToBrand(s.domain)}</span>
+                            <span className="text-[11px] text-slate-400 dark:text-neutral-500">{s.domain}</span>
+                          </div>
+                          <p className="text-[13px] text-slate-600 dark:text-neutral-300 leading-snug">{s.headline}</p>
+                          {s.details && (s.details.amount || s.details.person) ? (
+                            <p className="text-[11px] text-slate-400 dark:text-neutral-500 mt-1">
+                              {s.details.amount ? <span>{String(s.details.amount)} {s.details.round ? `(${String(s.details.round)})` : ''}</span> : null}
+                              {s.details.person ? <span>{String(s.details.person)}{s.details.title ? ` — ${String(s.details.title)}` : ''}</span> : null}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium flex-shrink-0 mt-1">{formatTimeAgo(s.signalDate || s.detectedAt)}</span>
+                        {s.sourceUrl && (
+                          <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer"
+                            className="opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 hover:bg-white dark:hover:bg-white/[0.06] rounded-lg flex-shrink-0 mt-0.5">
+                            <ExternalLink size={14} className="text-slate-400 dark:text-neutral-500" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

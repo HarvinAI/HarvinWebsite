@@ -77,11 +77,10 @@ const Navbar = () => {
       {/* ═══ HEADER BAR ═══ */}
       <header
         className={[
-          'fixed top-0 inset-x-0 z-50 transition-all duration-200 backdrop-blur-xl',
-          'border-b border-slate-200 dark:border-white/[0.08]',
+          'fixed top-0 inset-x-0 z-50 transition-all duration-300 backdrop-blur-2xl backdrop-saturate-150',
           scrolled
-            ? 'bg-white/95 dark:bg-[#0D0D0C]/90 shadow-[0_2px_16px_rgba(0,0,0,0.07)] dark:shadow-[0_2px_20px_rgba(0,0,0,0.35)]'
-            : 'bg-white/80 dark:bg-[#0D0D0C]/60',
+            ? 'bg-white/60 dark:bg-[#0D0D0C]/60 border-b border-slate-200/50 dark:border-white/[0.06] shadow-[0_1px_12px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_12px_rgba(0,0,0,0.2)]'
+            : 'bg-white/30 dark:bg-[#0D0D0C]/30 border-b border-transparent',
         ].join(' ')}
       >
         <div className="max-w-[1280px] mx-auto px-6 h-[64px] flex items-center gap-8">
@@ -256,7 +255,7 @@ const Navbar = () => {
         aria-hidden={!menuOpen}
         className={[
           'fixed top-0 right-0 bottom-0 z-[60] md:hidden',
-          'w-[85vw] max-w-[320px]',
+          'w-[80vw] max-w-[300px]',
           'flex flex-col',
           'bg-white dark:bg-[#0D0D0C]',
           'border-l border-slate-200 dark:border-white/[0.08]',

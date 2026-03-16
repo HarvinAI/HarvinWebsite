@@ -497,7 +497,7 @@ let lastResult = null;
 
 // ── Local cache (30-day TTL) ────────────────────────────────────────
 const CACHE_KEY = 'techscanner-cache';
-const CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
 
 function getCached(domain) {
   try {

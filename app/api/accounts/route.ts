@@ -125,8 +125,6 @@ function domainHash(d: string): number {
 
 const DEMO_BIZ = ['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'];
 const DEMO_APP = ['No App', 'iOS Only', 'Android Only', 'Both iOS & Android'];
-const DEMO_SIGNALS = ['Recently Funded', 'Hiring Surge', 'New Product Launch', 'International Expansion', 'Tech Migration'];
-const DEMO_FUNDING = ['Bootstrapped', 'Seed / Angel', 'Series A+', 'Late Stage'];
 
 function inferBusinessModel(domain: string): string {
   return DEMO_BIZ[domainHash(domain) % DEMO_BIZ.length];
@@ -136,16 +134,70 @@ function inferAppPresence(domain: string): string {
   return DEMO_APP[(domainHash(domain) + 5) % DEMO_APP.length];
 }
 
-function inferFundingStage(domain: string): string {
-  return DEMO_FUNDING[(domainHash(domain) + 7) % DEMO_FUNDING.length];
+/* Signal type → display label mapping */
+const SIGNAL_LABEL_MAP: Record<string, string> = {
+  funding: 'Recently Funded',
+  key_hire: 'Hiring Surge',
+  app_launch: 'New Product Launch',
+  store_expansion: 'International Expansion',
+  marketplace: 'Marketplace Expansion',
+  traffic_growth: 'High Growth',
+};
+
+/* Funding round → stage mapping */
+function mapFundingStage(round: string | null): string {
+  if (!round) return 'Unknown';
+  const r = round.toLowerCase();
+  if (r.includes('seed') || r.includes('angel') || r.includes('pre-')) return 'Seed / Angel';
+  if (r.includes('series a') || r.includes('series b') || r.includes('series c')) return 'Series A+';
+  if (r.includes('series d') || r.includes('series e') || r.includes('series f') ||
+      r.includes('ipo') || r.includes('late') || r.includes('pre-ipo')) return 'Late Stage';
+  return 'Series A+';
 }
 
-function inferActiveSignals(domain: string): string[] {
-  const h = domainHash(domain);
-  const n = 1 + (h % 2);
-  const out: string[] = [];
-  for (let i = 0; i < n; i++) out.push(DEMO_SIGNALS[(h + 2 + i * 7) % DEMO_SIGNALS.length]);
-  return [...new Set(out)];
+/**
+ * Batch-fetch real signals for a list of domains from the signals collection.
+ * Returns maps for activeSignals and fundingStage per domain.
+ */
+async function fetchRealSignals(db: ReturnType<typeof Object>, domains: string[]): Promise<{
+  signalMap: Record<string, string[]>;
+  fundingMap: Record<string, string>;
+}> {
+  const signalMap: Record<string, string[]> = {};
+  const fundingMap: Record<string, string> = {};
+
+  if (domains.length === 0) return { signalMap, fundingMap };
+
+  try {
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const signals = await db.collection('signals').find({
+      domain: { $in: domains },
+      detectedAt: { $gte: ninetyDaysAgo },
+    }).project({
+      domain: 1, signalType: 1, details: 1,
+    }).toArray();
+
+    for (const sig of signals) {
+      const domain = sig.domain as string;
+      const sigType = sig.signalType as string;
+      const label = SIGNAL_LABEL_MAP[sigType] || sigType;
+
+      if (!signalMap[domain]) signalMap[domain] = [];
+      if (!signalMap[domain].includes(label)) {
+        signalMap[domain].push(label);
+      }
+
+      // Extract funding stage from the first funding signal
+      if (sigType === 'funding' && !fundingMap[domain]) {
+        const details = sig.details as Record<string, unknown> | null;
+        fundingMap[domain] = mapFundingStage((details?.round as string) || null);
+      }
+    }
+  } catch (err) {
+    console.warn('[accounts] failed to fetch real signals:', (err as Error).message);
+  }
+
+  return { signalMap, fundingMap };
 }
 
 export async function OPTIONS() {
@@ -386,12 +438,16 @@ export async function GET(req: NextRequest) {
       col.countDocuments(query),
     ]);
 
+    // Fetch real signals for all domains in this batch
+    const allDomains = accounts.map((a: Record<string, unknown>) => a.normalizedDomain as string);
+    const { signalMap: realSignalMap, fundingMap: realFundingMap } = await fetchRealSignals(db, allDomains);
+
     // Apply overrides + infer missing fields + fix misclassified locations
     const processed = accounts.map((a: Record<string, unknown>) => {
       const overrides = (a.overrides || {}) as Record<string, unknown>;
       const domain = a.normalizedDomain as string;
       const knownBrand = lookupKnownBrand(domain);
-      const signals = a.activeSignals as string[] | null;
+      const dbSignals = a.activeSignals as string[] | null;
       const loc = fixLocationFields(
         (overrides.region || a.region) as string | null,
         (a.state as string | null) || null,
@@ -443,8 +499,8 @@ export async function GET(req: NextRequest) {
         monthlyVisitsFormatted: hasRealTraffic ? (a.monthlyVisitsFormatted as string) : null,
         scaleBand: hasRealTraffic ? toScaleBand(a.monthlyVisits as number) : null,
         appPresence: a.appPresence || inferAppPresence(domain),
-        activeSignals: (signals && signals.length > 0) ? signals : inferActiveSignals(domain),
-        fundingStage: a.fundingStage || inferFundingStage(domain),
+        activeSignals: realSignalMap[domain] || ((dbSignals && dbSignals.length > 0) ? dbSignals : []),
+        fundingStage: realFundingMap[domain] || a.fundingStage || null,
         updatedAt: a.updatedAt,
       };
     });

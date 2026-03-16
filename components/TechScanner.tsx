@@ -145,7 +145,7 @@ export default function TechScanner() {
       </form>
 
       {/* Demo brands — styled as clickable chips */}
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+      <div className="mt-2 sm:mt-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
         {DEMO_BRANDS.map(b => (
           <button
             key={b.url}

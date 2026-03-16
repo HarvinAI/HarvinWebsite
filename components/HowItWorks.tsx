@@ -487,7 +487,7 @@ export default function HowItWorks() {
   const totalProgress = ((activeStep + progress / 100) / STEPS.length) * 100;
 
   return (
-    <section className="flex min-h-screen w-full flex-col justify-center bg-[#f1f2f4] px-6 py-20 font-sans md:px-10 lg:px-16">
+    <section className="flex min-h-screen w-full flex-col justify-center bg-[#f1f2f4] px-4 py-12 sm:px-6 sm:py-20 font-sans md:px-10 lg:px-16">
       <style>{styles}</style>
 
       <div className="mx-auto w-full max-w-[1300px]">
@@ -501,20 +501,20 @@ export default function HowItWorks() {
         </div>
 
         <div
-          className="rounded-[28px] border border-gray-200/80 bg-[#f8f8f9] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.06)] md:p-6 lg:p-7"
+          className="rounded-[16px] sm:rounded-[28px] border border-gray-200/80 bg-[#f8f8f9] p-3 sm:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.06)] md:p-6 lg:p-7"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
           style={{ touchAction: 'pan-y' }}
         >
-          <div className="flex flex-col gap-7 lg:flex-row lg:items-stretch lg:gap-8">
-            <div className="relative flex w-full flex-col justify-between lg:w-1/2 lg:min-h-[430px] lg:pb-14">
+          <div className="flex flex-col gap-5 sm:gap-7 md:flex-row md:items-stretch md:gap-8">
+            <div className="relative flex w-full flex-col justify-between md:w-1/2 md:min-h-[430px] md:pb-14">
               <div key={activeStep} className="animate-slide-up-fade">
-                <div className="mb-4 font-mono text-[22px] font-medium tracking-wide text-gray-400">{currentData.number}</div>
-                <h3 className="mb-5 pr-4 text-3xl font-bold leading-[1.2] text-gray-900 md:text-[38px]">{currentData.title}</h3>
-                <p className="pr-3 text-[18px] leading-relaxed text-gray-600">{currentData.desc}</p>
+                <div className="mb-3 sm:mb-4 font-mono text-[18px] sm:text-[22px] font-medium tracking-wide text-gray-400">{currentData.number}</div>
+                <h3 className="mb-3 sm:mb-5 pr-4 text-[22px] sm:text-[28px] font-bold leading-[1.2] text-gray-900 md:text-[38px]">{currentData.title}</h3>
+                <p className="pr-3 text-[15px] sm:text-[18px] leading-relaxed text-gray-600">{currentData.desc}</p>
               </div>
 
-              <div className="mt-10 flex w-full max-w-[460px] items-center gap-5 lg:absolute lg:bottom-0 lg:left-0">
+              <div className="mt-6 sm:mt-10 flex w-full max-w-[460px] items-center gap-3 sm:gap-5 md:absolute md:bottom-0 md:left-0">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-300/80">
                   <div className="h-full rounded-full bg-[#C94C1E] transition-all duration-75 ease-linear" style={{ width: `${totalProgress}%` }} />
                 </div>
@@ -546,7 +546,7 @@ export default function HowItWorks() {
               </div>
             </div>
 
-            <div className="relative flex h-[340px] w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-[24px] border border-gray-200 bg-white p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)] md:h-[390px] lg:h-[430px] lg:w-1/2 lg:p-6">
+            <div className="relative flex h-[280px] sm:h-[340px] w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-[16px] sm:rounded-[24px] border border-gray-200 bg-white p-3 sm:p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)] md:h-[390px] md:w-1/2 lg:h-[430px] lg:p-6">
               <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_75%_30%,rgba(201,76,30,0.07),transparent_45%),linear-gradient(to_bottom,rgba(248,250,252,0.6),rgba(255,255,255,0.2))]" />
               <div key={activeStep} className="relative z-10 flex h-full w-full animate-subtle-fade items-center justify-center">
                 <ActiveVisual />

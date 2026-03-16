@@ -168,7 +168,7 @@ export default function TheData() {
       className="relative border-t border-slate-200 bg-slate-50 dark:border-white/[0.06] dark:bg-[#040404]"
       style={{ height: '250vh' }}
     >
-      <div className="sticky top-[64px] h-[calc(100vh-64px)] overflow-hidden px-6 py-8 md:px-10 lg:px-16 lg:py-10">
+      <div className="sticky top-[64px] h-[calc(100vh-64px)] overflow-hidden px-4 py-4 sm:px-6 sm:py-8 md:px-10 lg:px-16 lg:py-10">
         <style>{styles}</style>
 
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(201,76,30,0.07),transparent_45%)] dark:bg-[radial-gradient(circle_at_18%_24%,rgba(201,76,30,0.14),transparent_45%)]" />
@@ -176,26 +176,26 @@ export default function TheData() {
         <div className="relative mx-auto mt-0 flex h-full w-full max-w-[1280px] flex-col">
 
           {/* Header */}
-          <div className="flex flex-col gap-7 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-4 sm:gap-7 md:flex-row md:items-start md:justify-between">
             <div className="max-w-[620px]">
-              <h2 className="text-[36px] font-semibold leading-[1.03] tracking-[-0.025em] text-slate-900 dark:text-white md:text-[44px]">
-                Your pipeline compounds<br />every month
+              <h2 className="text-[24px] sm:text-[36px] font-semibold leading-[1.03] tracking-[-0.025em] text-slate-900 dark:text-white md:text-[44px]">
+                Your pipeline compounds<br className="hidden sm:block" /> every month
               </h2>
-              <p className="mt-4 max-w-[620px] text-[18px] leading-relaxed text-slate-700 dark:text-white/40 md:text-[16px]">
+              <p className="mt-3 sm:mt-4 max-w-[620px] text-[14px] sm:text-[18px] leading-relaxed text-slate-700 dark:text-white/40 md:text-[16px]">
                 Week 1, you get a handful of leads. By month 6, the system knows your ICP well enough to surface dozens of qualified accounts per week without you touching a filter.
               </p>
             </div>
             <div className="md:pt-2 md:text-right">
-              <p className="font-sans text-[40px] leading-none tracking-[-0.03em] text-slate-900 dark:text-white md:text-[44px]">
+              <p className="font-sans text-[28px] sm:text-[40px] leading-none tracking-[-0.03em] text-slate-900 dark:text-white md:text-[44px]">
                 {displayLeadStr}+
               </p>
-              <p className="text-[18px] font-medium leading-none text-slate-700 dark:text-white/40 md:text-[24px]">D2C opportunities / month</p>
-              <p className="mt-2 text-[12px] text-slate-500 dark:text-white/32 md:text-[16px]">Identified by Month {displayMonth}</p>
+              <p className="text-[14px] sm:text-[18px] font-medium leading-none text-slate-700 dark:text-white/40 md:text-[24px]">D2C opportunities / month</p>
+              <p className="mt-1.5 sm:mt-2 text-[11px] sm:text-[12px] text-slate-500 dark:text-white/32 md:text-[16px]">Identified by Month {displayMonth}</p>
             </div>
           </div>
 
           {/* Graph */}
-          <div className="relative mt-4 flex-1 min-h-0 h-[300px] md:h-[330px] lg:h-[370px]">
+          <div className="relative mt-4 flex-1 min-h-0 h-[250px] sm:h-[300px] md:h-[330px] lg:h-[370px]">
 
             {/* Baseline */}
             <div className="absolute bottom-14 left-0 right-0 h-px bg-slate-400/45 dark:bg-white/[0.14]" />
@@ -275,7 +275,7 @@ export default function TheData() {
                   {/* Connector pointer line from chip down to graph top */}
                   <div className="mx-auto mb-1 w-px bg-slate-400/50 dark:bg-white/25" style={{ height: '14px' }} />
 
-                  <div className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] ${
+                  <div className={`inline-flex items-center rounded-full px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[10px] font-semibold tracking-[0.08em] ${
                     item.isCurrent
                       ? 'bg-[#C94C1E] text-white shadow-[0_2px_8px_rgba(201,76,30,0.35)]'
                       : 'border border-slate-300/60 bg-slate-100/80 text-slate-500 dark:border-white/15 dark:bg-white/8 dark:text-white/55'
@@ -283,9 +283,9 @@ export default function TheData() {
                     {item.chip}
                   </div>
 
-                  {/* Label — only for current and future (not past) */}
+                  {/* Label — only for current and future, hidden on mobile */}
                   {!item.isPast && (
-                    <p className={`mt-0.5 whitespace-nowrap text-[12px] font-medium ${
+                    <p className={`mt-0.5 whitespace-nowrap text-[12px] font-medium hidden sm:block ${
                       item.isCurrent
                         ? 'text-slate-800 dark:text-white'
                         : 'text-slate-400 dark:text-white/38'
@@ -297,13 +297,13 @@ export default function TheData() {
               );
             })}
 
-            {/* Link2 icon */}
-            <div className="absolute bottom-[20%] left-[4%] flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300/70 bg-white/70 text-slate-700 shadow-[0_0_18px_rgba(201,76,30,0.3)] dark:border-white/18 dark:bg-black/42 dark:text-white/80">
+            {/* Link2 icon — hidden on small mobile */}
+            <div className="absolute bottom-[20%] left-[4%] hidden sm:flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300/70 bg-white/70 text-slate-700 shadow-[0_0_18px_rgba(201,76,30,0.3)] dark:border-white/18 dark:bg-black/42 dark:text-white/80">
               <Link2 size={18} strokeWidth={1.8} />
             </div>
 
             {/* Scrolling month labels */}
-            <div className="absolute bottom-0 left-0 right-0 overflow-hidden" style={{ height: '56px' }}>
+            <div className="absolute bottom-0 left-0 right-0 overflow-hidden" style={{ height: '40px' }}>
               {(() => {
                 const center = Math.round(displayMonthFloat);
                 return Array.from({ length: 13 }, (_, i) => center - 6 + i)
@@ -317,7 +317,7 @@ export default function TheData() {
                       <span
                         key={m}
                         className={[
-                          'absolute bottom-0 -translate-x-1/2 whitespace-nowrap text-[13px] tracking-[0.04em]',
+                          'absolute bottom-0 -translate-x-1/2 whitespace-nowrap text-[10px] sm:text-[13px] tracking-[0.04em]',
                           isCurrent
                             ? 'font-semibold text-slate-900 dark:text-white'
                             : isPast
@@ -326,7 +326,7 @@ export default function TheData() {
                         ].join(' ')}
                         style={{ left: `${x}%` }}
                       >
-                        MONTH {m}
+                        M{m}
                       </span>
                     );
                   });
@@ -337,16 +337,16 @@ export default function TheData() {
             {!isAuto && (
               <>
                 <div
-                  className="absolute bottom-[calc(58%+86px)] text-[28px] font-semibold text-slate-900 dark:text-white"
+                  className="absolute bottom-[calc(58%+56px)] sm:bottom-[calc(58%+86px)] text-[16px] sm:text-[22px] md:text-[28px] font-semibold text-slate-900 dark:text-white leading-tight max-w-[60%] sm:max-w-none"
                   style={{ left: `${MARKER_X + 5}%` }}
                 >
-                  {signalCount} D2C buying signals detected
+                  {signalCount} D2C buying signals
                 </div>
-                <div className="absolute bottom-[calc(58%+62px)] left-[2%] text-[13px] text-slate-600 dark:text-white/52">
+                <div className="absolute bottom-[calc(58%+38px)] sm:bottom-[calc(58%+62px)] left-[2%] text-[10px] sm:text-[13px] text-slate-600 dark:text-white/52">
                   Month {activeItem.month}: {activeItem.label.toLowerCase()}
                 </div>
                 <div
-                  className="absolute bottom-[calc(58%+48px)] text-[13px] text-slate-500 dark:text-white/44"
+                  className="hidden sm:block absolute bottom-[calc(58%+48px)] text-[13px] text-slate-500 dark:text-white/44"
                   style={{ left: `${MARKER_X + 5}%` }}
                 >
                   {sequenceCount} outreach sequences launched
@@ -357,19 +357,19 @@ export default function TheData() {
             {/* Auto-phase new leads overlay */}
             {isAuto && (
               <div
-                className="absolute bottom-[calc(58%+62px)] text-slate-900 dark:text-white"
+                className="absolute bottom-[calc(58%+38px)] sm:bottom-[calc(58%+62px)] text-slate-900 dark:text-white"
                 style={{ left: `${MARKER_X + 5}%` }}
               >
-                <span className="text-[28px] font-semibold">+{monthlyNewLeadsStr}</span>
-                <span className="ml-2 text-[14px] font-medium text-slate-500 dark:text-white/50">New Leads</span>
-                <p className="mt-0.5 text-[13px] text-slate-400 dark:text-white/36">Month {displayMonth}</p>
+                <span className="text-[18px] sm:text-[28px] font-semibold">+{monthlyNewLeadsStr}</span>
+                <span className="ml-1.5 sm:ml-2 text-[11px] sm:text-[14px] font-medium text-slate-500 dark:text-white/50">New Leads</span>
+                <p className="mt-0.5 text-[10px] sm:text-[13px] text-slate-400 dark:text-white/36">Month {displayMonth}</p>
               </div>
             )}
 
             {/* Boost phase badge */}
             {displayLeadCount >= RELEASE_LEADS && (
-              <div className="absolute right-0 top-0 rounded-full border border-[#C94C1E]/40 bg-[#C94C1E]/10 px-3 py-1 text-[11px] font-semibold tracking-[0.08em] text-[#C94C1E] dark:text-[#F48E56]">
-                BOOST PHASE
+              <div className="absolute right-0 top-0 rounded-full border border-[#C94C1E]/40 bg-[#C94C1E]/10 px-2 sm:px-3 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-semibold tracking-[0.08em] text-[#C94C1E] dark:text-[#F48E56]">
+                BOOST
               </div>
             )}
 

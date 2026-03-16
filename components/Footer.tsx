@@ -53,7 +53,7 @@ export default function Footer() {
     <footer className="bg-[#0C0B09] text-white">
       {/* ── Main grid ─────────────────────────────────────────────────────── */}
       <div className="max-w-[1100px] mx-auto px-6 py-16
-                       grid grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-8 gap-y-12">
+                       grid grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-6 sm:gap-x-8 gap-y-8 sm:gap-y-12">
 
         {/* Brand column */}
         <div className="col-span-2 md:col-span-1 flex flex-col gap-6 pr-4">
