@@ -595,10 +595,18 @@ async function capturePageData() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id || !tab?.url?.startsWith('http')) return null;
 
-  // 1. Inject script into the active tab to capture lightweight signals (no full HTML — too large for POST)
+  // 1. Inject script into the active tab to capture page data
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {
+      // Capture HTML but sanitize it for safe POST (strip <script> content that triggers WAFs)
+      // Keep <script src="..."> tags (just the tag, not inline code) + all other HTML
+      let html = document.documentElement.outerHTML;
+      // Remove inline script content but keep the tags with src attributes
+      html = html.replace(/<script(?![^>]*\bsrc\b)[^>]*>[\s\S]*?<\/script>/gi, '');
+      // Cap at 800KB — enough for pattern matching, safe for POST
+      html = html.slice(0, 800_000);
+
       // All script src URLs from the live DOM (includes dynamically loaded)
       const scriptSrcs = [...document.querySelectorAll('script[src]')].map(s => s.src);
 
@@ -655,7 +663,7 @@ async function capturePageData() {
       // Capture performance resource URLs (all network requests the browser made)
       const networkUrls = performance.getEntriesByType('resource').map(e => e.name);
 
-      return { scriptSrcs, metaMap, jsGlobals, networkUrls };
+      return { html, scriptSrcs, metaMap, jsGlobals, networkUrls };
     },
   });
 

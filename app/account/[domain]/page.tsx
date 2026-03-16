@@ -46,6 +46,8 @@ interface Tech {
 interface ScanResult {
   technologies: Tech[];
   count: number;
+  blocked?: boolean;
+  message?: string;
   companyMeta?: {
     category: string;
     subCategory: string;
@@ -168,6 +170,8 @@ export default function AccountDetailPage() {
   const [techCount, setTechCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [techLoading, setTechLoading] = useState(true);
+  const [techBlocked, setTechBlocked] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
 
   // User
   const [userName, setUserName] = useState('');
@@ -198,34 +202,94 @@ export default function AccountDetailPage() {
 
   useEffect(() => {
     let stale = false;
+    const TECH_CACHE_KEY = 'harvin_account_tech_cache';
+    const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+    function getCachedTech(d: string): ScanResult | null {
+      try {
+        const cache = JSON.parse(localStorage.getItem(TECH_CACHE_KEY) || '{}');
+        const entry = cache[d];
+        if (entry && Date.now() - entry.ts < CACHE_TTL && entry.data?.count > 0) return entry.data;
+      } catch {}
+      return null;
+    }
+
+    function setCachedTech(d: string, data: ScanResult) {
+      if (!data.count) return;
+      try {
+        const cache = JSON.parse(localStorage.getItem(TECH_CACHE_KEY) || '{}');
+        cache[d] = { data, ts: Date.now() };
+        const keys = Object.keys(cache);
+        if (keys.length > 100) {
+          keys.sort((a, b) => cache[a].ts - cache[b].ts);
+          for (let i = 0; i < keys.length - 100; i++) delete cache[keys[i]];
+        }
+        localStorage.setItem(TECH_CACHE_KEY, JSON.stringify(cache));
+      } catch {}
+    }
+
+    // Show cached tech instantly
+    const cachedTech = getCachedTech(domain);
+    if (cachedTech) {
+      setTechs(cachedTech.technologies || []);
+      setTechCount(cachedTech.count || 0);
+      setTechLoading(false);
+    }
+
+    // Animate progress bar while loading
+    let progressInterval: ReturnType<typeof setInterval> | null = null;
+    if (!cachedTech) {
+      setScanProgress(0);
+      progressInterval = setInterval(() => {
+        setScanProgress(p => {
+          if (p >= 90) return 90; // Stall at 90 until real response
+          return p + (90 - p) * 0.08; // Ease-out curve
+        });
+      }, 200);
+    }
 
     async function load() {
+      // Phase 1: Account meta (fast, from DB)
       try {
         const res = await fetch(`/api/account/${encodeURIComponent(domain)}`);
         if (stale) return;
         const data: AccountData = await res.json();
         setAccount(data);
         setLoading(false);
+        if (!cachedTech) setScanProgress(p => Math.max(p, 30));
       } catch {
         setLoading(false);
       }
 
+      // Phase 2: Tech scan (may be slow for bot-protected sites)
       try {
+        if (!cachedTech) setScanProgress(p => Math.max(p, 50));
         const res = await fetch(`/api/detect?url=${encodeURIComponent(domain)}`);
         if (stale) return;
         const text = await res.text();
         if (!text) return;
         const data: ScanResult = JSON.parse(text);
-        if (data.technologies) {
+        if (data.technologies && data.technologies.length > 0) {
           setTechs(data.technologies);
           setTechCount(data.count || data.technologies.length);
+          setCachedTech(domain, data);
+        }
+        if (data.blocked) {
+          setTechBlocked(true);
         }
       } catch {}
-      if (!stale) setTechLoading(false);
+      if (!stale) {
+        setScanProgress(100);
+        setTechLoading(false);
+        if (progressInterval) clearInterval(progressInterval);
+      }
     }
 
     load();
-    return () => { stale = true; };
+    return () => {
+      stale = true;
+      if (progressInterval) clearInterval(progressInterval);
+    };
   }, [domain]);
 
   // Fetch watchlists when dropdown opens
@@ -601,9 +665,25 @@ export default function AccountDetailPage() {
                 <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm dark:shadow-none">
                   <h2 className="text-[15px] font-bold text-slate-800 dark:text-white mb-4">Active Signals</h2>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3 bg-emerald-50/50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/30 rounded-xl px-4 py-3">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
-                      <span className="text-[13px] text-slate-700 dark:text-neutral-200">{techCount > 0 ? `${techCount} technologies detected` : 'Tech scan in progress'}</span>
+                    <div className={`flex items-center gap-3 rounded-xl px-4 py-3 ${
+                      techCount > 0
+                        ? 'bg-emerald-50/50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/30'
+                        : techBlocked
+                          ? 'bg-amber-50/50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/30'
+                          : 'bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06]'
+                    }`}>
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        techCount > 0 ? 'bg-emerald-500' : techBlocked ? 'bg-amber-500' : 'bg-slate-400 animate-pulse'
+                      }`} />
+                      <span className="text-[13px] text-slate-700 dark:text-neutral-200">
+                        {techCount > 0
+                          ? `${techCount} technologies detected`
+                          : techBlocked
+                            ? 'Site has bot protection — use Chrome extension for full scan'
+                            : techLoading
+                              ? 'Scanning tech stack...'
+                              : 'No technologies detected'}
+                      </span>
                       <span className="text-[11px] text-slate-400 dark:text-neutral-500 ml-auto flex-shrink-0">{formatDate(account.updatedAt)}</span>
                     </div>
                     {account.offlineStores && account.offlineStores !== 'Unknown' && account.offlineStores !== 'Online' && (
@@ -636,9 +716,24 @@ export default function AccountDetailPage() {
                   </div>
 
                   {techLoading ? (
-                    <div className="flex items-center justify-center py-10">
-                      <Loader2 className="w-6 h-6 text-[#C94C1E] animate-spin" />
-                      <span className="text-[13px] text-slate-400 dark:text-neutral-500 ml-3">Scanning technologies&hellip;</span>
+                    <div className="py-8">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Loader2 className="w-5 h-5 text-[#C94C1E] animate-spin flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200 mb-1">
+                            {scanProgress < 30 ? 'Connecting to site...' : scanProgress < 60 ? 'Analyzing page content...' : scanProgress < 90 ? 'Detecting technologies...' : 'Finishing up...'}
+                          </p>
+                          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-[#C94C1E] transition-all duration-500 ease-out"
+                              style={{ width: `${scanProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-neutral-600 text-center">
+                        This usually takes 5–15 seconds
+                      </p>
                     </div>
                   ) : topTechs.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-0">
@@ -649,8 +744,30 @@ export default function AccountDetailPage() {
                         </div>
                       ))}
                     </div>
+                  ) : techBlocked ? (
+                    <div className="py-6 text-center">
+                      <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 9v4M12 17h.01" /><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                      </div>
+                      <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-300 mb-1">
+                        Bot protection detected
+                      </p>
+                      <p className="text-[12px] text-slate-400 dark:text-neutral-500 mb-4 max-w-xs mx-auto">
+                        This site blocks automated scans. Use our Chrome extension to scan from your browser.
+                      </p>
+                      <a
+                        href="https://chromewebstore.google.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold text-white bg-[#C94C1E] hover:bg-[#b5431a] transition-all"
+                      >
+                        Get Extension
+                      </a>
+                    </div>
                   ) : (
-                    <p className="text-[13px] text-slate-400 dark:text-neutral-500 py-4">No technologies detected yet.</p>
+                    <p className="text-[13px] text-slate-400 dark:text-neutral-500 py-4">No technologies detected.</p>
                   )}
                 </div>
 

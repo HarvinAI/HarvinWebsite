@@ -111,6 +111,18 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
     const result = await scanSingleUrl(url, { forceRefresh, pageData });
     logScan(req, domain, source, result, null);
 
+    // Cache extension tech results in DB so account page GET requests can use them
+    if (source === 'extension' && result.count > 0) {
+      try {
+        const db = await getDb();
+        await db.collection('tech_cache').updateOne(
+          { domain },
+          { $set: { domain, technologies: result.technologies, count: result.count, updatedAt: new Date() } },
+          { upsert: true },
+        );
+      } catch {}
+    }
+
     // Enrich with MAU / traffic data from DB (skip flat fallback estimates)
     try {
       const db = await getDb();
