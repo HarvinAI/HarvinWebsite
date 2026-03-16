@@ -595,13 +595,10 @@ async function capturePageData() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id || !tab?.url?.startsWith('http')) return null;
 
-  // 1. Inject script into the active tab to capture DOM + JS globals
+  // 1. Inject script into the active tab to capture lightweight signals (no full HTML — too large for POST)
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {
-      // Capture full rendered HTML (cap at 2MB)
-      const html = document.documentElement.outerHTML.slice(0, 2_000_000);
-
       // All script src URLs from the live DOM (includes dynamically loaded)
       const scriptSrcs = [...document.querySelectorAll('script[src]')].map(s => s.src);
 
@@ -658,7 +655,7 @@ async function capturePageData() {
       // Capture performance resource URLs (all network requests the browser made)
       const networkUrls = performance.getEntriesByType('resource').map(e => e.name);
 
-      return { html, scriptSrcs, metaMap, jsGlobals, networkUrls };
+      return { scriptSrcs, metaMap, jsGlobals, networkUrls };
     },
   });
 

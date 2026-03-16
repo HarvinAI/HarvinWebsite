@@ -21,6 +21,8 @@ interface ScanResult {
   technologies: Tech[];
   count: number;
   companyMeta?: CompanyMeta;
+  blocked?: boolean;
+  message?: string;
 }
 
 const CATEGORY_PRIORITY = [
@@ -253,10 +255,35 @@ export default function ScanResultPage() {
             {renderHeader()}
 
             {result.count === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-[14px] text-slate-500">
-                  No technologies detected — the site may block automated scanning.
-                </p>
+              <div className="text-center py-12">
+                {result.blocked ? (
+                  <div className="max-w-md mx-auto">
+                    <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 9v4M12 17h.01" /><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white mb-2">
+                      This site has bot protection
+                    </h3>
+                    <p className="text-[14px] text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+                      {result.message || 'We couldn\'t scan this site from our servers. Use the HarvinAI Chrome extension to scan from your real browser — it bypasses bot protection and detects all technologies.'}
+                    </p>
+                    <a
+                      href="https://chromewebstore.google.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-[14px] font-semibold text-white bg-[#C94C1E] hover:bg-[#b5431a] transition-all"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zm0 6.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11zM3.6 8.8h5.4a5.5 5.5 0 012.5-.6l2.7-4.7A10.48 10.48 0 001.5 12h5.6c0-1.2.5-2.3 1.2-3.2zM12 17.5a5.5 5.5 0 01-4.7-2.7L2.6 14a10.48 10.48 0 008.4 8.5l-1.5-5z"/></svg>
+                      Get Chrome Extension
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-[14px] text-slate-500">
+                    No technologies detected on this site.
+                  </p>
+                )}
               </div>
             ) : (
               <>
