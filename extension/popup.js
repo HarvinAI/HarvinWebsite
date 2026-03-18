@@ -1,5 +1,7 @@
 // ── Config ───────────────────────────────────────────────────────────────
-const API_BASE = 'http://localhost:3000';
+// Auto-detect: use localhost for development, production URL for published extension
+const IS_DEV = !('update_url' in chrome.runtime.getManifest());
+const API_BASE = IS_DEV ? 'http://localhost:3000' : 'https://www.harvin.ai';
 
 // Category colors
 const CATEGORY_COLORS = {
@@ -749,6 +751,12 @@ function renderDetails(data) {
     const badgeClass = stores === 'Online' ? 'online-only' :
                        stores === 'Unknown' ? 'unknown' : 'has-stores';
     html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span></div></div>`;
+
+    // App Presence
+    const appPresence = companyMeta.appPresence || 'No App';
+    const appBadgeClass = appPresence === 'No App' ? 'online-only' :
+                          appPresence === 'Both iOS & Android' ? 'has-stores' : 'unknown';
+    html += `<div class="detail-card"><div class="detail-label">App Presence</div><div class="detail-value"><span class="store-badge ${appBadgeClass}">${esc(appPresence)}</span></div></div>`;
 
     // MAU / Estimated Traffic
     if (companyMeta.monthlyVisitsFormatted) {

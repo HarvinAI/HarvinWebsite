@@ -62,7 +62,7 @@ export async function GET(
     // Apply known brand data (always takes priority over DB)
     const knownBrand = lookupKnownBrand(normalizedDomain);
     // Fix misclassified location fields (same logic as accounts list API)
-    let region = overrides.region || doc?.region || 'Global';
+    let region = knownBrand?.region || overrides.region || doc?.region || 'Global';
     let state: string | null = doc?.state || null;
     let city: string | null = normalizeCity(doc?.city) || null;
     const KNOWN_CITIES_MAP = INDIA_CITY_STATE as Record<string, string>;
@@ -83,7 +83,7 @@ export async function GET(
         state = KNOWN_CITIES_MAP[sLower];
       }
     }
-    const offlineStores = overrides.offlineStores || doc?.offlineStores || 'Unknown';
+    const offlineStores = knownBrand?.stores || overrides.offlineStores || doc?.offlineStores || 'Unknown';
     const { displayLocation, locationLevel } = formatDisplayLocation({ region, state, city, offlineStores });
     const trafficSrc = doc?.trafficSource as string | null;
     const hasRealTraffic = trafficSrc && trafficSrc !== 'estimate';
@@ -103,6 +103,9 @@ export async function GET(
       monthlyVisits: hasRealTraffic ? (doc?.monthlyVisits || null) : null,
       monthlyVisitsFormatted: hasRealTraffic ? (doc?.monthlyVisitsFormatted || null) : null,
       scaleBand: hasRealTraffic ? toScaleBand(doc?.monthlyVisits) : null,
+      appPresence: doc?.appPresence || 'No App',
+      iosAppUrl: doc?.iosAppUrl || null,
+      androidAppUrl: doc?.androidAppUrl || null,
       updatedAt: doc?.updatedAt || null,
       createdAt: doc?.createdAt || null,
     };
@@ -158,6 +161,9 @@ export async function GET(
       monthlyVisits: null,
       monthlyVisitsFormatted: null,
       scaleBand: null,
+      appPresence: 'No App',
+      iosAppUrl: null,
+      androidAppUrl: null,
       updatedAt: null,
       createdAt: null,
       score: 40,

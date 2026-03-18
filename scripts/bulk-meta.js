@@ -1,5 +1,19 @@
 #!/usr/bin/env node
 
+// Catch TLS/SSL crashes (Node v24 bug with certain domains)
+process.on('uncaughtException', (err) => {
+  if (err.message?.includes('TLS') || err.code === 'ERR_SSL_WRONG_VERSION_NUMBER' || err.stack?.includes('TLSWrap')) {
+    console.warn('[warn] TLS crash caught, continuing...');
+    return;
+  }
+  console.error('[fatal] Uncaught exception:', err.message);
+  try { saveProgress(); } catch {}
+  process.exit(1);
+});
+process.on('unhandledRejection', (err) => {
+  console.warn('[warn] Unhandled rejection:', err?.message || err);
+});
+
 /**
  * Bulk domain processing script for company_meta collection.
  * Reads domains from Accounts.txt, processes each through extractCompanyMeta(),
@@ -46,36 +60,37 @@ const limitIdx = args.indexOf('--limit');
 const LIMIT = limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 0;
 
 // ── Config ────────────────────────────────────────────────────────────────
-const CONCURRENCY = 10;
+const CONCURRENCY = 20;
 const PROGRESS_FILE = path.resolve(__dirname, 'bulk-meta-progress.json');
 const ACCOUNTS_FILE = path.resolve(__dirname, '..', 'Accounts.txt');
-const SAVE_EVERY = 50;
-const PER_DOMAIN_TIMEOUT = 30_000;
+const SAVE_EVERY = 100;
+const PER_DOMAIN_TIMEOUT = 10_000;
 
 // ── Progress state ────────────────────────────────────────────────────────
 let stats = { ok: 0, skip: 0, fail: 0 };
-let processedSet = new Set();
+let resumeIndex = 0;
 let startedAt = Date.now();
 let shuttingDown = false;
 
 function loadProgress() {
   try {
     const raw = JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf-8'));
-    processedSet = new Set(raw.processedDomains || []);
+    // Support both old format (processedDomains array) and new format (resumeIndex number)
+    if (typeof raw.resumeIndex === 'number') {
+      resumeIndex = raw.resumeIndex;
+    } else if (Array.isArray(raw.processedDomains)) {
+      resumeIndex = raw.processedDomains.length;
+    }
     stats = raw.stats || { ok: 0, skip: 0, fail: 0 };
     startedAt = raw.startedAt || Date.now();
-    console.log(`[resume] Loaded progress: ${processedSet.size} domains already processed`);
+    console.log(`[resume] Resuming from index ${resumeIndex}`);
   } catch {
     console.log('[start] No progress file found, starting fresh');
   }
 }
 
 function saveProgress() {
-  const data = {
-    processedDomains: [...processedSet],
-    stats,
-    startedAt,
-  };
+  const data = { resumeIndex, stats, startedAt };
   fs.writeFileSync(PROGRESS_FILE, JSON.stringify(data));
 }
 
@@ -147,7 +162,6 @@ async function processDomain(domain, db) {
   });
   if (existing && existing.category && existing.subCategory && existing.region) {
     stats.skip++;
-    processedSet.add(domain);
     return;
   }
 
@@ -171,17 +185,19 @@ async function processDomain(domain, db) {
 
   const metaMap = html ? extractMetaMap(html) : {};
 
+  // Pass null for fetchPage and browserFetch to skip store detection (too slow for bulk)
+  // Store detection can be backfilled later
   await extractCompanyMeta({
     url: 'https://' + domain,
     html,
     headers,
     metaMap,
     technologies: [],
-    fetchPage: (fetchUrl) => fetchWithAxios(fetchUrl),
+    fetchPage: null,
+    browserFetch: null,
   });
 
   stats.ok++;
-  processedSet.add(domain);
 }
 
 // ── Timeout wrapper ───────────────────────────────────────────────────────
@@ -202,9 +218,9 @@ async function main() {
 
   loadProgress();
 
-  // Filter out already processed
-  const todo = domains.filter(d => !processedSet.has(d));
-  console.log(`[info] ${todo.length} domains remaining (${processedSet.size} already processed)`);
+  // Skip already processed domains (by index)
+  const todo = domains.slice(resumeIndex);
+  console.log(`[info] ${todo.length} domains remaining (${resumeIndex} already processed)`);
 
   if (DRY_RUN) {
     // Check how many are already in DB
@@ -213,7 +229,7 @@ async function main() {
       ? await db.collection('company_meta').countDocuments({})
       : 0;
     console.log(`[dry-run] Total domains in file: ${allDomains.length}`);
-    console.log(`[dry-run] Already processed (progress file): ${processedSet.size}`);
+    console.log(`[dry-run] Already processed (progress file): ${resumeIndex}`);
     console.log(`[dry-run] Documents in company_meta collection: ${dbCount}`);
     console.log(`[dry-run] Domains to process: ${todo.length}`);
     process.exit(0);
@@ -251,7 +267,7 @@ async function main() {
       if (inflightCount === 0) {
         clearInterval(waitForInflight);
         saveProgress();
-        console.log(`[shutdown] Progress saved. ${processedSet.size} domains processed total.`);
+        console.log(`[shutdown] Progress saved. ${resumeIndex} domains processed total.`);
         process.exit(0);
       }
     }, 200);
@@ -271,7 +287,6 @@ async function main() {
     const p = withTimeout(processDomain(domain, db), PER_DOMAIN_TIMEOUT)
       .catch(err => {
         stats.fail++;
-        processedSet.add(domain);
         // Only log errors occasionally to avoid spam
         if (stats.fail <= 10 || stats.fail % 100 === 0) {
           console.error(`[fail] ${domain}: ${err.message}`);
@@ -282,9 +297,11 @@ async function main() {
         sem.release();
         processed++;
 
+        resumeIndex++;
+
         // Progress log
         if (processed % 10 === 0 || processed === totalTodo) {
-          const total = processedSet.size;
+          const total = resumeIndex;
           const pct = ((total / totalAll) * 100).toFixed(1);
           const eta = formatETA(processed, totalTodo);
           console.log(
@@ -303,7 +320,7 @@ async function main() {
   await Promise.all(promises);
   saveProgress();
 
-  console.log(`\n[done] Processed ${processedSet.size} domains total`);
+  console.log(`\n[done] Processed ${resumeIndex} domains total`);
   console.log(`  ok: ${stats.ok} | skip: ${stats.skip} | fail: ${stats.fail}`);
   console.log(`  Duration: ${((Date.now() - startedAt) / 60_000).toFixed(1)} minutes`);
   process.exit(0);

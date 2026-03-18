@@ -124,14 +124,9 @@ function domainHash(d: string): number {
 }
 
 const DEMO_BIZ = ['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'];
-const DEMO_APP = ['No App', 'iOS Only', 'Android Only', 'Both iOS & Android'];
 
 function inferBusinessModel(domain: string): string {
   return DEMO_BIZ[domainHash(domain) % DEMO_BIZ.length];
-}
-
-function inferAppPresence(domain: string): string {
-  return DEMO_APP[(domainHash(domain) + 5) % DEMO_APP.length];
 }
 
 /* Signal type → display label mapping */
@@ -242,7 +237,7 @@ export async function GET(req: NextRequest) {
     const db = await getDb();
     const col = db.collection('company_meta');
 
-    // Build query — only include docs that have category + region (complete entries)
+    // Build query — all accounts with complete data
     const query: Record<string, unknown> = {
       category: { $exists: true, $nin: [null, ''] },
       region: { $exists: true, $nin: [null, ''] },
@@ -449,7 +444,7 @@ export async function GET(req: NextRequest) {
       const knownBrand = lookupKnownBrand(domain);
       const dbSignals = a.activeSignals as string[] | null;
       const loc = fixLocationFields(
-        (overrides.region || a.region) as string | null,
+        (knownBrand?.region || overrides.region || a.region) as string | null,
         (a.state as string | null) || null,
         (a.city as string | null) || null,
       );
@@ -457,7 +452,7 @@ export async function GET(req: NextRequest) {
       const storeConf = a.storeConfidence as Record<string, unknown> | null;
       const rawCount = (a.storeRawCount as number) || 0;
       const aiCount = (a.aiStoreCount as number) || 0;
-      let offlineStores = (overrides.offlineStores || a.offlineStores) as string;
+      let offlineStores = (knownBrand?.stores || overrides.offlineStores || a.offlineStores) as string;
       if (storeConf?.source === 'known_brand' || storeConf?.source === 'known_brand_fallback') {
         // The DB has global known_brand count — use actual detected count instead
         const actualCount = aiCount || rawCount;
@@ -498,7 +493,7 @@ export async function GET(req: NextRequest) {
         monthlyVisits: hasRealTraffic ? (a.monthlyVisits as number) : null,
         monthlyVisitsFormatted: hasRealTraffic ? (a.monthlyVisitsFormatted as string) : null,
         scaleBand: hasRealTraffic ? toScaleBand(a.monthlyVisits as number) : null,
-        appPresence: a.appPresence || inferAppPresence(domain),
+        appPresence: a.appPresence || 'No App',
         activeSignals: realSignalMap[domain] || ((dbSignals && dbSignals.length > 0) ? dbSignals : []),
         fundingStage: realFundingMap[domain] || a.fundingStage || null,
         updatedAt: a.updatedAt,

@@ -1,0 +1,11 @@
+{
+  "lastIndex": 500,
+  "processed": 500,
+  "updated": 500,
+  "stats": {
+    "Both iOS & Android": 91,
+    "iOS Only": 17,
+    "Android Only": 25,
+    "No App": 367
+  }
+}

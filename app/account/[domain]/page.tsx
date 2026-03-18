@@ -8,7 +8,7 @@ import {
   Search, Satellite, Star, Target, Swords, Briefcase,
   Settings2, Link2, LogOut, ExternalLink, Globe, MapPin,
   Building2, TrendingUp, Shield, ChevronRight, Plus,
-  Store, Users, ShoppingCart, Code, Loader2, Radar,
+  Store, Users, ShoppingCart, Code, Loader2, Radar, Smartphone,
 } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 
@@ -32,6 +32,9 @@ interface AccountData {
   scaleBand: string | null;
   updatedAt: string | null;
   createdAt: string | null;
+  appPresence: string;
+  iosAppUrl: string | null;
+  androidAppUrl: string | null;
   score: number;
   similar: { normalizedDomain: string; name: string; category: string; subCategory: string }[];
   found: boolean;
@@ -776,7 +779,15 @@ export default function AccountDetailPage() {
                   <h2 className="text-[15px] font-bold text-slate-800 dark:text-white mb-4">Scale &amp; Presence</h2>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <MetricCard icon={<TrendingUp size={16} className="text-slate-400 dark:text-neutral-500" />} label="Employees" value="\u2014" sub="Coming soon" muted />
-                    <MetricCard icon={<Globe size={16} className="text-slate-400 dark:text-neutral-500" />} label="App Presence" value="\u2014" sub="Coming soon" muted />
+                    <MetricCard
+                      icon={<Smartphone size={16} className={account.appPresence !== 'No App' ? 'text-violet-500' : 'text-slate-400 dark:text-neutral-500'} />}
+                      label="App Presence"
+                      value={account.appPresence}
+                      sub={account.appPresence === 'No App' ? 'No mobile app detected' : (
+                        [account.iosAppUrl ? 'App Store' : '', account.androidAppUrl ? 'Play Store' : ''].filter(Boolean).join(' + ')
+                      ) || null}
+                      muted={account.appPresence === 'No App'}
+                    />
                     <MetricCard icon={<Shield size={16} className="text-slate-400 dark:text-neutral-500" />} label="Security Score" value="\u2014" sub="Coming soon" muted />
                   </div>
                 </div>

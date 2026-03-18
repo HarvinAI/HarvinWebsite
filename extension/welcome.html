@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to HarvinAI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #FAFAFA;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #C94C1E 0%, #E06530 50%, #F4A261 100%);
+      padding: 60px 20px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 40px;
+      background: #FAFAFA;
+      border-radius: 40px 40px 0 0;
+    }
+    .hero-logo {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: white;
+      padding: 12px;
+      margin: 0 auto 24px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    .hero-logo img { width: 100%; height: 100%; object-fit: contain; }
+    .hero h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .hero .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      padding: 8px 20px;
+      border-radius: 100px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .hero .check svg { flex-shrink: 0; }
+    .hero p {
+      color: rgba(255,255,255,0.9);
+      font-size: 16px;
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* Content */
+    .content {
+      max-width: 720px;
+      margin: -20px auto 0;
+      padding: 0 20px 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Steps */
+    .steps {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .step {
+      flex: 1;
+      background: white;
+      border: 1px solid #E5E5E5;
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .step:hover {
+      border-color: #C94C1E;
+      box-shadow: 0 4px 20px rgba(201,76,30,0.1);
+      transform: translateY(-2px);
+    }
+    .step-number {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #C94C1E, #E06530);
+      color: white;
+      font-size: 16px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px;
+    }
+    .step h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+    }
+    .step p {
+      font-size: 12px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    /* Features */
+    .section-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1a1a1a;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 40px;
+    }
+    .feature {
+      background: white;
+      border: 1px solid #E5E5E5;
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      transition: all 0.2s;
+    }
+    .feature:hover { border-color: #C94C1E; }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 20px;
+    }
+    .feature h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+    .feature p {
+      font-size: 12px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    /* CTA */
+    .cta-section {
+      text-align: center;
+      background: white;
+      border: 1px solid #E5E5E5;
+      border-radius: 20px;
+      padding: 40px;
+    }
+    .cta-section h2 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .cta-section p {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 24px;
+    }
+    .cta-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: #C94C1E;
+      color: white;
+    }
+    .btn-primary:hover { background: #b5431a; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(201,76,30,0.3); }
+    .btn-secondary {
+      background: #F5F5F5;
+      color: #333;
+      border: 1px solid #E5E5E5;
+    }
+    .btn-secondary:hover { background: #EAEAEA; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      color: #999;
+      font-size: 12px;
+    }
+    .footer a { color: #C94C1E; text-decoration: none; font-weight: 600; }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .steps { flex-direction: column; }
+      .features { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-logo">
+      <img src="icons/icon128.png" alt="HarvinAI" />
+    </div>
+    <div class="check">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Successfully Installed!
+    </div>
+    <h1>Welcome to HarvinAI</h1>
+    <p>Your D2C brand intelligence toolkit — detect tech stacks, discover brands, and track market signals in one click.</p>
+  </div>
+
+  <div class="content">
+
+    <!-- Getting Started Steps -->
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Pin the Extension</h3>
+        <p>Click the puzzle icon in Chrome toolbar and pin HarvinAI for quick access.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>Visit Any Website</h3>
+        <p>Navigate to any D2C brand, ecommerce site, or any website you want to analyze.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Click & Scan</h3>
+        <p>Click the HarvinAI icon — instantly see the full tech stack, category, and brand details.</p>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <h2 class="section-title">What You Can Do</h2>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon" style="background: #EEF2FF;">&#128270;</div>
+        <div>
+          <h4>Tech Stack Detection</h4>
+          <p>Detect 200+ technologies — ecommerce platforms, analytics, CRM, payments, CDN, and more.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background: #FFF7ED;">&#127959;</div>
+        <div>
+          <h4>Brand Intelligence</h4>
+          <p>Auto-classify brands across 128 categories. See region, store count, traffic, and business model.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background: #F0FDF4;">&#128241;</div>
+        <div>
+          <h4>App Presence</h4>
+          <p>Instantly know if a brand has iOS, Android, or both mobile apps.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background: #FEF2F2;">&#128200;</div>
+        <div>
+          <h4>Market Signals</h4>
+          <p>Track funding rounds, key hires, and buying signals from your dashboard.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-section">
+      <h2>Ready to explore?</h2>
+      <p>Visit any website and click the HarvinAI icon to start scanning, or head to your dashboard.</p>
+      <div class="cta-buttons">
+        <a href="https://www.harvin.ai/dashboard" target="_blank" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M9 3v18M3 9h18" stroke="currentColor" stroke-width="2"/></svg>
+          Open Dashboard
+        </a>
+        <a href="https://www.harvin.ai" target="_blank" class="btn btn-secondary">
+          Learn More
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Made with &#10084; by <a href="https://www.harvin.ai" target="_blank">Harvin AI</a> &middot; Version 1.3.0</p>
+  </div>
+
+</body>
+</html>

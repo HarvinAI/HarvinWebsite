@@ -6,6 +6,7 @@ import { useSession, signOut } from 'next-auth/react';
 import Image from 'next/image';
 import { useTheme } from '@/components/ThemeProvider';
 import DashboardTour from '@/components/DashboardTour';
+import ChatBot from '@/components/ChatBot';
 import {
   Search, ChevronDown, ChevronUp, X,
   ChevronLeft, ChevronRight,
@@ -237,7 +238,7 @@ const LocationSubFilter = ({ label, options, selected, onToggle }: {
 
   return (
     <div className="mt-2.5 mb-1 px-3 relative" ref={containerRef}>
-      <p className="text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mb-1.5">{label}</p>
+      <p className="text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mb-1.5">{label}</p>
 
       {/* Trigger button */}
       <button
@@ -773,7 +774,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
           <div className="space-y-4 px-3">
             <div>
-              <h3 className="px-3 mb-1 text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">Intelligence</h3>
+              <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Intelligence</h3>
               <div className="space-y-0.5">
                 <NavBtn icon={<Satellite size={18} />} label="Market Intelligence" active={activeTab === 'market-intelligence'} onClick={() => setActiveTab('market-intelligence')} />
                 <NavBtn icon={<Search size={18} />} label="Account Explorer" active={activeTab === 'account-explorer'} onClick={() => setActiveTab('account-explorer')} />
@@ -782,7 +783,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             </div>
 
             <div>
-              <h3 className="px-3 mb-1 text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">Watchlists</h3>
+              <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Watchlists</h3>
               <div className="space-y-0.5" data-tour="watchlists">
                 <NavBtn icon={<Star size={18} />} label="My Watchlists" active={activeTab === 'my-watchlists'} onClick={() => setActiveTab('my-watchlists')}
                   badge={watchlists.length > 0 ? String(watchlists.length) : undefined} />
@@ -793,7 +794,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             </div>
 
             <div>
-              <h3 className="px-3 mb-1 text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">Settings</h3>
+              <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Settings</h3>
               <div className="space-y-0.5">
                 <NavBtn icon={<Settings2 size={18} />} label="ICP & Preferences" active={activeTab === 'icp-preferences'} onClick={() => setActiveTab('icp-preferences')} />
                 <NavBtn icon={<Link2 size={18} />} label="Integrations" active={activeTab === 'integrations'} onClick={() => setActiveTab('integrations')} />
@@ -888,7 +889,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
           <div className="flex-1 overflow-y-auto p-4 pt-2 custom-scrollbar">
             <FilterSection title="Basics" count={filters.category.length + filters.region.length + filters.state.length + filters.city.length}>
               {/* Category — compact display + picker button */}
-              <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mt-1 mb-1">Category</p>
+              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-1 mb-1">Category</p>
               <button onClick={() => setShowCatPicker(true)}
                 className="mx-3 mb-2 w-[calc(100%-24px)] flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[11px] font-medium text-slate-500 dark:text-neutral-400 hover:border-[#C94C1E] hover:text-[#C94C1E] hover:bg-orange-50/50 dark:hover:bg-[#C94C1E]/10 transition-all">
                 {filters.category.length === 0 ? (
@@ -910,42 +911,42 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             </FilterSection>
 
             <FilterSection title="D2C Profile" count={filters.businessModel.length + filters.scale.length + filters.offlinePresence.length + filters.appPresence.length} defaultOpen={false}>
-              <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mt-1 mb-1">Business Model</p>
+              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-1 mb-1">Business Model</p>
               {['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'].map(v => (
                 <FilterItem key={v} label={v} on={filters.businessModel.includes(v)} onClick={() => toggle('businessModel', v)} />
               ))}
 
-              <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mt-3 mb-1">Scale (Est. Traffic)</p>
+              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">Scale (Est. Traffic)</p>
               {['<50K', '50K-200K', '200K-500K', '500K-1M', '1M-5M', '5M-20M', '20M+'].map(v => (
                 <FilterItem key={v} label={v} on={filters.scale.includes(v)} onClick={() => toggle('scale', v)} />
               ))}
 
-              <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mt-3 mb-1">Offline Presence</p>
+              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">Offline Presence</p>
               {['Online Only', '1-10 stores', '11-20 stores', '21-50 stores', '51-100 stores', '100+ stores'].map(v => (
                 <FilterItem key={v} label={v} on={filters.offlinePresence.includes(v)} onClick={() => toggle('offlinePresence', v)} />
               ))}
 
-              <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mt-3 mb-1">App Presence</p>
+              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">App Presence</p>
               {['No App', 'iOS Only', 'Android Only', 'Both iOS & Android'].map(v => (
                 <FilterItem key={v} label={v} on={filters.appPresence.includes(v)} onClick={() => toggle('appPresence', v)} />
               ))}
             </FilterSection>
 
             <FilterSection title="Tech Stack" count={filters.techStack.length} defaultOpen={false}>
-              <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mt-1 mb-1">Ecommerce Platform</p>
+              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-1 mb-1">Ecommerce Platform</p>
               {['Shopify', 'WooCommerce', 'Magento', 'Custom-built'].map(v => (
                 <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
               ))}
 
               <div className="flex items-center gap-2 px-3 mt-3 mb-1">
-                <p className="text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide">Engagement / CRM</p>
+                <p className="text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide">Engagement / CRM</p>
                 <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Key</span>
               </div>
               {['CleverTap', 'MoEngage', 'WebEngage', 'Braze', 'Klaviyo', 'Mailchimp', 'None detected'].map(v => (
                 <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
               ))}
 
-              <p className="px-3 text-[10px] font-medium text-slate-400/70 dark:text-neutral-500 uppercase tracking-wide mt-3 mb-1">Payments</p>
+              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">Payments</p>
               {['Razorpay', 'Stripe', 'PayU', 'Cashfree'].map(v => (
                 <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
               ))}
@@ -1433,7 +1434,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
                             {/* Name + score + signals */}
                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <h3 className="text-[15px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors truncate">{name}</h3>
+                              <h3 className="text-[15px] font-extrabold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors truncate">{name}</h3>
                               {a.techCount > 0 && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex-shrink-0">
                                   <Layers size={10} />{a.techCount} tech
@@ -1456,8 +1457,8 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                           </div>
 
                           {/* Row 2: Category · Location · Business Model */}
-                          <div className="px-4 pb-2 flex items-center gap-3 text-[12px] text-slate-500 dark:text-neutral-400">
-                            {a.category && <span className="font-medium">{a.category}</span>}
+                          <div className="px-4 pb-2 flex items-center gap-3 text-[12px] text-slate-600 dark:text-neutral-300 font-semibold">
+                            {a.category && <span className="font-bold">{a.category}</span>}
                             {a.displayLocation && <><span className="text-slate-300 dark:text-neutral-600">·</span><span>{a.displayLocation}</span></>}
                             {a.businessModel && <><span className="text-slate-300 dark:text-neutral-600">·</span><span>{a.businessModel}</span></>}
                           </div>
@@ -1465,17 +1466,17 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                           {/* Row 3: Detail pills */}
                           <div className="px-4 pb-2.5 flex items-center gap-2 flex-wrap">
                             {a.scaleBand && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-medium text-slate-600 dark:text-neutral-300">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
                                 <TrendingUp size={10} className="text-blue-400" />{a.scaleBand}{a.monthlyVisitsFormatted ? ` (${a.monthlyVisitsFormatted})` : ''}
                               </span>
                             )}
                             {a.appPresence && a.appPresence !== 'No App' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-medium text-slate-600 dark:text-neutral-300">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
                                 <Smartphone size={10} className="text-violet-400" />{a.appPresence}
                               </span>
                             )}
                             {a.offlineStores && a.offlineStores !== 'Online' && a.offlineStores !== 'Unknown' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-medium text-slate-600 dark:text-neutral-300">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
                                 <Store size={10} className="text-emerald-400" />{a.offlineStores} stores
                               </span>
                             )}
@@ -1485,12 +1486,12 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                           {(a.fundingStage || signalCount > 0) && (
                             <div className="px-4 pb-3 flex items-center gap-3">
                               {a.fundingStage && (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-600">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600">
                                   <DollarSign size={12} className="text-green-500" />{a.fundingStage}
                                 </span>
                               )}
                               {(a.activeSignals || []).map(s => (
-                                <span key={s} className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-neutral-400">
+                                <span key={s} className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-neutral-400">
                                   <Target size={10} className="text-amber-400" />{s}
                                 </span>
                               ))}
@@ -1569,6 +1570,9 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
       {/* Guided tour for new users */}
       <DashboardTour />
+
+      {/* AI Chatbot */}
+      <ChatBot />
     </div>
   );
 }
@@ -1582,7 +1586,7 @@ function NavBtn({ icon, label, active, locked, onClick, badge }: {
       <div className="flex items-center justify-between rounded-lg text-slate-400 dark:text-neutral-500 cursor-not-allowed transition-all px-3 py-2">
         <div className="flex items-center gap-2.5">
           <span className="text-slate-300 dark:text-neutral-600 flex-shrink-0">{icon}</span>
-          <span className="text-[13px] font-medium">{label}</span>
+          <span className="text-[13px] font-bold">{label}</span>
         </div>
         <span className="text-[8px] bg-slate-100 dark:bg-white/[0.06] text-slate-400 dark:text-neutral-500 px-1 py-0.5 rounded font-bold uppercase">Soon</span>
       </div>
@@ -1598,7 +1602,7 @@ function NavBtn({ icon, label, active, locked, onClick, badge }: {
       }`}
     >
       <span className="flex-shrink-0">{icon}</span>
-      <span className={`text-[13px] ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+      <span className={`text-[13px] ${active ? 'font-extrabold' : 'font-bold'}`}>{label}</span>
       {badge && <span className="ml-auto text-[9px] bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-neutral-400 px-1.5 py-0.5 rounded-full font-bold">{badge}</span>}
     </button>
   );
@@ -1734,7 +1738,7 @@ function MarketIntelligenceView() {
           <div key={card.key}
             className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5 hover:border-slate-300 dark:hover:border-white/[0.12] hover:shadow-sm dark:hover:shadow-none transition-all">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">{card.label}</span>
+              <span className="text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">{card.label}</span>
               <span className="text-slate-300 dark:text-neutral-600">{card.icon}</span>
             </div>
             <p className="text-[28px] font-extrabold leading-none text-slate-800 dark:text-white mb-1">
