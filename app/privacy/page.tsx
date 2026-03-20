@@ -21,20 +21,20 @@ export default function PrivacyPolicy() {
       </LegalSection>
 
       <LegalSection title="2. Information We Collect">
-        <h3 className="text-[16px] font-semibold text-white/80 mt-2 mb-1">2.1 Account Information</h3>
+        <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white/80 mt-2 mb-1">2.1 Account Information</h3>
         <p>
           When you create an account, we collect your name, email address, company name, and any
           other information you provide during registration or onboarding.
         </p>
 
-        <h3 className="text-[16px] font-semibold text-white/80 mt-4 mb-1">2.2 Technology Scan Data</h3>
+        <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white/80 mt-4 mb-1">2.2 Technology Scan Data</h3>
         <p>
           When you use our platform or Chrome extension to scan a website, we collect the technology
           stack detection results, brand classification data, and market signals associated with the
           scanned domains.
         </p>
 
-        <h3 className="text-[16px] font-semibold text-white/80 mt-4 mb-1">2.3 Chrome Extension Data</h3>
+        <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white/80 mt-4 mb-1">2.3 Chrome Extension Data</h3>
         <p>
           Our Chrome extension captures HTML content, scripts, and cookies from the active tab{' '}
           <strong>only when you explicitly click</strong> the scan button. We do not passively
@@ -42,7 +42,7 @@ export default function PrivacyPolicy() {
           servers for analysis.
         </p>
 
-        <h3 className="text-[16px] font-semibold text-white/80 mt-4 mb-1">2.4 Usage Data</h3>
+        <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white/80 mt-4 mb-1">2.4 Usage Data</h3>
         <p>
           We automatically collect certain information about how you interact with our Service,
           including pages visited, features used, browser type, device information, and IP address.

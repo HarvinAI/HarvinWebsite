@@ -27,7 +27,7 @@ export default function AcceptableUsePolicy() {
       <LegalSection title="2. Prohibited Activities">
         <p>You must not use the Service to:</p>
 
-        <h3 className="text-[16px] font-semibold text-white/80 mt-4 mb-1">
+        <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white/80 mt-4 mb-1">
           2.1 Scraping and Automated Abuse
         </h3>
         <LegalList
@@ -38,7 +38,7 @@ export default function AcceptableUsePolicy() {
           ]}
         />
 
-        <h3 className="text-[16px] font-semibold text-white/80 mt-4 mb-1">
+        <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white/80 mt-4 mb-1">
           2.2 Reverse Engineering
         </h3>
         <LegalList
@@ -49,7 +49,7 @@ export default function AcceptableUsePolicy() {
           ]}
         />
 
-        <h3 className="text-[16px] font-semibold text-white/80 mt-4 mb-1">
+        <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white/80 mt-4 mb-1">
           2.3 Data Resale and Unauthorized Distribution
         </h3>
         <LegalList
@@ -60,7 +60,7 @@ export default function AcceptableUsePolicy() {
           ]}
         />
 
-        <h3 className="text-[16px] font-semibold text-white/80 mt-4 mb-1">
+        <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white/80 mt-4 mb-1">
           2.4 Harmful or Illegal Activities
         </h3>
         <LegalList
