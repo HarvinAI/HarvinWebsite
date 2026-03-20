@@ -52,73 +52,60 @@ export async function GET(
       return NextResponse.json({ accounts: [], basis: basisParam, source: null }, { headers: corsHeaders });
     }
 
-    // Build query — OR logic: match ANY of the selected filters
-    // This ensures all combinations work and returns maximum results
-    const orConditions: Record<string, unknown>[] = [];
+    // Build query — ALWAYS stay within the same category, then apply additional filters
+    // This prevents vague/unrelated results when combining filters
+    const query: Record<string, unknown> = {
+      normalizedDomain: { $ne: normalizedDomain },
+      category: source.category && source.category !== 'Unknown' ? source.category : { $exists: true, $nin: [null, '', 'Unknown'] },
+    };
+
     const labels: string[] = [];
+    if (source.category && source.category !== 'Unknown') {
+      labels.push(safeStr(source.category));
+    }
 
     for (const basis of bases) {
       switch (basis) {
         case 'category':
-          if (source.category && source.category !== 'Unknown') {
-            orConditions.push({ category: source.category });
-            labels.push(source.category as string);
-          }
+          // Already applied above as base filter
           break;
         case 'tech': {
           const sourceTech = (source.techStack || []) as string[];
           if (sourceTech.length > 0) {
-            orConditions.push({ techStack: { $in: sourceTech } });
+            query.techStack = { $in: sourceTech };
             labels.push('Similar tech');
           }
           break;
         }
         case 'appPresence': {
-          const ap = source.appPresence || 'No App';
-          orConditions.push({ appPresence: ap });
-          labels.push(ap as string);
+          const ap = safeStr(source.appPresence, 'No App');
+          query.appPresence = ap;
+          labels.push(ap);
           break;
         }
         case 'offlineStores': {
-          const os = source.offlineStores || 'Online';
-          orConditions.push({ offlineStores: os });
+          const os = safeStr(source.offlineStores, 'Online');
+          query.offlineStores = os;
           labels.push(`${os} stores`);
           break;
         }
         case 'businessModel': {
           const bm = source.businessModel;
           if (bm) {
-            orConditions.push({ businessModel: bm });
+            query.businessModel = bm;
           } else {
-            orConditions.push({ $or: [{ businessModel: null }, { businessModel: { $exists: false } }, { businessModel: 'Pure D2C' }] });
+            query.$or = [{ businessModel: null }, { businessModel: { $exists: false } }, { businessModel: 'Pure D2C' }];
           }
-          labels.push((bm as string) || 'Pure D2C');
+          labels.push(safeStr(bm, 'Pure D2C'));
           break;
         }
         case 'region':
           if (source.region) {
-            orConditions.push({ region: source.region });
-            labels.push(source.region as string);
+            query.region = source.region;
+            labels.push(safeStr(source.region));
           }
           break;
       }
-    }
-
-    const query: Record<string, unknown> = {
-      normalizedDomain: { $ne: normalizedDomain },
-      category: { $exists: true, $nin: [null, '', 'Unknown'] },
-    };
-
-    if (orConditions.length === 1) {
-      // Single filter — apply directly
-      Object.assign(query, orConditions[0]);
-    } else if (orConditions.length > 1) {
-      // Multiple filters — OR logic (match ANY)
-      query.$or = orConditions;
-    } else {
-      // No valid filters — fall back to category
-      query.category = source.category;
-      labels.push(source.category as string);
     }
 
     const basisLabel = labels.join(' · ');

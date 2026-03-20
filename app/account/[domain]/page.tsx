@@ -365,68 +365,73 @@ export default function AccountDetailPage() {
     <div className="flex h-screen w-full bg-[#FDFDFD] dark:bg-[#0a0a0a] font-sans text-slate-900 dark:text-white overflow-hidden selection:bg-[#C94C1E]/20">
       {injectStyles()}
 
-      {/* ── Left Sidebar ──────────────────────────── */}
-      <aside className="hidden md:flex flex-col w-[240px] bg-white dark:bg-[#111111] border-r border-slate-200/60 dark:border-white/[0.05] flex-shrink-0 z-20">
-        <div className="flex items-center gap-2.5 flex-shrink-0 px-6 py-5">
-          <div className="flex items-center gap-1.5 cursor-pointer group" onClick={() => router.push('/dashboard')}>
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#C94C1E] to-[#E86335] flex items-center justify-center shadow-md shadow-[#C94C1E]/20 group-hover:shadow-[#C94C1E]/40 transition-all">
-              <span className="text-white font-bold text-[14px]">H</span>
+      {/* ── Nav Sidebar (same as dashboard) ── */}
+      <aside className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0 w-[220px]">
+        <div className="flex items-center gap-2.5 flex-shrink-0 px-5 py-4">
+          <a href="/" className="flex items-center gap-0.5">
+            <div className="h-7 w-8 overflow-hidden flex-shrink-0">
+              <img src="/logo.svg" alt="" aria-hidden="true" className="h-7 w-auto max-w-none" />
             </div>
-            <span className="font-bricolage font-bold text-[19px] tracking-tight text-slate-900 dark:text-white leading-none ml-1">Harvin<span className="font-semibold text-[#C94C1E] dark:text-[#E86335]">AI</span></span>
+            <span className="font-bricolage font-bold text-[18px] tracking-normal text-slate-900 dark:text-white leading-none">Harvin<span className="font-semibold opacity-40">AI</span></span>
+          </a>
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+          <div className="space-y-4 px-3">
+            <div>
+              <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Intelligence</h3>
+              <div className="space-y-0.5">
+                <NavBtn icon={<Satellite size={18} />} label="Market Intelligence" onClick={() => router.push('/dashboard?tab=market-intelligence')} />
+                <NavBtn icon={<Search size={18} />} label="Account Explorer" active onClick={() => router.push('/dashboard')} />
+                <NavBtn icon={<Radar size={18} />} label="Tech Scanner" onClick={() => router.push('/dashboard?tab=tech-scanner')} />
+                <NavBtn icon={<Layers size={18} />} label="LookALike Brands" onClick={() => router.push('/dashboard?tab=lookalike-brands')} />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Watchlists</h3>
+              <div className="space-y-0.5">
+                <NavBtn icon={<Star size={18} />} label="My Watchlists" onClick={() => router.push('/dashboard?tab=my-watchlists')} />
+                <NavBtn icon={<Target size={18} />} label="Recently Funded" onClick={() => router.push('/dashboard?tab=recently-funded')} />
+                <NavBtn icon={<Briefcase size={18} />} label="Current Clients" locked />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Settings</h3>
+              <div className="space-y-0.5">
+                <NavBtn icon={<Settings2 size={18} />} label="ICP & Preferences" onClick={() => router.push('/dashboard?tab=icp-preferences')} />
+                <NavBtn icon={<Link2 size={18} />} label="Integrations" onClick={() => router.push('/dashboard?tab=integrations')} />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-2 custom-scrollbar px-3 space-y-6">
-          <div>
-            <h3 className="px-3 mb-2 text-[11px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">Intelligence</h3>
-            <div className="space-y-1">
-              <SidebarBtn icon={<Satellite size={16} />} label="Market Intelligence" onClick={() => router.push('/dashboard?tab=market-intelligence')} />
-              <SidebarBtn icon={<Search size={16} />} label="Account Explorer" active onClick={() => router.push('/dashboard')} />
-              <SidebarBtn icon={<Radar size={16} />} label="Tech Scanner" onClick={() => router.push('/dashboard?tab=tech-scanner')} />
-            </div>
-          </div>
-
-          <div>
-            <h3 className="px-3 mb-2 text-[11px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">Watchlists</h3>
-            <div className="space-y-1">
-              <SidebarBtn icon={<Star size={16} />} label="My Watchlists" onClick={() => router.push('/dashboard?tab=my-watchlists')} />
-              <SidebarBtnLocked icon={<Target size={16} />} label="Recently Funded" />
-              <SidebarBtnLocked icon={<Swords size={16} />} label="Competitor Clients" />
-              <SidebarBtnLocked icon={<Briefcase size={16} />} label="Current Clients" />
-            </div>
-          </div>
-
-          <div>
-            <h3 className="px-3 mb-2 text-[11px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">Settings</h3>
-            <div className="space-y-1">
-              <SidebarBtn icon={<Settings2 size={16} />} label="Preferences" onClick={() => router.push('/dashboard?tab=icp-preferences')} />
-              <SidebarBtn icon={<Link2 size={16} />} label="Integrations" onClick={() => router.push('/dashboard?tab=integrations')} />
-            </div>
-          </div>
-        </div>
-
-        <div className="px-4 pb-3 pt-2">
-          <button
-            onClick={onToggleTheme}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-800 dark:hover:text-white transition-all border border-transparent hover:border-slate-200 dark:hover:border-white/[0.05]"
-          >
-            {isDark ? <SunIcon /> : <MoonIcon />}
+        {/* Theme toggle */}
+        <div className="px-3 pb-2">
+          <button onClick={onToggleTheme}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
+            {isDark
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="2"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            }
             {isDark ? 'Light mode' : 'Dark mode'}
           </button>
         </div>
 
-        <div className="border-t border-slate-200/60 dark:border-white/[0.05] flex-shrink-0 p-4">
-          <div className="flex items-center gap-3 px-1">
-            <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] flex items-center justify-center text-slate-700 dark:text-neutral-300 text-[13px] font-bold flex-shrink-0">
+        {/* User */}
+        <div className="border-t border-slate-100 dark:border-white/[0.06] flex-shrink-0 p-3">
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.08] flex items-center justify-center text-slate-600 dark:text-neutral-300 text-[12px] font-bold flex-shrink-0">
               {firstName[0]?.toUpperCase() || 'U'}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-slate-800 dark:text-neutral-200 truncate">{userName || 'User Name'}</p>
-              <p className="text-[11px] text-slate-500 dark:text-neutral-500 truncate">{userEmail || 'user@example.com'}</p>
+              <p className="text-[12px] font-semibold text-slate-700 dark:text-neutral-200 truncate">{userName || 'User'}</p>
+              <p className="text-[10px] text-slate-400 dark:text-neutral-500 truncate">{userEmail || ''}</p>
             </div>
             <button onClick={handleLogout} title="Sign out"
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-neutral-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors flex-shrink-0">
-              <LogOut size={16} />
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 dark:text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors flex-shrink-0">
+              <LogOut size={14} />
             </button>
           </div>
         </div>
@@ -923,40 +928,34 @@ function SignalCard({ active, blocked, loading, icon, text, date, color = "emera
     )
 }
 
-function SidebarBtn({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
+function NavBtn({ icon, label, active, locked, onClick }: {
+  icon: React.ReactNode; label: string; active?: boolean; locked?: boolean; onClick?: () => void;
+}) {
+  if (locked) {
+    return (
+      <div className="flex items-center justify-between rounded-lg text-slate-400 dark:text-neutral-500 cursor-not-allowed transition-all px-3 py-2">
+        <div className="flex items-center gap-2.5">
+          <span className="text-slate-300 dark:text-neutral-600 flex-shrink-0">{icon}</span>
+          <span className="text-[13px] font-bold">{label}</span>
+        </div>
+        <span className="text-[8px] bg-slate-100 dark:bg-white/[0.06] text-slate-400 dark:text-neutral-500 px-1 py-0.5 rounded font-bold uppercase">Soon</span>
+      </div>
+    );
+  }
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 rounded-xl transition-all px-3 py-2.5 ${
-        active ? 'bg-orange-50 dark:bg-[#C94C1E]/15 text-[#C94C1E] dark:text-[#E86335] shadow-sm font-semibold' : 'text-slate-500 dark:text-neutral-400 hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-800 dark:hover:text-neutral-200 font-medium'
+      className={`w-full flex items-center gap-2.5 rounded-lg transition-all px-3 py-2 ${
+        active
+          ? 'bg-orange-50 dark:bg-[#C94C1E]/10 text-[#C94C1E]'
+          : 'text-slate-500 dark:text-neutral-400 hover:bg-slate-50 dark:hover:bg-white/[0.04]'
       }`}
     >
       <span className="flex-shrink-0">{icon}</span>
-      <span className="text-[13px]">{label}</span>
+      <span className={`text-[13px] ${active ? 'font-extrabold' : 'font-bold'}`}>{label}</span>
     </button>
   );
 }
-
-function SidebarBtnLocked({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-xl text-slate-400 dark:text-neutral-500 cursor-not-allowed px-3 py-2.5 opacity-60">
-      <div className="flex items-center gap-3">
-        <span className="flex-shrink-0">{icon}</span>
-        <span className="text-[13px] font-medium">{label}</span>
-      </div>
-      <span className="text-[9px] bg-slate-100 dark:bg-white/[0.1] px-1.5 py-0.5 rounded border border-slate-200 dark:border-white/[0.05] font-bold uppercase tracking-wider">Soon</span>
-    </div>
-  );
-}
-
-function SunIcon() {
-    return <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="4" stroke="currentColor" strokeWidth="1.5" /><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>;
-}
-
-function MoonIcon() {
-    return <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none"><path d="M17.5 11.5A7.5 7.5 0 1 1 8.5 2.5a5.5 5.5 0 0 0 9 9z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
 
 /* ── Page Skeleton Loader ──────────────────────────────────────────────── */
 function PageSkeleton() {
