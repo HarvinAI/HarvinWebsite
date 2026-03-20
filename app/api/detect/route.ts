@@ -131,10 +131,9 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
         { projection: { monthlyVisits: 1, monthlyVisitsFormatted: 1, trafficSource: 1 } },
       );
       if (doc && result.companyMeta) {
-        // Only show traffic data backed by real signals (tranco rank or crux presence)
-        const hasRealData = doc.trafficSource && doc.trafficSource !== 'estimate';
-        result.companyMeta.monthlyVisits = hasRealData ? (doc.monthlyVisits || null) : null;
-        result.companyMeta.monthlyVisitsFormatted = hasRealData ? (doc.monthlyVisitsFormatted || null) : null;
+        // Show traffic data if available (any source)
+        result.companyMeta.monthlyVisits = (doc.monthlyVisits || 0) > 0 ? doc.monthlyVisits : null;
+        result.companyMeta.monthlyVisitsFormatted = (doc.monthlyVisits || 0) > 0 ? doc.monthlyVisitsFormatted : null;
       }
     } catch { /* non-critical — skip if DB unavailable */ }
 

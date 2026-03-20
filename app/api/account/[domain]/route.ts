@@ -85,8 +85,7 @@ export async function GET(
     }
     const offlineStores = knownBrand?.stores || overrides.offlineStores || doc?.offlineStores || 'Unknown';
     const { displayLocation, locationLevel } = formatDisplayLocation({ region, state, city, offlineStores });
-    const trafficSrc = doc?.trafficSource as string | null;
-    const hasRealTraffic = trafficSrc && trafficSrc !== 'estimate';
+    const hasTrafficData = (doc?.monthlyVisits || 0) > 0;
     const meta = {
       normalizedDomain,
       name: domainToName(normalizedDomain),
@@ -100,9 +99,10 @@ export async function GET(
       offlineStores,
       aiStoreCount: doc?.aiStoreCount || 0,
       storeConfidence: doc?.storeConfidence || null,
-      monthlyVisits: hasRealTraffic ? (doc?.monthlyVisits || null) : null,
-      monthlyVisitsFormatted: hasRealTraffic ? (doc?.monthlyVisitsFormatted || null) : null,
-      scaleBand: hasRealTraffic ? toScaleBand(doc?.monthlyVisits) : null,
+      monthlyVisits: hasTrafficData ? (doc?.monthlyVisits || null) : null,
+      monthlyVisitsFormatted: hasTrafficData ? (doc?.monthlyVisitsFormatted || null) : null,
+      scaleBand: hasTrafficData ? toScaleBand(doc?.monthlyVisits) : null,
+      businessModel: doc?.businessModel || null,
       appPresence: doc?.appPresence || 'No App',
       iosAppUrl: doc?.iosAppUrl || null,
       androidAppUrl: doc?.androidAppUrl || null,
@@ -161,6 +161,7 @@ export async function GET(
       monthlyVisits: null,
       monthlyVisitsFormatted: null,
       scaleBand: null,
+      businessModel: null,
       appPresence: 'No App',
       iosAppUrl: null,
       androidAppUrl: null,

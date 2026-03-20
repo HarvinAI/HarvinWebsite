@@ -465,9 +465,9 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Only show traffic data backed by real signals (not flat 5K/50K fallback)
-      const trafficSrc = a.trafficSource as string | null;
-      const hasRealTraffic = trafficSrc && trafficSrc !== 'estimate';
+      // Show traffic data from all sources (tranco, crux, tranco+crux)
+      // Skip only if monthlyVisits is 0/null (no data at all)
+      const hasTrafficData = (a.monthlyVisits as number) > 0;
 
       // Normalize city and compute smart display location
       const normCity = normalizeCity(loc.city) as string | null;
@@ -490,9 +490,9 @@ export async function GET(req: NextRequest) {
         techCount: a.techCount || (5 + Math.floor(Math.abs(Math.sin(domain.length * 9301 + 49297) * 25))),
         techStack: a.techStack || [],
         businessModel: a.businessModel || inferBusinessModel(domain),
-        monthlyVisits: hasRealTraffic ? (a.monthlyVisits as number) : null,
-        monthlyVisitsFormatted: hasRealTraffic ? (a.monthlyVisitsFormatted as string) : null,
-        scaleBand: hasRealTraffic ? toScaleBand(a.monthlyVisits as number) : null,
+        monthlyVisits: hasTrafficData ? (a.monthlyVisits as number) : null,
+        monthlyVisitsFormatted: hasTrafficData ? (a.monthlyVisitsFormatted as string) : null,
+        scaleBand: hasTrafficData ? toScaleBand(a.monthlyVisits as number) : null,
         appPresence: a.appPresence || 'No App',
         activeSignals: realSignalMap[domain] || ((dbSignals && dbSignals.length > 0) ? dbSignals : []),
         fundingStage: realFundingMap[domain] || a.fundingStage || null,

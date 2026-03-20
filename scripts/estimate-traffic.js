@@ -234,11 +234,12 @@ function cruxQuery(domain) {
  *   - In CrUX → at least ~10K monthly visits (Chrome tracks popular origins)
  *   - Not in CrUX → likely < 10K monthly visits
  *
- * For CrUX-present domains without Tranco rank, we estimate ~50K visits
- * (median of domains that appear in CrUX but not Tranco top 1M).
+ * For CrUX-present domains without Tranco rank, we estimate ~5K-15K visits
+ * (CrUX includes sites with as few as ~1K Chrome users/month).
+ * Previous flat 50K was too high — recalibrated against SimilarWeb spot checks.
  */
-const CRUX_FALLBACK_VISITS = 50_000;
-const NO_DATA_VISITS = 5_000; // not in Tranco, not in CrUX
+const CRUX_FALLBACK_VISITS = 10_000;
+const NO_DATA_VISITS = 0; // not in Tranco, not in CrUX — don't guess
 
 // ── Progress management ──────────────────────────────────────────────────
 let processedSet = new Set();

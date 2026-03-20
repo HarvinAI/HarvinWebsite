@@ -752,6 +752,15 @@ function renderDetails(data) {
                        stores === 'Unknown' ? 'unknown' : 'has-stores';
     html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span></div></div>`;
 
+    // Business Model
+    const bizModel = companyMeta.businessModel || null;
+    if (bizModel) {
+      const bizColor = bizModel === 'Pure D2C' ? 'has-stores' :
+                       bizModel === 'Omnichannel' ? 'has-stores' :
+                       bizModel === 'D2C + Marketplace' ? 'unknown' : 'unknown';
+      html += `<div class="detail-card"><div class="detail-label">Business Model</div><div class="detail-value"><span class="store-badge ${bizColor}">${esc(bizModel)}</span></div></div>`;
+    }
+
     // App Presence
     const appPresence = companyMeta.appPresence || 'No App';
     const appBadgeClass = appPresence === 'No App' ? 'online-only' :

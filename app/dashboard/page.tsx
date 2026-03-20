@@ -55,7 +55,7 @@ type SortKey = 'domain' | 'category' | 'region' | 'offlineStores' | 'updatedAt' 
 type FilterOptions = { categories: string[]; regions: string[]; states: string[]; cities: string[]; offlineStores: string[] };
 type Watchlist = { _id: string; name: string; domains: string[]; createdAt: string; updatedAt: string };
 type WatchlistAccount = Account & { normalizedDomain: string };
-type SidebarTab = 'market-intelligence' | 'account-explorer' | 'tech-scanner' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations';
+type SidebarTab = 'market-intelligence' | 'account-explorer' | 'tech-scanner' | 'lookalike-brands' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 const PAGE_SIZE = 20;
@@ -71,6 +71,7 @@ const TAB_TITLES: Record<SidebarTab, string> = {
   'market-intelligence': 'Market Intelligence',
   'account-explorer': 'Account Explorer',
   'tech-scanner': 'Tech Scanner',
+  'lookalike-brands': 'LookALike Brands',
   'my-watchlists': 'My Watchlists',
   'recently-funded': 'Recently Funded',
   'competitor-clients': 'Competitor Clients',
@@ -332,7 +333,7 @@ const CategoryPickerModal = ({ categories, selected, onToggle, onSelectAll, onCl
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white dark:bg-[#141414] rounded-2xl shadow-2xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] w-[480px] max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-[#141414] rounded-2xl shadow-2xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] w-[560px] max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
           <div>
             <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">Select Categories</h3>
@@ -358,17 +359,17 @@ const CategoryPickerModal = ({ categories, selected, onToggle, onSelectAll, onCl
               <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${allSelected ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.12]'}`}>
                 {allSelected && <Check size={10} className="text-white stroke-[3]" />}
               </div>
-              <span className={`text-[13px] font-medium ${allSelected ? 'text-[#C94C1E]' : 'text-slate-600 dark:text-neutral-300'}`}>All Categories</span>
+              <span className={`text-[15px] font-bold ${allSelected ? 'text-[#C94C1E]' : 'text-slate-800 dark:text-white'}`}>All Categories</span>
             </button>
           )}
-          <div className="grid grid-cols-2 gap-0.5">
+          <div className="grid grid-cols-2 gap-1">
             {filtered.map(v => (
               <button key={v} onClick={() => onToggle(v)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-left ${selected.includes(v) ? 'bg-orange-50 dark:bg-[#C94C1E]/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'}`}>
-                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${selected.includes(v) ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.12]'}`}>
-                  {selected.includes(v) && <Check size={10} className="text-white stroke-[3]" />}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left ${selected.includes(v) ? 'bg-orange-50 dark:bg-[#C94C1E]/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'}`}>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 ${selected.includes(v) ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.15]'}`}>
+                  {selected.includes(v) && <Check size={12} className="text-white stroke-[3]" />}
                 </div>
-                <span className={`text-[12px] ${selected.includes(v) ? 'text-[#C94C1E] font-medium' : 'text-slate-600 dark:text-neutral-300'}`}>{v}</span>
+                <span className={`text-[14px] ${selected.includes(v) ? 'text-[#C94C1E] font-bold' : 'text-slate-700 dark:text-neutral-200 font-semibold'}`}>{v}</span>
               </button>
             ))}
           </div>
@@ -750,10 +751,12 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
 
   const isSettingsTab = activeTab === 'icp-preferences' || activeTab === 'integrations';
-  const isComingSoonTab = activeTab === 'recently-funded' || activeTab === 'competitor-clients' || activeTab === 'current-clients';
+  const isComingSoonTab = activeTab === 'competitor-clients' || activeTab === 'current-clients';
+  const isRecentlyFundedTab = activeTab === 'recently-funded';
   const isWatchlistTab = activeTab === 'my-watchlists';
   const isMarketIntelTab = activeTab === 'market-intelligence';
   const isTechScannerTab = activeTab === 'tech-scanner';
+  const isLookalikeTab = activeTab === 'lookalike-brands';
 
 
   /* ── RENDER ────────────────────────────────────────────────────────── */
@@ -779,6 +782,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                 <NavBtn icon={<Satellite size={18} />} label="Market Intelligence" active={activeTab === 'market-intelligence'} onClick={() => setActiveTab('market-intelligence')} />
                 <NavBtn icon={<Search size={18} />} label="Account Explorer" active={activeTab === 'account-explorer'} onClick={() => setActiveTab('account-explorer')} />
                 <span data-tour="tech-scanner"><NavBtn icon={<Radar size={18} />} label="Tech Scanner" active={activeTab === 'tech-scanner'} onClick={() => setActiveTab('tech-scanner')} /></span>
+                <NavBtn icon={<Layers size={18} />} label="LookALike Brands" active={activeTab === 'lookalike-brands'} onClick={() => setActiveTab('lookalike-brands')} />
               </div>
             </div>
 
@@ -787,8 +791,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
               <div className="space-y-0.5" data-tour="watchlists">
                 <NavBtn icon={<Star size={18} />} label="My Watchlists" active={activeTab === 'my-watchlists'} onClick={() => setActiveTab('my-watchlists')}
                   badge={watchlists.length > 0 ? String(watchlists.length) : undefined} />
-                <NavBtn icon={<Target size={18} />} label="Recently Funded" locked />
-                <NavBtn icon={<Swords size={18} />} label="Competitor Clients" locked />
+                <NavBtn icon={<Target size={18} />} label="Recently Funded" active={activeTab === 'recently-funded'} onClick={() => setActiveTab('recently-funded')} />
                 <NavBtn icon={<Briefcase size={18} />} label="Current Clients" locked />
               </div>
             </div>
@@ -994,11 +997,11 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             )}
             <div className="h-2 w-2 rounded-full bg-[#C94C1E]" />
             <h1 className="text-[18px] font-bold text-slate-800 dark:text-white">{TAB_TITLES[activeTab]}</h1>
-            {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{total} results</span>}
+            {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{total} results</span>}
             {isWatchlistTab && activeWatchlist && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{activeWatchlist.domains?.length || 0} accounts</span>}
           </div>
 
-          {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && !isTechScannerTab && (
+          {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && (
             <div className="flex items-center gap-2" data-tour="sort-export">
               {/* Sort */}
               <div className="relative">
@@ -1083,6 +1086,12 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
           {isMarketIntelTab ? (
             /* ── Market Intelligence ─────────────────────────────── */
             <MarketIntelligenceView />
+          ) : isRecentlyFundedTab ? (
+            /* ── Recently Funded ─────────────────────────────────── */
+            <RecentlyFundedView />
+          ) : isLookalikeTab ? (
+            /* ── LookALike Brands ────────────────────────────────── */
+            <LookALikeBrandsView />
           ) : isTechScannerTab ? (
             /* ── Tech Scanner ────────────────────────────────────── */
             <TechScannerView initialDomain={initialScanDomain} />
@@ -1516,7 +1525,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         </div>
 
         {/* Footer */}
-        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && (
+        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && (
           <footer className="h-[64px] border-t border-slate-100 dark:border-white/[0.06] bg-white dark:bg-[#141414] px-8 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-4 text-[12px] text-slate-400 dark:text-neutral-500 font-medium">
               <span>Showing <span className="text-slate-800 dark:text-white font-bold">{total === 0 ? 0 : ((page - 1) * PAGE_SIZE) + 1}&ndash;{Math.min(page * PAGE_SIZE, total)}</span> of <span className="text-slate-800 dark:text-white font-bold">{total}</span></span>
@@ -1666,6 +1675,471 @@ function domainToBrand(domain: string): string {
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
+/* ── Recently Funded View ──────────────────────────────────────────────── */
+function RecentlyFundedView() {
+  const router = useRouter();
+  const [accounts, setAccounts] = useState<{domain: string; name: string; category: string; region: string; signals: {signalType: string; headline: string; detectedAt: string; details: Record<string, unknown>}[]; score: number}[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/signals/recommendations')
+      .then(r => r.json())
+      .then(data => {
+        setAccounts(data.accounts || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div>
+        <p className="text-[13px] text-slate-400 dark:text-neutral-500">Brands that recently raised funding — sorted by signal score</p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={24} className="animate-spin text-slate-300" />
+        </div>
+      ) : accounts.length === 0 ? (
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-12 text-center">
+          <DollarSign size={36} className="mx-auto text-slate-200 dark:text-neutral-700 mb-3" />
+          <p className="text-[14px] font-semibold text-slate-500 dark:text-neutral-400">No funded brands detected yet</p>
+          <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1">Run the signal scanner to populate funding data</p>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
+          <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+            {accounts.map(a => (
+              <button key={a.domain} onClick={() => router.push(`/account/${a.domain}`)}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors group text-left">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`https://www.google.com/s2/favicons?domain=${a.domain}&sz=64`} alt="" className="w-10 h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] flex-shrink-0 bg-white dark:bg-white/[0.04] p-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[15px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors truncate">{a.name}</span>
+                    <span className="text-[11px] text-slate-400 dark:text-neutral-500">{a.domain}</span>
+                  </div>
+                  <p className="text-[12px] text-slate-500 dark:text-neutral-400 truncate">
+                    {a.category} · {a.region}
+                    {a.signals?.[0]?.headline && <> · {(a.signals[0].headline as string).substring(0, 60)}...</>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {a.signals?.[0]?.details?.amount ? (
+                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-lg">{String(a.signals[0].details.amount)}</span>
+                  ) : null}
+                  <span className="text-[12px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 px-2.5 py-1 rounded-lg">{a.score}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Competitor Clients View ──────────────────────────────────────────── */
+function CompetitorClientsView() {
+  const router = useRouter();
+  const [competitorDomain, setCompetitorDomain] = useState('');
+  const [sourceDomain, setSourceDomain] = useState('');
+  const [accounts, setAccounts] = useState<LookAlikeAccount[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  const handleSearch = () => {
+    const d = competitorDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+    if (d) setSourceDomain(d);
+  };
+
+  useEffect(() => {
+    if (!sourceDomain) return;
+    setLoading(true);
+    fetch(`/api/account/${encodeURIComponent(sourceDomain)}/similar?basis=category,tech&limit=500`)
+      .then(r => r.json())
+      .then(data => {
+        setAccounts(data.accounts || []);
+        setLoading(false);
+        setSearched(true);
+      })
+      .catch(() => { setLoading(false); setSearched(true); });
+  }, [sourceDomain]);
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm dark:shadow-none">
+        <h2 className="text-[16px] font-bold text-slate-800 dark:text-white mb-1">Find Competitor Clients</h2>
+        <p className="text-[13px] text-slate-400 dark:text-neutral-500 mb-4">Enter a competitor&apos;s domain to find brands similar to them — potential clients who may switch.</p>
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={competitorDomain}
+            onChange={e => setCompetitorDomain(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+            placeholder="Enter competitor domain (e.g. clevertap.com)"
+            className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[14px] text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 outline-none focus:border-[#C94C1E] focus:ring-2 focus:ring-[#C94C1E]/10 transition-all"
+          />
+          <button onClick={handleSearch}
+            className="px-6 py-3 rounded-xl bg-[#C94C1E] text-white text-[14px] font-semibold hover:bg-[#b5431a] transition-colors shadow-sm">
+            Find Clients
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={24} className="animate-spin text-[#C94C1E]" />
+          <span className="ml-3 text-[13px] text-slate-400">Finding competitor clients...</span>
+        </div>
+      ) : accounts.length > 0 ? (
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+            <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">Brands similar to {sourceDomain}</h3>
+            <span className="text-[12px] text-slate-400 dark:text-neutral-500">{accounts.length} results</span>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-white/[0.04] max-h-[60vh] overflow-y-auto custom-scrollbar">
+            {accounts.map(a => (
+              <button key={a.normalizedDomain} onClick={() => router.push(`/account/${a.normalizedDomain}`)}
+                className="w-full flex items-center gap-3.5 px-6 py-3.5 hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors group text-left">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`https://www.google.com/s2/favicons?domain=${a.normalizedDomain}&sz=64`} alt="" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 bg-white dark:bg-white/[0.04] p-0.5" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-[14px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors truncate block">{a.name}</span>
+                  <span className="text-[12px] text-slate-500 dark:text-neutral-400">{a.category} · {a.region}</span>
+                </div>
+                <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+                  {a.monthlyVisitsFormatted && <span className="text-[10px] font-bold text-slate-600 dark:text-neutral-300 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded">{a.monthlyVisitsFormatted}</span>}
+                  {a.businessModel && <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/15 px-2 py-0.5 rounded">{a.businessModel}</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : searched ? (
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-12 text-center">
+          <Swords size={36} className="mx-auto text-slate-200 dark:text-neutral-700 mb-3" />
+          <p className="text-[14px] font-semibold text-slate-500 dark:text-neutral-400">No similar brands found</p>
+          <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1">Try a different competitor domain</p>
+        </div>
+      ) : !sourceDomain ? (
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-12 text-center">
+          <Swords size={36} className="mx-auto text-slate-200 dark:text-neutral-700 mb-3" />
+          <p className="text-[14px] font-semibold text-slate-600 dark:text-neutral-300">Enter a competitor domain to get started</p>
+          <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1">We&apos;ll find brands with similar category and tech stack</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* ── LookALike Brands View ─────────────────────────────────────────────── */
+type LookAlikeAccount = {
+  normalizedDomain: string;
+  name: string;
+  category: string;
+  subCategory: string;
+  region: string;
+  offlineStores: string;
+  businessModel: string | null;
+  appPresence: string;
+  monthlyVisitsFormatted: string | null;
+  topTech: string[];
+};
+
+const LOOKALIKE_BASES = [
+  { key: 'category', label: 'Category', icon: <Layers size={14} /> },
+  { key: 'tech', label: 'Tech Stack', icon: <Code size={14} /> },
+  { key: 'appPresence', label: 'App Presence', icon: <Smartphone size={14} /> },
+  { key: 'offlineStores', label: 'Stores', icon: <Store size={14} /> },
+  { key: 'businessModel', label: 'Business Model', icon: <Briefcase size={14} /> },
+  { key: 'region', label: 'Region', icon: <Globe size={14} /> },
+];
+
+function LookALikeBrandsView() {
+  const router = useRouter();
+  const [searchDomain, setSearchDomain] = useState('');
+  const [sourceDomain, setSourceDomain] = useState('');
+  const [sourceName, setSourceName] = useState('');
+  const [activeBases, setActiveBases] = useState<Set<string>>(new Set(['category']));
+  const [accounts, setAccounts] = useState<LookAlikeAccount[]>([]);
+  const [basisLabel, setBasisLabel] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [searched, setSearched] = useState(false);
+
+  // Watchlist
+  const [watchlists, setWatchlists] = useState<{_id: string; name: string; domains: string[]}[]>([]);
+  const [wlDropdown, setWlDropdown] = useState(false);
+  const [wlNewName, setWlNewName] = useState('');
+  const [wlAdded, setWlAdded] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/watchlists').then(r => r.json()).then(d => setWatchlists(d.watchlists || [])).catch(() => {});
+  }, []);
+
+  const addSelectedToWatchlist = async (wlId: string) => {
+    let targetId = wlId;
+    if (wlId.startsWith('new:')) {
+      try {
+        const res = await fetch('/api/watchlists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: wlId.slice(4) }) });
+        const data = await res.json();
+        if (data.watchlist?._id) { targetId = data.watchlist._id; setWatchlists(prev => [...prev, data.watchlist]); }
+        else return;
+      } catch { return; }
+    }
+    for (const d of selected) {
+      await fetch('/api/watchlists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: targetId, domain: d }) }).catch(() => {});
+    }
+    setWlDropdown(false);
+    setWlAdded(true);
+    setTimeout(() => { setWlAdded(false); setSelected(new Set()); }, 1500);
+  };
+
+  const toggleBasis = (key: string) => {
+    setActiveBases(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) { next.delete(key); if (next.size === 0) next.add('category'); }
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const fetchLookalikes = useCallback(async () => {
+    if (!sourceDomain) return;
+    setLoading(true);
+    setSelected(new Set());
+    try {
+      const basesParam = [...activeBases].join(',');
+      const res = await fetch(`/api/account/${encodeURIComponent(sourceDomain)}/similar?basis=${basesParam}&limit=500`);
+      const data = await res.json();
+      setAccounts(data.accounts || []);
+      setBasisLabel(data.basisLabel || '');
+      if (data.source?.name) setSourceName(data.source.name);
+    } catch {
+      setAccounts([]);
+    } finally {
+      setLoading(false);
+      setSearched(true);
+    }
+  }, [sourceDomain, activeBases]);
+
+  useEffect(() => {
+    if (sourceDomain) fetchLookalikes();
+  }, [sourceDomain, activeBases, fetchLookalikes]);
+
+  const handleSearch = () => {
+    const d = searchDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+    if (d) setSourceDomain(d);
+  };
+
+  const selectAll = () => {
+    if (selected.size === accounts.length) setSelected(new Set());
+    else setSelected(new Set(accounts.map(a => a.normalizedDomain)));
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Search bar */}
+      <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm dark:shadow-none">
+        <h2 className="text-[16px] font-bold text-slate-800 dark:text-white mb-1">Find LookALike Brands</h2>
+        <p className="text-[13px] text-slate-400 dark:text-neutral-500 mb-4">Enter any brand domain to discover similar accounts based on category, tech stack, business model, and more.</p>
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={searchDomain}
+            onChange={e => setSearchDomain(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+            placeholder="Enter domain (e.g. nykaa.com)"
+            className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[14px] text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 outline-none focus:border-[#C94C1E] focus:ring-2 focus:ring-[#C94C1E]/10 transition-all"
+          />
+          <button onClick={handleSearch}
+            className="px-6 py-3 rounded-xl bg-[#C94C1E] text-white text-[14px] font-semibold hover:bg-[#b5431a] transition-colors shadow-sm">
+            Find LookAlikes
+          </button>
+        </div>
+      </div>
+
+      {/* Filter tabs + results */}
+      {sourceDomain && (
+        <>
+          {/* Source brand + filters */}
+          <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+              <div>
+                <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">Similar to {sourceName || sourceDomain}</h3>
+                {basisLabel && <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">{basisLabel}</p>}
+              </div>
+              <div className="flex items-center gap-3">
+                {wlAdded && <span className="text-[12px] font-bold text-emerald-600">Added!</span>}
+                {selected.size > 0 && !wlAdded && (
+                  <div className="relative">
+                    <button onClick={() => setWlDropdown(!wlDropdown)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C94C1E] text-white text-[13px] font-semibold hover:bg-[#b5431a] transition-all shadow-sm">
+                      <Plus size={14} /> Add {selected.size} to Watchlist
+                    </button>
+                    {wlDropdown && (
+                      <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/[0.1] rounded-2xl shadow-2xl z-20 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-slate-100 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.02]">
+                          <p className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 uppercase tracking-wider">Add {selected.size} accounts to</p>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto custom-scrollbar">
+                          {watchlists.map(wl => (
+                            <button key={wl._id} onClick={() => addSelectedToWatchlist(wl._id)}
+                              className="w-full text-left px-4 py-3 text-[13px] font-semibold text-slate-700 dark:text-neutral-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] border-b border-slate-50 dark:border-white/[0.02] last:border-0 transition-colors flex items-center justify-between">
+                              <span>{wl.name}</span>
+                              <span className="text-[11px] text-slate-400 font-medium">{wl.domains?.length || 0}</span>
+                            </button>
+                          ))}
+                          {watchlists.length === 0 && <p className="px-4 py-4 text-[12px] text-slate-400 text-center">No watchlists yet</p>}
+                        </div>
+                        <div className="p-3 border-t border-slate-100 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.02]">
+                          <div className="flex gap-2">
+                            <input type="text" placeholder="New watchlist name..." value={wlNewName} onChange={e => setWlNewName(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter' && wlNewName.trim()) { addSelectedToWatchlist('new:' + wlNewName.trim()); setWlNewName(''); } }}
+                              className="flex-1 px-3 py-2 bg-white dark:bg-[#1A1A1A] border border-slate-200 dark:border-white/[0.1] rounded-lg text-[12px] text-slate-800 dark:text-white placeholder-slate-400 outline-none focus:border-[#C94C1E] transition-colors" />
+                            <button onClick={() => { if (wlNewName.trim()) { addSelectedToWatchlist('new:' + wlNewName.trim()); setWlNewName(''); } }}
+                              className="px-4 py-2 rounded-lg bg-[#C94C1E] hover:bg-[#b5431a] text-white text-[12px] font-bold transition-colors">Create</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {selected.size > 0 && !wlAdded && <span className="text-[13px] font-bold text-[#C94C1E]">{selected.size} selected</span>}
+                {!loading && <span className="text-[12px] text-slate-400 dark:text-neutral-500">{accounts.length} results</span>}
+              </div>
+            </div>
+
+            {/* Filter tabs */}
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-white/[0.06] flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
+              <Filter size={13} className="text-slate-400 dark:text-neutral-500 flex-shrink-0 mr-1" />
+              {LOOKALIKE_BASES.map(b => {
+                const isActive = activeBases.has(b.key);
+                return (
+                  <button key={b.key} onClick={() => toggleBasis(b.key)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all flex-shrink-0 border ${
+                      isActive
+                        ? 'bg-[#C94C1E] text-white border-transparent shadow-sm'
+                        : 'bg-white dark:bg-white/[0.04] text-slate-600 dark:text-neutral-300 border-slate-200 dark:border-white/[0.08] hover:border-[#C94C1E]/30 hover:text-[#C94C1E]'
+                    }`}>
+                    {isActive && <Check size={11} className="stroke-[3]" />}
+                    {b.icon}
+                    {b.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Select bar */}
+            {accounts.length > 0 && (
+              <div className="px-5 py-2.5 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
+                <button onClick={selectAll} className="flex items-center gap-2 text-[12px] font-semibold text-slate-600 dark:text-neutral-300 hover:text-slate-800 dark:hover:text-white transition-colors">
+                  <div className={`w-[16px] h-[16px] rounded border-2 flex items-center justify-center transition-all ${
+                    selected.size > 0 && selected.size === accounts.length ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.15]'
+                  }`}>
+                    {selected.size > 0 && selected.size === accounts.length && <Check size={10} className="text-white stroke-[3]" />}
+                  </div>
+                  {selected.size > 0 && selected.size === accounts.length ? 'Deselect all' : `Select all (${accounts.length})`}
+                </button>
+              </div>
+            )}
+
+            {/* Results */}
+            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+              {loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 size={24} className="animate-spin text-[#C94C1E]" />
+                  <span className="ml-3 text-[13px] text-slate-400 dark:text-neutral-500">Finding lookalikes...</span>
+                </div>
+              ) : accounts.length === 0 && searched ? (
+                <div className="text-center py-16">
+                  <Radar size={36} className="mx-auto text-slate-200 dark:text-neutral-700 mb-3" />
+                  <p className="text-[14px] font-semibold text-slate-500 dark:text-neutral-400">No lookalikes found</p>
+                  <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1">Try different filter combinations</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+                  {accounts.map(a => (
+                    <div key={a.normalizedDomain}
+                      className={`flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors group ${
+                        selected.has(a.normalizedDomain) ? 'bg-orange-50/40 dark:bg-[#C94C1E]/5' : ''
+                      }`}>
+                      {/* Checkbox */}
+                      <button onClick={() => {
+                        setSelected(prev => {
+                          const next = new Set(prev);
+                          if (next.has(a.normalizedDomain)) next.delete(a.normalizedDomain); else next.add(a.normalizedDomain);
+                          return next;
+                        });
+                      }}
+                        className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                          selected.has(a.normalizedDomain) ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.15] group-hover:border-[#C94C1E]/50'
+                        }`}>
+                        {selected.has(a.normalizedDomain) && <Check size={11} className="text-white stroke-[3]" />}
+                      </button>
+
+                      {/* Favicon */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`https://www.google.com/s2/favicons?domain=${a.normalizedDomain}&sz=64`} alt="" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 bg-white dark:bg-white/[0.04] p-0.5" />
+
+                      {/* Info */}
+                      <button onClick={() => router.push(`/account/${a.normalizedDomain}`)}
+                        className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[14px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors truncate">{a.name}</span>
+                          <span className="text-[11px] text-slate-400 dark:text-neutral-500 truncate hidden sm:inline">{a.normalizedDomain}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[12px] text-slate-500 dark:text-neutral-400">
+                          <span>{a.category}</span>
+                          <span className="text-slate-300 dark:text-neutral-600">·</span>
+                          <span>{a.region}</span>
+                        </div>
+                      </button>
+
+                      {/* Badges — only selected filters shown */}
+                      <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+                        {activeBases.has('category') && (
+                          <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{a.category}</span>
+                        )}
+                        {activeBases.has('businessModel') && (
+                          <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{a.businessModel || 'Pure D2C'}</span>
+                        )}
+                        {activeBases.has('appPresence') && (
+                          <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{a.appPresence === 'Both iOS & Android' ? 'iOS+Android' : a.appPresence}</span>
+                        )}
+                        {activeBases.has('offlineStores') && (
+                          <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{a.offlineStores || 'Online'}</span>
+                        )}
+                        {activeBases.has('tech') && (
+                          <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{a.topTech?.length > 0 ? a.topTech.join(', ') : 'No tech'}</span>
+                        )}
+                        {activeBases.has('region') && (
+                          <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{a.region}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Empty state — before search */}
+      {!sourceDomain && !searched && (
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-12 text-center shadow-sm dark:shadow-none">
+          <Layers size={40} className="mx-auto text-slate-200 dark:text-neutral-700 mb-4" />
+          <p className="text-[16px] font-bold text-slate-600 dark:text-neutral-300 mb-2">Discover LookALike Brands</p>
+          <p className="text-[13px] text-slate-400 dark:text-neutral-500 max-w-md mx-auto">Enter any brand domain above to find similar accounts based on category, tech stack, business model, app presence, store count, or region.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MarketIntelligenceView() {
   const [period, setPeriod] = useState<'week' | '2weeks' | 'month'>('week');
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -1682,7 +2156,7 @@ function MarketIntelligenceView() {
     let cancelled = false;
     setLoading(true);
     const apiPeriod = PERIOD_MAP[period];
-    fetch(`/api/signals?period=${apiPeriod}&limit=100`)
+    fetch(`/api/signals?period=${apiPeriod}&limit=500`)
       .then(r => r.json())
       .then(data => {
         if (cancelled) return;

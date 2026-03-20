@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "HarvinAI — D2C Brand & Tech Intelligence",
   "short_name": "HarvinAI",
-  "description": "Instantly detect any website's tech stack, classify D2C brands, track funding signals, and discover 25,000+ accounts — all in one click.",
+  "description": "Detect any website's tech stack, classify D2C brands, track funding signals & discover 500K+ accounts.",
   "version": "1.3.0",
   "icons": {
     "16": "icons/icon16.png",
