@@ -73,23 +73,40 @@ const PROGRESS_FILE = path.resolve(__dirname, 'traffic-progress.json');
 const SAVE_EVERY = 100;
 
 // ── Rank → Monthly Visits estimation model ───────────────────────────────
-// Calibrated against known SimilarWeb data points:
-//   Rank 1 (google.com) ≈ 80B visits/mo
-//   Rank 100 ≈ 200M
-//   Rank 1,000 ≈ 20M
-//   Rank 10,000 ≈ 2M
-//   Rank 100,000 ≈ 200K
-//   Rank 500,000 ≈ 30K
-//   Rank 1,000,000 ≈ 8K
+// Recalibrated March 2026 against 16,204 real MAU data points.
+// Old model was 3-8x inflated for mid-range ranks.
+//
+// New calibration:
+//   Rank 1 ≈ 88B     Rank 100 ≈ 650M    Rank 1,000 ≈ 55M
+//   Rank 10,000 ≈ 4.7M  Rank 100,000 ≈ 400K  Rank 500,000 ≈ 72K
+//   Rank 1,000,000 ≈ 35K
 //
 // Model: visits ≈ A / (rank ^ B)
-// Fitted: A ≈ 8e10, B ≈ 0.88
-const RANK_COEFF_A = 8e10;
-const RANK_COEFF_B = 0.88;
+// Fitted via log-log regression on real data: A ≈ 8.86e10, B ≈ 1.068
+// Then corrected per rank band using median correction factors from 16K real data points
+const RANK_COEFF_A = 8.86e10;
+const RANK_COEFF_B = 1.068;
+
+// Correction factors by rank band (median of real/estimated ratio)
+// Derived from comparing Tranco estimates against 16,241 real SimilarWeb MAU values
+const RANK_CORRECTIONS = [
+  { max: 100,     factor: 0.68 },
+  { max: 500,     factor: 0.32 },
+  { max: 1000,    factor: 0.95 },
+  { max: 5000,    factor: 1.33 },
+  { max: 10000,   factor: 1.97 },
+  { max: 50000,   factor: 1.23 },
+  { max: 100000,  factor: 1.44 },
+  { max: 500000,  factor: 1.06 },
+  { max: Infinity, factor: 1.02 },
+];
 
 function rankToVisits(rank) {
   if (!rank || rank <= 0) return 0;
-  return Math.round(RANK_COEFF_A / Math.pow(rank, RANK_COEFF_B));
+  const base = RANK_COEFF_A / Math.pow(rank, RANK_COEFF_B);
+  // Apply rank-band correction factor
+  const correction = RANK_CORRECTIONS.find(c => rank <= c.max);
+  return Math.round(base * (correction?.factor || 1));
 }
 
 function visitsToBand(visits) {

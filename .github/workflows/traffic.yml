@@ -1,0 +1,22 @@
+name: Monthly Traffic Update
+
+on:
+  schedule:
+    - cron: '0 4 1 * *'  # 1st of every month at 4 AM UTC
+  workflow_dispatch: {}    # manual trigger
+
+jobs:
+  estimate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - name: Re-estimate traffic for all accounts
+        run: node scripts/estimate-traffic.js --refresh
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
