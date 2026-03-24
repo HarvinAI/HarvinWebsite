@@ -381,10 +381,17 @@ export default function AccountDetailPage() {
             <div>
               <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Intelligence</h3>
               <div className="space-y-0.5">
-                <NavBtn icon={<Satellite size={18} />} label="Market Intelligence" onClick={() => router.push('/dashboard?tab=market-intelligence')} />
+                <NavBtn icon={<Satellite size={18} />} label="Intelligence Hub" onClick={() => router.push('/dashboard?tab=market-intelligence')} />
+                <NavBtn icon={<Globe size={18} />} label="My Universe" onClick={() => router.push('/dashboard?tab=my-universe')} />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Discover</h3>
+              <div className="space-y-0.5">
                 <NavBtn icon={<Search size={18} />} label="Account Explorer" active onClick={() => router.push('/dashboard')} />
                 <NavBtn icon={<Radar size={18} />} label="Tech Scanner" onClick={() => router.push('/dashboard?tab=tech-scanner')} />
-                <NavBtn icon={<Layers size={18} />} label="LookALike Brands" onClick={() => router.push('/dashboard?tab=lookalike-brands')} />
+                <NavBtn icon={<Target size={18} />} label="LookALike" onClick={() => router.push('/dashboard?tab=lookalike-brands')} />
               </div>
             </div>
 
@@ -671,7 +678,7 @@ export default function AccountDetailPage() {
                       <div className="px-6 py-5 border-b border-slate-100 dark:border-white/[0.05] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
                         <h2 className="text-[16px] font-bold text-slate-800 dark:text-white flex items-center gap-2">
                           <Cpu className="text-[#C94C1E] dark:text-[#E86335]" size={18} />
-                          Technology Stack 
+                          Technology Stack
                           {techCount > 0 && <span className="text-[12px] font-semibold text-slate-500 bg-slate-200 dark:bg-white/10 px-2 py-0.5 rounded-full ml-1">{techCount}</span>}
                         </h2>
                         {techCount > 0 && (
@@ -730,24 +737,24 @@ export default function AccountDetailPage() {
                         </h2>
                       </div>
                       <div className="p-6 space-y-3">
-                        <SignalCard 
-                            active={techCount > 0} 
-                            blocked={techBlocked} 
+                        <SignalCard
+                            active={techCount > 0}
+                            blocked={techBlocked}
                             loading={techLoading}
                             icon={<Code size={16} />}
                             text={techCount > 0 ? `${techCount} enterprise technologies detected` : techBlocked ? 'Bot protection limits external scanning' : techLoading ? 'Scanning in progress...' : 'No tech signals found'}
                             date={formatDate(account.updatedAt)}
                         />
                         {account.offlineStores && account.offlineStores !== 'Unknown' && account.offlineStores !== 'Online' && (
-                          <SignalCard active icon={<Store size={16}/>} color="blue" 
+                          <SignalCard active icon={<Store size={16}/>} color="blue"
                             text={`${account.offlineStores} offline retail locations mapped across ${account.displayLocation || account.region}`} />
                         )}
                         {!techLoading && platform !== 'Custom' && (
-                          <SignalCard active icon={<ShoppingCart size={16}/>} color="orange" 
+                          <SignalCard active icon={<ShoppingCart size={16}/>} color="orange"
                             text={`E-commerce operations powered by ${platform}`} />
                         )}
                         {account.appPresence !== 'No App' && (
-                          <SignalCard active icon={<Smartphone size={16}/>} color="violet" 
+                          <SignalCard active icon={<Smartphone size={16}/>} color="violet"
                             text={`Active mobile strategy with ${account.appPresence} applications`} />
                         )}
                       </div>
@@ -758,7 +765,7 @@ export default function AccountDetailPage() {
                   {/* ── Right: Sidebar ─────────────────────────────── */}
                   <div className="w-full lg:w-[320px] flex-shrink-0 space-y-6">
 
-                    {/* About */}
+                    {/* Firmographics */}
                     <div className="fade-in-up delay-200 bg-white dark:bg-[#111111] border border-slate-200/60 dark:border-white/[0.05] rounded-2xl overflow-hidden shadow-sm">
                       <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.01]">
                         <h3 className="text-[14px] font-bold text-slate-800 dark:text-white">Firmographics</h3>
@@ -781,7 +788,7 @@ export default function AccountDetailPage() {
                       </div>
                     </div>
 
-                    {/* Data Quality */}
+                    {/* Data Confidence */}
                     <div className="fade-in-up delay-300 bg-white dark:bg-[#111111] border border-slate-200/60 dark:border-white/[0.05] rounded-2xl overflow-hidden shadow-sm">
                       <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.05] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
                         <h3 className="text-[14px] font-bold text-slate-800 dark:text-white">Data Confidence</h3>
@@ -852,7 +859,7 @@ export default function AccountDetailPage() {
                         <Layers className="text-blue-500" size={18} /> Similar Accounts
                     </h2>
                     {account.similar.length > 0 && (
-                      <button onClick={() => setSimilarModalOpen(true)} className="text-[13px] font-semibold text-[#C94C1E] dark:text-[#E86335] hover:opacity-80 transition-opacity flex items-center gap-1">
+                      <button onClick={() => router.push(`/dashboard?tab=lookalike-brands&domain=${encodeURIComponent(account.normalizedDomain)}`)} className="text-[13px] font-semibold text-[#C94C1E] dark:text-[#E86335] hover:opacity-80 transition-opacity flex items-center gap-1">
                         Explore all <ChevronRight size={14} />
                       </button>
                     )}

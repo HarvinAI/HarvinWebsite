@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTheme } from '@/components/ThemeProvider';
 
 /* ── Scroll fade-in hook ─────────────────────────────────────────────────── */
 function useFadeIn(threshold = 0.1) {
@@ -27,7 +28,8 @@ const MODULES = [
     details: ['523K brands indexed', '13 filter dimensions', 'Priority score per account'],
     stat: '523K',
     statLabel: 'brands',
-    screenshot: '/platform-explorer.png',
+    screenshot: '/dashboard-preview.png',
+    screenshotDark: '/dashboard-preview-dark.png',
   },
   {
     title: 'Tech Stack Scanner',
@@ -35,7 +37,8 @@ const MODULES = [
     details: ['4,218 technologies', 'Competitor displacement', 'Migration signals'],
     stat: '4,218',
     statLabel: 'techs',
-    screenshot: '/platform-scanner.png',
+    screenshot: '/tech-scanner.png',
+    screenshotDark: '/tech-scanner-dark.png',
   },
   {
     title: 'Watchlists',
@@ -43,28 +46,23 @@ const MODULES = [
     details: ['Filters, manual, or CSV import', 'Slack & email alerts', 'Aggregate trends per list'],
     stat: 'Real-time',
     statLabel: 'alerts',
-    screenshot: '/platform-watchlists.png',
+    screenshot: '/Watchlist.png',
+    screenshotDark: '/Watchlist-dark.png',
   },
   {
-    title: 'Market Intelligence',
-    desc: 'Weekly D2C market trends — funding activity, expansion moves, app adoption, and category momentum across 34 markets.',
-    details: ['34 markets tracked', 'Category growth trends', 'Store expansion data'],
-    stat: '2,847',
-    statLabel: 'signals / wk',
-    screenshot: '/platform-intel.png',
-  },
-  {
-    title: 'Smart Alerts',
-    desc: 'Push signals to Slack, email, or your CRM. Know the moment a target account raises funding, opens stores, or changes their stack.',
-    details: ['Slack & email delivery', 'Weekly digest', 'Custom trigger rules'],
-    stat: '~6 hrs',
-    statLabel: 'avg. delay',
-    screenshot: '/platform-alerts.png',
+    title: 'LookALike Brands',
+    desc: 'Find brands similar to your best customers. Enter a domain and discover lookalike companies by category, tech stack, scale, and region.',
+    details: ['AI-powered matching', 'Category & tech overlap', 'Scale-aware suggestions'],
+    stat: 'Smart',
+    statLabel: 'matching',
+    screenshot: '/Look-a-Like.png',
+    screenshotDark: '/Look-a-Like-dark.png',
   },
 ];
 
 export default function Platform() {
   const header = useFadeIn();
+  const { isDark } = useTheme();
 
   return (
     <section className="relative py-28 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-white/[0.06] overflow-hidden">
@@ -82,7 +80,7 @@ export default function Platform() {
             What&rsquo;s inside
           </h2>
           <p className="text-[16px] leading-relaxed text-slate-500 dark:text-slate-400 max-w-[480px] mx-auto">
-            Five modules. One platform. Built for sales teams who sell to D2C brands.
+            Four modules. One platform. Built for sales teams who sell to D2C brands.
           </p>
         </div>
       </div>
@@ -90,7 +88,7 @@ export default function Platform() {
       {/* ── Modules ──────────────────────────────────────────────── */}
       <div className="max-w-[1100px] mx-auto px-6">
         {MODULES.map((mod, i) => (
-          <ModuleRow key={mod.title} mod={mod} index={i} flipped={i % 2 !== 0} />
+          <ModuleRow key={mod.title} mod={mod} index={i} flipped={i % 2 !== 0} isDark={isDark} />
         ))}
       </div>
     </section>
@@ -98,10 +96,11 @@ export default function Platform() {
 }
 
 /* ── Single module row — alternates text left / screenshot right ──────── */
-function ModuleRow({ mod, index, flipped }: {
+function ModuleRow({ mod, index, flipped, isDark }: {
   mod: typeof MODULES[number];
   index: number;
   flipped: boolean;
+  isDark: boolean;
 }) {
   const row = useFadeIn(0.15);
 
@@ -167,7 +166,7 @@ function ModuleRow({ mod, index, flipped }: {
             /public/platform-alerts.png
           */}
           <img
-            src={mod.screenshot}
+            src={isDark ? mod.screenshotDark : mod.screenshot}
             alt={`${mod.title} — HarvinAI`}
             className="w-full h-auto block"
             loading="lazy"

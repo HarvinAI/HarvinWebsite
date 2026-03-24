@@ -111,15 +111,36 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
     const result = await scanSingleUrl(url, { forceRefresh, pageData });
     logScan(req, domain, source, result, null);
 
-    // Cache extension tech results in DB so account page GET requests can use them
-    if (source === 'extension' && result.count > 0) {
+    // Persist tech scan results to DB (tech_cache + company_meta)
+    if (result.count > 0) {
       try {
         const db = await getDb();
-        await db.collection('tech_cache').updateOne(
-          { domain },
-          { $set: { domain, technologies: result.technologies, count: result.count, updatedAt: new Date() } },
-          { upsert: true },
-        );
+        const techs = result.technologies || [];
+        const techNames = techs.map((t: { name: string }) => t.name);
+        const now = new Date();
+        await Promise.all([
+          // Full tech objects in tech_cache (for detailed views)
+          db.collection('tech_cache').updateOne(
+            { domain },
+            { $set: { domain, technologies: techs, count: result.count, updatedAt: now } },
+            { upsert: true },
+          ),
+          // Tech names + count in company_meta (for account explorer pills + filters)
+          // Uses upsert so it works even if domain isn't in company_meta yet
+          db.collection('company_meta').updateOne(
+            { normalizedDomain: domain },
+            {
+              $set: {
+                techStack: techNames.slice(0, 20),
+                techCount: result.count,
+                lastTechScan: now,
+                updatedAt: now,
+              },
+              $setOnInsert: { normalizedDomain: domain, createdAt: now },
+            },
+            { upsert: true },
+          ),
+        ]);
       } catch {}
     }
 

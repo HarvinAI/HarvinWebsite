@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date(),
     };
     await col.insertOne(doc);
-    return NextResponse.json(doc, { status: 201 });
+    return NextResponse.json({ watchlist: doc }, { status: 201 });
   }
 
   // Add or remove domain from existing watchlist

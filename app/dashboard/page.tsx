@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import Image from 'next/image';
@@ -19,6 +19,7 @@ import {
   FlaskConical, Sparkles, Bell, Mail, Gift, Eye, Server, Type, Play,
   ClipboardList, MessageCircle, Package, Truck, RotateCcw, Calendar,
   Database, KeyRound, Repeat, CreditCard, MousePointerClick, Hash,
+  Upload, FileSpreadsheet, AlertCircle,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -52,10 +53,11 @@ type Account = {
 };
 type Filters = { category: string[]; region: string[]; state: string[]; city: string[]; businessModel: string[]; scale: string[]; offlinePresence: string[]; appPresence: string[]; techStack: string[]; activeSignals: string[]; funding: string[] };
 type SortKey = 'domain' | 'category' | 'region' | 'offlineStores' | 'updatedAt' | 'techCount';
-type FilterOptions = { categories: string[]; regions: string[]; states: string[]; cities: string[]; offlineStores: string[] };
+type FilterOptions = { categories: string[]; regions: string[]; states: string[]; cities: string[]; offlineStores: string[]; techStackOptions: Record<string, string[]> };
 type Watchlist = { _id: string; name: string; domains: string[]; createdAt: string; updatedAt: string };
 type WatchlistAccount = Account & { normalizedDomain: string };
-type SidebarTab = 'market-intelligence' | 'account-explorer' | 'tech-scanner' | 'lookalike-brands' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations';
+type SidebarTab = 'market-intelligence' | 'my-universe' | 'account-explorer' | 'tech-scanner' | 'lookalike-brands' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations' | 'admin-accounts';
+type UniverseStatus = 'all' | 'in-conversation' | 'active-client' | 'churned-client';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 const PAGE_SIZE = 20;
@@ -68,7 +70,8 @@ type ScanCompanyMeta = { category: string; subCategory: string; region: string; 
 type ScanResult = { url: string; technologies: ScanTech[]; count: number; companyMeta?: ScanCompanyMeta };
 
 const TAB_TITLES: Record<SidebarTab, string> = {
-  'market-intelligence': 'Market Intelligence',
+  'market-intelligence': 'Intelligence Hub',
+  'my-universe': 'My Universe',
   'account-explorer': 'Account Explorer',
   'tech-scanner': 'Tech Scanner',
   'lookalike-brands': 'LookALike Brands',
@@ -78,13 +81,59 @@ const TAB_TITLES: Record<SidebarTab, string> = {
   'current-clients': 'Current Clients',
   'icp-preferences': 'ICP & Preferences',
   'integrations': 'Integrations',
+  'admin-accounts': 'Admin: Accounts',
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
 const emptyFilters = (): Filters => ({ category: [], region: [], state: [], city: [], businessModel: [], scale: [], offlinePresence: [], appPresence: [], techStack: [], activeSignals: [], funding: [] });
 
+/** Pick up to 3 priority techs for pill display: Ecommerce Platform first, then CRM */
+const PILL_PRIORITY_CATS = ['Ecommerce Platform', 'Customer Engagement / CRM'];
+function pickPriorityTech(techStack: string[], categoryLookup: Record<string, string>): string[] {
+  const unique = [...new Set(techStack)];
+  const picked: string[] = [];
+  // First pass: pick from priority categories in order
+  for (const cat of PILL_PRIORITY_CATS) {
+    for (const t of unique) {
+      if (picked.length >= 3) break;
+      if (categoryLookup[t] === cat && !picked.includes(t)) picked.push(t);
+    }
+    if (picked.length >= 3) break;
+  }
+  // Fill remaining slots with other techs
+  if (picked.length < 3) {
+    for (const t of unique) {
+      if (picked.length >= 3) break;
+      if (!picked.includes(t)) picked.push(t);
+    }
+  }
+  return picked;
+}
+
 function domainToName(domain: string): string {
-  const base = domain.replace(/^www\d*\./, '').split('.')[0];
+  let base = domain.replace(/^www\d*\./, '').split('.')[0];
+  // Strip common domain prefixes that aren't part of brand name
+  const PREFIX_RE = /^(with|get|try|use|go|hey|the|my|our|join|meet|hello)(?=[a-z]{3,})/i;
+  const prefixMatch = PREFIX_RE.exec(base);
+  if (prefixMatch && base.length > prefixMatch[1].length + 2) {
+    base = base.slice(prefixMatch[1].length);
+  }
+  const W = new Set(['shop','store','mart','hub','club','box','lab','labs','studio','house','home','world','zone','tech','digital','online','global','india','express','market','fashion','style','wear','clothing','couture','beauty','skin','care','hair','health','wellness','fitness','food','foods','kitchen','cafe','coffee','organic','fresh','farm','baby','kids','pet','life','lifestyle','living','decor','gold','silver','jewel','diamond','auto','car','bike','travel','pay','money','capital','bank','learn','academy','game','play','sport','media','news','smart','fast','easy','quick','super','big','new','first','best','top','pro','blue','green','red','black','white','star','sun','urban','city','royal','king','queen','company','brand','basket','cart','bag','trunk','earth','nature','eco','pure','sugar','honey','pepper','kart','shoes','campus','cosmetics','stone','clue','biryan','tale','eye','face','body','flower','bloom','garden','snap','click','grow','edge','core','ware','goods','and','the','of','my','our','forty','winks']);
+  const NO = new Set(['nykaa','myntra','meesho','zepto','swiggy','zomato','flipkart','snapdeal','paytm','razorpay','phonepe','groww','cred','pepperfry','lenskart','bewakoof','ajio','mamaearth','mokobara','caratlane','healthandglow','shopclues','getepic','thegoatlife']);
+  const l = base.toLowerCase();
+  if (base.includes('-') || base.includes('_')) return base.split(/[-_]/).filter(Boolean).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  if (NO.has(l) || base.length <= 6) return base.charAt(0).toUpperCase() + base.slice(1);
+  // Find best split — prefer longest right-side known word
+  let bestSplit: [string, string] | null = null;
+  let bestScore = 0;
+  for (let i = 3; i < l.length - 2; i++) {
+    const a = l.slice(0, i), b = l.slice(i);
+    const aKnown = W.has(a), bKnown = W.has(b);
+    if (!aKnown && !bKnown) continue;
+    const score = (aKnown ? a.length : 0) + (bKnown ? b.length * 2 : 0); // prefer right-side matches
+    if (score > bestScore) { bestScore = score; bestSplit = [a, b]; }
+  }
+  if (bestSplit) return bestSplit.map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
@@ -117,7 +166,7 @@ function demoFill(a: Account): Account {
   };
   return {
     ...a,
-    techStack: a.techStack?.length ? a.techStack : pickN(DEMO_TECH, h, 3 + (h % 3)),
+    techStack: a.techStack?.length ? a.techStack : [],
     businessModel: a.businessModel || pick(DEMO_BIZ, h),
     scaleBand: a.scaleBand || pick(DEMO_SCALE, h + 3),
     appPresence: a.appPresence || pick(DEMO_APP, h + 5),
@@ -203,6 +252,30 @@ const FilterSection = ({ title, count, children, defaultOpen = true }: {
         {open ? <ChevronUp size={14} className="text-slate-300 dark:text-neutral-600" /> : <ChevronDown size={14} className="text-slate-300 dark:text-neutral-600" />}
       </button>
       {open && <div className="mt-1 flex flex-col gap-0.5">{children}</div>}
+    </div>
+  );
+};
+
+/* ── Tech category group — collapsible, shows first 5 techs by default */
+const TECH_CAT_INITIAL = 5;
+const TechCategoryGroup = ({ category, techs, filters, toggle }: {
+  category: string; techs: string[]; filters: Filters; toggle: (key: keyof Filters, value: string) => void;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? techs : techs.slice(0, TECH_CAT_INITIAL);
+  const hasMore = techs.length > TECH_CAT_INITIAL;
+  return (
+    <div>
+      <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">{category}</p>
+      {visible.map(v => (
+        <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
+      ))}
+      {hasMore && (
+        <button onClick={() => setExpanded(!expanded)}
+          className="px-3 py-1 text-[11px] font-medium text-[#C94C1E] hover:text-[#b5431a] transition-colors">
+          {expanded ? 'Show less' : `+${techs.length - TECH_CAT_INITIAL} more`}
+        </button>
+      )}
     </div>
   );
 };
@@ -404,6 +477,15 @@ function DashboardInner() {
   const { data: session, status } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'rahul@harvin.ai,admin@harvin.ai,bharath@thyleads.com').split(',').map(e => e.trim().toLowerCase());
+  const isAdmin = session?.user?.email && adminEmails.includes(session.user.email.toLowerCase());
+
+  // Global toast
+  const [globalToast, setGlobalToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showGlobalToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setGlobalToast({ msg, type });
+    setTimeout(() => setGlobalToast(null), 3000);
+  };
   const [filters, setFilters] = useState<Filters>(emptyFilters());
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -416,8 +498,10 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   // Read initial tab & scan domain from URL params
   const paramTab = searchParams.get('tab') as SidebarTab | null;
   const paramScan = searchParams.get('scan');
+  const paramDomain = searchParams.get('domain');
   const [activeTab, setActiveTab] = useState<SidebarTab>(paramTab && paramTab in TAB_TITLES ? paramTab : 'account-explorer');
   const [initialScanDomain] = useState(paramScan || '');
+  const [initialLookalikeDomain] = useState(paramDomain || '');
   const { isDark, toggle: onToggleTheme } = useTheme();
 
   // Filter panel collapse + resize
@@ -429,9 +513,30 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({ categories: [], regions: [], states: [], cities: [], offlineStores: [] });
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({ categories: [], regions: [], states: [], cities: [], offlineStores: [], techStackOptions: {} });
+  const [techSearch, setTechSearch] = useState('');
+  // Reverse lookup: tech name → category (for pill priority)
+  const techCategoryLookup = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const [cat, techs] of Object.entries(filterOptions.techStackOptions)) {
+      for (const t of techs) map[t] = cat;
+    }
+    return map;
+  }, [filterOptions.techStackOptions]);
   const [loading, setLoading] = useState(false);
   const fetchRef = useRef(0);
+
+  // My Universe state
+  const [universeAccounts, setUniverseAccounts] = useState<Account[]>([]);
+  const [universeLoading, setUniverseLoading] = useState(false);
+  const [universeUploading, setUniverseUploading] = useState(false);
+  const [universeScanning, setUniverseScanning] = useState(false);
+  const [universePendingScan, setUniversePendingScan] = useState(0);
+  const [universeScanProgress, setUniverseScanProgress] = useState('');
+  const [universeStatusFilter, setUniverseStatusFilter] = useState<UniverseStatus>('all');
+  const [universeStatuses, setUniverseStatuses] = useState<Record<string, string>>({});
+  const [universeSelected, setUniverseSelected] = useState<Set<string>>(new Set());
+  const universeFileRef = useRef<HTMLInputElement>(null);
 
   // Watchlist state
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
@@ -546,6 +651,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         states: data.filterOptions.states || [],
         cities: data.filterOptions.cities || [],
         offlineStores: data.filterOptions.offlineStores || [],
+        techStackOptions: data.filterOptions.techStackOptions || {},
       });
     } catch (err) {
       console.error('Failed to fetch accounts', err);
@@ -555,6 +661,177 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   }, [ready, filters, debouncedSearch, sortKey, sortAsc, page]);
 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+
+  /* ── My Universe ─────────────────────────────────────────────────── */
+  const fetchUniverse = useCallback(async () => {
+    const email = user?.email;
+    if (!email) return;
+    setUniverseLoading(true);
+    try {
+      const res = await fetch(`/api/universe?email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      setUniverseAccounts(data.accounts || []);
+      setUniversePendingScan(data.pendingScan || 0);
+      setUniverseStatuses(data.statuses || {});
+    } catch (err) {
+      console.error('Failed to fetch universe', err);
+    } finally {
+      setUniverseLoading(false);
+    }
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (activeTab === 'my-universe' && user?.email) fetchUniverse();
+  }, [activeTab, user?.email, fetchUniverse]);
+
+  const handleUniverseUpload = async (file: File) => {
+    if (!user?.email) return;
+    setUniverseUploading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/[\r\n]+/).filter(Boolean);
+      const header = lines[0].toLowerCase();
+      const hasHeader = header.includes('domain') || header.includes('url') || header.includes('website') || header.includes('company');
+      const dataLines = hasHeader ? lines.slice(1) : lines;
+      let colIndex = 0;
+      if (hasHeader) {
+        const cols = lines[0].split(/[,\t;|]/);
+        colIndex = cols.findIndex(c => /domain|url|website|link/i.test(c));
+        if (colIndex === -1) colIndex = 0;
+      }
+      const domains: string[] = [];
+      for (const line of dataLines) {
+        const cols = line.split(/[,\t;|]/);
+        const raw = (cols[colIndex] || '').trim().replace(/^["']|["']$/g, '');
+        if (!raw) continue;
+        const domain = raw.replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').replace(/\/.*$/, '').toLowerCase();
+        if (domain && domain.includes('.') && domain.length > 3) domains.push(domain);
+      }
+      const unique = [...new Set(domains)];
+      if (unique.length === 0) {
+        showGlobalToast('No valid domains found in CSV', 'error');
+        setUniverseUploading(false);
+        return;
+      }
+      const res = await fetch('/api/universe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email, domains: unique }),
+      });
+      const data = await res.json();
+      showGlobalToast(`Added ${data.added} brands to My Universe`, 'success');
+      await fetchUniverse();
+      if (data.needsScan > 0) scanUniverseDomains(unique);
+    } catch (err) {
+      console.error('Upload error:', err);
+      showGlobalToast('Failed to upload CSV', 'error');
+    } finally {
+      setUniverseUploading(false);
+    }
+  };
+
+  const scanUniverseDomains = async (domains: string[]) => {
+    setUniverseScanning(true);
+    const batchSize = 5;
+    let scanned = 0;
+    for (let i = 0; i < domains.length; i += batchSize) {
+      const batch = domains.slice(i, i + batchSize);
+      setUniverseScanProgress(`Scanning ${Math.min(i + batchSize, domains.length)} / ${domains.length}...`);
+      try {
+        await fetch('/api/universe/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domains: batch }),
+        });
+        scanned += batch.length;
+      } catch {}
+    }
+    setUniverseScanning(false);
+    setUniverseScanProgress('');
+    showGlobalToast(`Scanned ${scanned} brands successfully`, 'success');
+    fetchUniverse();
+  };
+
+  const removeFromUniverse = async (domain: string) => {
+    if (!user?.email) return;
+    try {
+      await fetch('/api/universe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email, domains: [domain] }),
+      });
+      setUniverseAccounts(prev => prev.filter(a => a.normalizedDomain !== domain));
+    } catch {}
+  };
+
+  const addToUniverse = async (domains: string[]) => {
+    if (!user?.email || domains.length === 0) return;
+    try {
+      await fetch('/api/universe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email, domains }),
+      });
+      // Refresh universe count for sidebar badge
+      const res = await fetch(`/api/universe?email=${encodeURIComponent(user.email)}`);
+      const data = await res.json();
+      setUniverseAccounts(data.accounts || []);
+      showGlobalToast(`${domains.length > 1 ? domains.length + ' brands' : domainToName(domains[0])} added to TAL`, 'success');
+    } catch {}
+  };
+
+  const clearUniverse = async () => {
+    if (!user?.email) return;
+    try {
+      await fetch('/api/universe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email }),
+      });
+      setUniverseAccounts([]);
+      setUniverseStatuses({});
+      showGlobalToast('Universe cleared', 'success');
+    } catch {}
+  };
+
+  const updateUniverseStatus = async (domain: string, status: string) => {
+    if (!user?.email) return;
+    setUniverseStatuses(prev => {
+      const next = { ...prev };
+      if (status) next[domain] = status;
+      else delete next[domain];
+      return next;
+    });
+    try {
+      await fetch('/api/universe', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email, domain, status }),
+      });
+    } catch {}
+  };
+
+  const bulkUpdateUniverseStatus = async (status: string) => {
+    if (!user?.email || universeSelected.size === 0) return;
+    const domains = [...universeSelected];
+    setUniverseStatuses(prev => {
+      const next = { ...prev };
+      for (const d of domains) {
+        if (status) next[d] = status;
+        else delete next[d];
+      }
+      return next;
+    });
+    setUniverseSelected(new Set());
+    // Fire off updates in parallel
+    await Promise.all(domains.map(domain =>
+      fetch('/api/universe', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email, domain, status }),
+      }).catch(() => {})
+    ));
+  };
 
   /* ── Watchlist CRUD ──────────────────────────────────────────────── */
   const fetchWatchlists = useCallback(async () => {
@@ -604,7 +881,10 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
       await fetch(`/api/watchlists?id=${id}`, { method: 'DELETE' });
       if (activeWatchlist?._id === id) { setActiveWatchlist(null); setWatchlistAccounts([]); }
       fetchWatchlists();
-    } catch {}
+      showGlobalToast('Watchlist deleted', 'success');
+    } catch {
+      showGlobalToast('Failed to delete watchlist', 'error');
+    }
   };
 
   const renameWatchlist = async (id: string) => {
@@ -635,7 +915,15 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   };
 
   /* ── Handlers ──────────────────────────────────────────────────────── */
-  const toggle = (k: keyof Filters, v: string) => setFilters(p => ({ ...p, [k]: p[k].includes(v) ? p[k].filter(x => x !== v) : [...p[k], v] }));
+  const toggle = (k: keyof Filters, v: string) => setFilters(p => {
+    const newVal = p[k].includes(v) ? p[k].filter(x => x !== v) : [...p[k], v];
+    const updated = { ...p, [k]: newVal };
+    // Cascade: when region changes, clear state & city selections that may no longer be valid
+    if (k === 'region') { updated.state = []; updated.city = []; }
+    // When state changes, clear city selections
+    if (k === 'state') { updated.city = []; }
+    return updated;
+  });
   const clearAll = () => setFilters(emptyFilters());
   const handleLogout = () => {
     ['harvin_user', 'harvin_onboarding', 'harvin_dashboard_filters'].forEach(k => localStorage.removeItem(k));
@@ -753,6 +1041,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const isSettingsTab = activeTab === 'icp-preferences' || activeTab === 'integrations';
   const isComingSoonTab = activeTab === 'competitor-clients' || activeTab === 'current-clients';
   const isRecentlyFundedTab = activeTab === 'recently-funded';
+  const isAdminTab = activeTab === 'admin-accounts';
   const isWatchlistTab = activeTab === 'my-watchlists';
   const isMarketIntelTab = activeTab === 'market-intelligence';
   const isTechScannerTab = activeTab === 'tech-scanner';
@@ -774,15 +1063,23 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
           </a>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
-          <div className="space-y-4 px-3">
+        <div className="flex-1 py-2">
+          <div className="space-y-4 px-3 divide-y divide-slate-100 dark:divide-white/[0.06] [&>*]:pt-4 [&>*:first-child]:pt-0">
             <div>
               <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Intelligence</h3>
               <div className="space-y-0.5">
-                <NavBtn icon={<Satellite size={18} />} label="Market Intelligence" active={activeTab === 'market-intelligence'} onClick={() => setActiveTab('market-intelligence')} />
+                <NavBtn icon={<Zap size={18} />} label="Intelligence Hub" active={activeTab === 'market-intelligence'} onClick={() => setActiveTab('market-intelligence')} />
+                <NavBtn icon={<Globe size={18} />} label="My Universe" active={activeTab === 'my-universe'} onClick={() => setActiveTab('my-universe')}
+                  badge={universeAccounts.length > 0 ? String(universeAccounts.length) : undefined} />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Discover</h3>
+              <div className="space-y-0.5">
                 <NavBtn icon={<Search size={18} />} label="Account Explorer" active={activeTab === 'account-explorer'} onClick={() => setActiveTab('account-explorer')} />
                 <span data-tour="tech-scanner"><NavBtn icon={<Radar size={18} />} label="Tech Scanner" active={activeTab === 'tech-scanner'} onClick={() => setActiveTab('tech-scanner')} /></span>
-                <NavBtn icon={<Layers size={18} />} label="LookALike Brands" active={activeTab === 'lookalike-brands'} onClick={() => setActiveTab('lookalike-brands')} />
+                <NavBtn icon={<Target size={18} />} label="LookALike" active={activeTab === 'lookalike-brands'} onClick={() => setActiveTab('lookalike-brands')} />
               </div>
             </div>
 
@@ -803,6 +1100,15 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                 <NavBtn icon={<Link2 size={18} />} label="Integrations" active={activeTab === 'integrations'} onClick={() => setActiveTab('integrations')} />
               </div>
             </div>
+
+            {isAdmin && (
+              <div>
+                <h3 className="px-3 mb-1 text-[11px] font-black text-red-500 dark:text-red-400 uppercase tracking-widest">Admin</h3>
+                <div className="space-y-0.5">
+                  <NavBtn icon={<Shield size={18} />} label="Manage Accounts" active={activeTab === 'admin-accounts'} onClick={() => setActiveTab('admin-accounts')} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -847,8 +1153,8 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         </div>
       </aside>
 
-      {/* ── Filter Panel (Account Explorer only) ──────── */}
-      {activeTab === 'account-explorer' && (
+      {/* ── Filter Panel (Account Explorer + My Universe) ──────── */}
+      {(activeTab === 'account-explorer' || activeTab === 'my-universe') && (
         <aside
           className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0 relative transition-[width] duration-200 ease-out"
           style={{ width: filterCollapsed ? 0 : filterWidth, minWidth: filterCollapsed ? 0 : 220, overflow: filterCollapsed ? 'hidden' : undefined }}
@@ -936,23 +1242,37 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             </FilterSection>
 
             <FilterSection title="Tech Stack" count={filters.techStack.length} defaultOpen={false}>
-              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-1 mb-1">Ecommerce Platform</p>
-              {['Shopify', 'WooCommerce', 'Magento', 'Custom-built'].map(v => (
-                <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
-              ))}
-
-              <div className="flex items-center gap-2 px-3 mt-3 mb-1">
-                <p className="text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide">Engagement / CRM</p>
-                <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Key</span>
-              </div>
-              {['CleverTap', 'MoEngage', 'WebEngage', 'Braze', 'Klaviyo', 'Mailchimp', 'None detected'].map(v => (
-                <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
-              ))}
-
-              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">Payments</p>
-              {['Razorpay', 'Stripe', 'PayU', 'Cashfree'].map(v => (
-                <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
-              ))}
+              {/* Search within tech stack options */}
+              {Object.keys(filterOptions.techStackOptions).length > 0 && (
+                <div className="px-3 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Search technologies..."
+                    value={techSearch}
+                    onChange={(e) => setTechSearch(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[11px] text-slate-700 dark:text-neutral-300 placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none focus:border-[#C94C1E] focus:ring-1 focus:ring-[#C94C1E]/30"
+                  />
+                </div>
+              )}
+              <FilterItem label="None detected" on={filters.techStack.includes('None detected')} onClick={() => toggle('techStack', 'None detected')} />
+              {/* Priority categories shown first */}
+              {(() => {
+                const priorityOrder = ['Ecommerce Platform', 'Customer Engagement / CRM', 'Payments & Checkout - Gateway', 'Analytics & Behavior', 'Customer Support', 'Marketing automation'];
+                const searchLower = techSearch.toLowerCase();
+                const allCats = Object.keys(filterOptions.techStackOptions);
+                const ordered = [
+                  ...priorityOrder.filter(c => allCats.includes(c)),
+                  ...allCats.filter(c => !priorityOrder.includes(c)).sort(),
+                ];
+                return ordered.map(cat => {
+                  const techs = filterOptions.techStackOptions[cat] || [];
+                  const filtered = searchLower ? techs.filter(t => t.toLowerCase().includes(searchLower)) : techs;
+                  if (filtered.length === 0) return null;
+                  return (
+                    <TechCategoryGroup key={cat} category={cat} techs={filtered} filters={filters} toggle={toggle} />
+                  );
+                });
+              })()}
             </FilterSection>
 
             <FilterSection title="Active Signals" count={filters.activeSignals.length} defaultOpen={false}>
@@ -982,7 +1302,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         {/* Header */}
         <header className="h-[64px] border-b border-slate-100 dark:border-white/[0.06] bg-white dark:bg-[#141414] px-8 flex items-center justify-between flex-shrink-0 z-10">
           <div className="flex items-center gap-3">
-            {filterCollapsed && activeTab === 'account-explorer' && (
+            {filterCollapsed && (activeTab === 'account-explorer' || activeTab === 'my-universe') && (
               <button
                 onClick={() => setFilterCollapsed(false)}
                 className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold
@@ -997,11 +1317,13 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             )}
             <div className="h-2 w-2 rounded-full bg-[#C94C1E]" />
             <h1 className="text-[18px] font-bold text-slate-800 dark:text-white">{TAB_TITLES[activeTab]}</h1>
-            {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{total} results</span>}
+            {activeTab === 'account-explorer' && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{total} results</span>}
+            {activeTab === 'my-universe' && universeAccounts.length > 0 && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{universeAccounts.length} brands</span>}
+            {activeTab !== 'account-explorer' && activeTab !== 'my-universe' && !isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{total} results</span>}
             {isWatchlistTab && activeWatchlist && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{activeWatchlist.domains?.length || 0} accounts</span>}
           </div>
 
-          {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && (
+          {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && !isAdminTab && activeTab !== 'my-universe' && (
             <div className="flex items-center gap-2" data-tour="sort-export">
               {/* Sort */}
               <div className="relative">
@@ -1086,12 +1408,14 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
           {isMarketIntelTab ? (
             /* ── Market Intelligence ─────────────────────────────── */
             <MarketIntelligenceView />
+          ) : isAdminTab ? (
+            <AdminAccountsView showToast={showGlobalToast} />
           ) : isRecentlyFundedTab ? (
             /* ── Recently Funded ─────────────────────────────────── */
             <RecentlyFundedView />
           ) : isLookalikeTab ? (
             /* ── LookALike Brands ────────────────────────────────── */
-            <LookALikeBrandsView />
+            <LookALikeBrandsView initialDomain={initialLookalikeDomain} />
           ) : isTechScannerTab ? (
             /* ── Tech Scanner ────────────────────────────────────── */
             <TechScannerView initialDomain={initialScanDomain} />
@@ -1323,6 +1647,315 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
               <p className="text-[15px] font-semibold text-slate-600 dark:text-neutral-300 mb-1">Coming Soon</p>
               <p className="text-[12px] text-slate-400 dark:text-neutral-500 max-w-sm">This watchlist feature is under development. Switch to Account Explorer to browse real accounts.</p>
             </div>
+          ) : activeTab === 'my-universe' ? (
+            /* ── My Universe View ───────────────────────────────────── */
+            <div className="max-w-6xl mx-auto space-y-5">
+              <input ref={universeFileRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUniverseUpload(f); e.target.value = ''; }} />
+
+              {/* Top bar: Import button + status tabs + actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => universeFileRef.current?.click()} disabled={universeUploading}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-[#b5431a] transition-colors shadow-lg shadow-orange-500/20 disabled:opacity-50">
+                    {universeUploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                    {universeUploading ? 'Uploading...' : 'Import CSV'}
+                  </button>
+                  {universeAccounts.length > 0 && (
+                    <div className="flex items-center bg-slate-100 dark:bg-white/[0.06] rounded-lg p-0.5">
+                      {([
+                        { key: 'all', label: 'All' },
+                        { key: 'in-conversation', label: 'In Conversation' },
+                        { key: 'active-client', label: 'Active Client' },
+                        { key: 'churned-client', label: 'Churned' },
+                      ] as { key: UniverseStatus; label: string }[]).map(tab => {
+                        const count = tab.key === 'all' ? universeAccounts.length : universeAccounts.filter(a => universeStatuses[a.normalizedDomain] === tab.key).length;
+                        return (
+                          <button key={tab.key} onClick={() => setUniverseStatusFilter(tab.key)}
+                            className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-all ${universeStatusFilter === tab.key ? 'bg-white dark:bg-[#1a1a1a] text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-neutral-400 hover:text-slate-700'}`}>
+                            {tab.label}{count > 0 && tab.key !== 'all' ? ` (${count})` : ''}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                {universeAccounts.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { const csv = ['Domain,Category,SubCategory,Region,BusinessModel,Traffic,Status', ...universeAccounts.map(a => [a.normalizedDomain, a.category, a.subCategory, a.region, a.businessModel || '', a.monthlyVisitsFormatted || '', universeStatuses[a.normalizedDomain] || ''].join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'my-universe.csv'; link.click(); URL.revokeObjectURL(url); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[12px] font-medium text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all">
+                      <Download size={14} /> Export
+                    </button>
+                    <button onClick={clearUniverse}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-500/20 text-[12px] font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all">
+                      <Trash2 size={14} /> Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Scanning Progress */}
+              {universeScanning && (
+                <div className="flex items-center gap-3 px-5 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                  <Loader2 size={16} className="text-amber-600 dark:text-amber-400 animate-spin flex-shrink-0" />
+                  <p className="text-[13px] font-semibold text-amber-700 dark:text-amber-300">{universeScanProgress || 'Scanning brands...'}</p>
+                </div>
+              )}
+
+              {/* Universe Account List */}
+              {universeLoading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Loader2 size={32} className="text-[#C94C1E] animate-spin mb-4" />
+                  <p className="text-[13px] text-slate-400 dark:text-neutral-500">Loading your universe...</p>
+                </div>
+              ) : universeAccounts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-white/[0.06] flex items-center justify-center mb-4">
+                    <Globe size={24} className="text-slate-300 dark:text-neutral-600" />
+                  </div>
+                  <p className="text-[15px] font-semibold text-slate-600 dark:text-neutral-300 mb-1">Your Universe is empty</p>
+                  <p className="text-[12px] text-slate-400 dark:text-neutral-500 max-w-sm mb-4">Upload a CSV with company URLs/domains to get started. We&apos;ll enrich each brand with category, tech stack, traffic, and more.</p>
+                  <button onClick={() => universeFileRef.current?.click()}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-[#b5431a] transition-colors shadow-lg shadow-orange-500/20">
+                    <FileSpreadsheet size={16} /> Choose CSV File
+                  </button>
+                  <p className="text-[11px] text-slate-400 dark:text-neutral-500 mt-3">Supports .csv, .tsv — columns: domain, url, or website</p>
+                </div>
+              ) : (() => {
+                const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string; border: string }> = {
+                  'in-conversation': { dot: 'bg-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-200 dark:border-blue-500/30' },
+                  'active-client': { dot: 'bg-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-500/30' },
+                  'churned-client': { dot: 'bg-red-500', bg: 'bg-red-50 dark:bg-red-500/10', text: 'text-red-600 dark:text-red-400', border: 'border-red-200 dark:border-red-500/30' },
+                };
+                const STATUS_LABELS: Record<string, string> = { 'in-conversation': 'In Conversation', 'active-client': 'Active Client', 'churned-client': 'Churned' };
+                // Apply sidebar filters + search + status filter
+                const applyFilters = (list: Account[]) => {
+                  return list.filter(a => {
+                    if (search && !a.normalizedDomain.toLowerCase().includes(search.toLowerCase())) return false;
+                    if (filters.category.length > 0 && !filters.category.includes(a.category)) return false;
+                    if (filters.region.length > 0 && !filters.region.includes(a.region)) return false;
+                    if (filters.state.length > 0) {
+                      const loc = a.displayLocation || '';
+                      if (!filters.state.some(s => loc.includes(s))) return false;
+                    }
+                    if (filters.city.length > 0) {
+                      const loc = a.displayLocation || '';
+                      if (!filters.city.some(c => loc.includes(c))) return false;
+                    }
+                    if (filters.businessModel.length > 0 && (!a.businessModel || !filters.businessModel.includes(a.businessModel))) return false;
+                    if (filters.scale.length > 0 && (!a.scaleBand || !filters.scale.includes(a.scaleBand))) return false;
+                    if (filters.offlinePresence.length > 0 && !filters.offlinePresence.includes(a.offlineStores)) return false;
+                    if (filters.appPresence.length > 0 && (!a.appPresence || !filters.appPresence.includes(a.appPresence))) return false;
+                    if (filters.techStack.length > 0 && !filters.techStack.some(t => (a.techStack || []).includes(t))) return false;
+                    if (filters.activeSignals.length > 0 && !filters.activeSignals.some(s => (a.activeSignals || []).includes(s))) return false;
+                    if (filters.funding.length > 0 && (!a.fundingStage || !filters.funding.includes(a.fundingStage))) return false;
+                    return true;
+                  });
+                };
+                const statusFiltered = universeStatusFilter === 'all'
+                  ? universeAccounts
+                  : universeAccounts.filter(a => universeStatuses[a.normalizedDomain] === universeStatusFilter);
+                const filtered = applyFilters(statusFiltered);
+
+                return filtered.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="text-[14px] text-slate-500 dark:text-neutral-400">{activeCount > 0 || search ? 'No accounts match the current filters.' : 'No accounts with this status.'}</p>
+                    {(activeCount > 0 || search) && <button onClick={() => { clearAll(); setSearch(''); }} className="mt-2 text-[12px] text-[#C94C1E] font-semibold hover:text-[#b5431a]">Clear filters</button>}
+                  </div>
+                ) : (
+                  <>
+                    {/* Bulk action bar */}
+                    {universeSelected.size > 0 && (
+                      <div className="flex items-center gap-3 px-5 py-3 rounded-xl bg-[#C94C1E]/5 dark:bg-[#C94C1E]/10 border border-[#C94C1E]/20">
+                        <span className="text-[12px] font-bold text-[#C94C1E]">{universeSelected.size} selected</span>
+                        <div className="h-4 w-px bg-[#C94C1E]/20" />
+                        <button onClick={() => bulkUpdateUniverseStatus('in-conversation')}
+                          className="px-3 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors">
+                          In Conversation
+                        </button>
+                        <button onClick={() => bulkUpdateUniverseStatus('active-client')}
+                          className="px-3 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors">
+                          Active Client
+                        </button>
+                        <button onClick={() => bulkUpdateUniverseStatus('churned-client')}
+                          className="px-3 py-1 rounded-lg text-[11px] font-semibold bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">
+                          Churned
+                        </button>
+                        <button onClick={() => bulkUpdateUniverseStatus('')}
+                          className="px-3 py-1 rounded-lg text-[11px] font-semibold text-slate-500 dark:text-neutral-400 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
+                          Clear Status
+                        </button>
+                        <button onClick={() => setUniverseSelected(new Set())}
+                          className="ml-auto p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Table */}
+                    <div className="bg-white dark:bg-[#141414]/60 border border-slate-200/80 dark:border-white/[0.06] rounded-xl overflow-hidden">
+                      {/* Table header */}
+                      <div className="hidden lg:grid grid-cols-[minmax(0,1fr)_minmax(200px,280px)_90px_140px_68px] items-center px-4 py-3 border-b border-slate-100 dark:border-white/[0.05] bg-slate-50/60 dark:bg-white/[0.02] text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => {
+                            if (universeSelected.size === filtered.length) setUniverseSelected(new Set());
+                            else setUniverseSelected(new Set(filtered.map(a => a.normalizedDomain)));
+                          }} className="flex items-center justify-center ml-1">
+                            <div className={`w-[16px] h-[16px] rounded border-2 flex items-center justify-center transition-all ${
+                              universeSelected.size === filtered.length && filtered.length > 0 ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.15]'
+                            }`}>
+                              {universeSelected.size === filtered.length && filtered.length > 0 && <Check size={10} className="text-white stroke-[3]" />}
+                            </div>
+                          </button>
+                          <span>Company</span>
+                        </div>
+                        <span>Tech Stack</span>
+                        <span className="text-right">Traffic</span>
+                        <span className="text-center">Status</span>
+                        <span></span>
+                      </div>
+
+                      {/* Table rows */}
+                      <div className="divide-y divide-slate-100/80 dark:divide-white/[0.04]">
+                        {filtered.map(a => {
+                          const name = domainToName(a.normalizedDomain);
+                          const topTech = pickPriorityTech((a.techStack || []) as string[], techCategoryLookup);
+                          const scanned = (a as Record<string, unknown>).scanned !== false;
+                          const status = universeStatuses[a.normalizedDomain] || '';
+                          const sc = STATUS_COLORS[status];
+                          const isSelected = universeSelected.has(a.normalizedDomain);
+                          return (
+                            <div key={a.normalizedDomain}
+                              className={`grid grid-cols-1 lg:grid-cols-[44px_minmax(0,1fr)_minmax(200px,280px)_90px_140px_68px] items-center transition-colors group cursor-pointer ${
+                                isSelected ? 'bg-[#C94C1E]/[0.03] dark:bg-[#C94C1E]/[0.06]' : 'hover:bg-slate-50/60 dark:hover:bg-white/[0.02]'
+                              }`}
+                              onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
+
+                              {/* Checkbox */}
+                              <div className="hidden lg:flex items-center justify-center py-4" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setUniverseSelected(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(a.normalizedDomain)) next.delete(a.normalizedDomain);
+                                  else next.add(a.normalizedDomain);
+                                  return next;
+                                })}>
+                                  <div className={`w-[16px] h-[16px] rounded border-2 flex items-center justify-center transition-all ${
+                                    isSelected ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.12] group-hover:border-slate-400'
+                                  }`}>
+                                    {isSelected && <Check size={10} className="text-white stroke-[3]" />}
+                                  </div>
+                                </button>
+                              </div>
+
+                              {/* Company */}
+                              <div className="flex items-center gap-3 px-4 lg:px-2 py-3.5 min-w-0">
+                                <div className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-white/[0.04] border border-slate-100 dark:border-white/[0.06] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={`https://www.google.com/s2/favicons?domain=${a.normalizedDomain}&sz=64`} alt="" width={20} height={20} className="rounded dark:bg-white dark:p-[2px] dark:rounded-md"
+                                    onError={(e) => { const t = e.target as HTMLImageElement; t.style.display = 'none'; t.parentElement!.innerHTML = `<span class="font-serif text-slate-400 text-[14px]">${name[0]}</span>`; }} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <h3 className="text-[13px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors truncate">{name}</h3>
+                                    {!scanned && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[9px] font-bold flex-shrink-0">
+                                        <Loader2 size={9} className="animate-spin" /> Scanning
+                                      </span>
+                                    )}
+                                    {sc && (
+                                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[9px] font-bold flex-shrink-0 ${sc.bg} ${sc.text} ${sc.border}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
+                                        {STATUS_LABELS[status]}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate">
+                                    {[a.category !== 'Unknown' && a.category, a.region !== 'Global' && a.region, a.businessModel].filter(Boolean).join(' · ')}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Tech pills */}
+                              <div className="hidden lg:flex items-center gap-1.5 px-2 flex-wrap">
+                                {topTech.length > 0 ? topTech.map(t => {
+                                  // Shorten long names for pills
+                                  const short = t.replace('Google Analytics', 'GA4').replace('Google Tag Manager', 'GTM').replace('Google Ads', 'GAds').replace('Facebook Pixel', 'FB Pixel').replace('WooCommerce', 'WooCommerce').replace('JavaScript Libraries', 'JS Libs');
+                                  return (
+                                    <span key={t} title={t} className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] text-[10px] font-medium text-slate-600 dark:text-neutral-300 whitespace-nowrap">{short}</span>
+                                  );
+                                }) : (
+                                  <span className="text-[11px] text-slate-300 dark:text-neutral-600">—</span>
+                                )}
+                                {(a.techStack || []).length > 3 && (
+                                  <span className="text-[10px] text-slate-400 dark:text-neutral-500 font-medium whitespace-nowrap">+{(a.techStack || []).length - 3}</span>
+                                )}
+                              </div>
+
+                              {/* Traffic */}
+                              <div className="hidden lg:flex items-center justify-end px-2">
+                                {a.monthlyVisitsFormatted ? (
+                                  <span className="text-[12px] font-semibold text-slate-700 dark:text-neutral-300">{a.monthlyVisitsFormatted}</span>
+                                ) : (
+                                  <span className="text-[11px] text-slate-300 dark:text-neutral-600">—</span>
+                                )}
+                              </div>
+
+                              {/* Status dropdown */}
+                              <div className="hidden lg:flex items-center justify-center px-2" onClick={e => e.stopPropagation()}>
+                                <select
+                                  value={status}
+                                  onChange={e => updateUniverseStatus(a.normalizedDomain, e.target.value)}
+                                  className={`w-full text-[11px] font-semibold rounded-lg border px-2 py-1.5 outline-none focus:ring-2 focus:ring-[#C94C1E]/20 focus:border-[#C94C1E] cursor-pointer transition-colors ${
+                                    status
+                                      ? `${sc?.bg || ''} ${sc?.text || ''} ${sc?.border || 'border-slate-200'}`
+                                      : 'bg-transparent text-slate-400 dark:text-neutral-500 border-slate-200 dark:border-white/[0.08]'
+                                  }`}
+                                >
+                                  <option value="">Set status</option>
+                                  <option value="in-conversation">In Conversation</option>
+                                  <option value="active-client">Active Client</option>
+                                  <option value="churned-client">Churned</option>
+                                </select>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="hidden lg:flex items-center justify-center gap-0.5" onClick={e => e.stopPropagation()}>
+                                <a href={`https://${a.normalizedDomain}`} target="_blank" rel="noopener noreferrer"
+                                  className="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 dark:text-neutral-500 hover:text-[#C94C1E] hover:bg-orange-50 dark:hover:bg-[#C94C1E]/10 transition-all" title="Visit website">
+                                  <ExternalLink size={13} />
+                                </a>
+                                <button onClick={() => removeFromUniverse(a.normalizedDomain)}
+                                  className="w-7 h-7 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all" title="Remove">
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+
+                              {/* Mobile row */}
+                              <div className="flex lg:hidden items-center gap-2 px-4 pb-3">
+                                {a.monthlyVisitsFormatted && (
+                                  <span className="text-[10px] font-semibold text-slate-500">{a.monthlyVisitsFormatted}</span>
+                                )}
+                                {topTech.slice(0, 2).map(t => (
+                                  <span key={t} className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/[0.06] text-[10px] font-medium text-slate-500">{t}</span>
+                                ))}
+                                <div className="ml-auto" onClick={e => e.stopPropagation()}>
+                                  <select value={status} onChange={e => updateUniverseStatus(a.normalizedDomain, e.target.value)}
+                                    className="text-[10px] font-semibold rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#1a1a1a] text-slate-500 dark:text-neutral-400 px-2 py-1 outline-none cursor-pointer">
+                                    <option value="">Status</option>
+                                    <option value="in-conversation">In Conversation</option>
+                                    <option value="active-client">Active Client</option>
+                                    <option value="churned-client">Churned</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
           ) : loading ? (
             /* ── Loading ──────────────────────────────────────────── */
             <div className="flex flex-col items-center justify-center h-full text-center">
@@ -1408,7 +2041,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                   const isSelected = selectedAccounts.has(a.normalizedDomain);
                   const name = domainToName(a.normalizedDomain);
                   const signalCount = (a.activeSignals || []).length;
-                  const topTech = (a.techStack || []).slice(0, 3);
+                  const topTech = [...new Set((a.techStack || []) as string[])].slice(0, 3);
                   return (
                     <div key={a.normalizedDomain}
                       className={`bg-white dark:bg-[#141414]/60 border rounded-xl overflow-hidden transition-all group ${isSelected ? 'border-[#C94C1E]/40 ring-2 ring-[#C94C1E]/10' : 'border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.12] hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)]'}`}>
@@ -1441,7 +2074,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                 }} />
                             </div>
 
-                            {/* Name + score + signals */}
+                            {/* Name + badges */}
                             <div className="flex items-center gap-2 min-w-0 flex-1">
                               <h3 className="text-[15px] font-extrabold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors truncate">{name}</h3>
                               {a.techCount > 0 && (
@@ -1457,7 +2090,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                             {/* Tech stack badges (right side) */}
                             <div className="flex items-center gap-1.5 flex-shrink-0">
                               {topTech.map(t => (
-                                <span key={t} className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.08] text-[10px] font-semibold text-slate-600 dark:text-neutral-300">{t}</span>
+                                <span key={t} className="px-3 py-1 rounded-full bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.08] text-[11px] font-semibold text-slate-600 dark:text-neutral-300">{t}</span>
                               ))}
                               {(a.techStack || []).length > 3 && (
                                 <span className="text-[10px] text-slate-400 dark:text-neutral-500 font-medium">+{(a.techStack || []).length - 3}</span>
@@ -1525,7 +2158,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         </div>
 
         {/* Footer */}
-        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && (
+        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && !isAdminTab && activeTab !== 'my-universe' && (
           <footer className="h-[64px] border-t border-slate-100 dark:border-white/[0.06] bg-white dark:bg-[#141414] px-8 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-4 text-[12px] text-slate-400 dark:text-neutral-500 font-medium">
               <span>Showing <span className="text-slate-800 dark:text-white font-bold">{total === 0 ? 0 : ((page - 1) * PAGE_SIZE) + 1}&ndash;{Math.min(page * PAGE_SIZE, total)}</span> of <span className="text-slate-800 dark:text-white font-bold">{total}</span></span>
@@ -1582,6 +2215,23 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
       {/* AI Chatbot */}
       <ChatBot />
+
+      {/* Global toast — top right */}
+      {globalToast && (
+        <div className={`fixed top-5 right-5 z-[200] px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 max-w-[400px] ${
+          globalToast.type === 'success' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-red-600 text-white'
+        }`}>
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+            globalToast.type === 'success' ? 'bg-emerald-500' : 'bg-white/20'
+          }`}>
+            {globalToast.type === 'success' ? <Check size={14} className="text-white stroke-[3]" /> : <X size={14} className="text-white" />}
+          </div>
+          <p className="text-[13px] font-semibold flex-1">{globalToast.msg}</p>
+          <button onClick={() => setGlobalToast(null)} className="text-white/40 hover:text-white transition-colors flex-shrink-0 ml-2">
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1857,9 +2507,9 @@ const LOOKALIKE_BASES = [
   { key: 'region', label: 'Region', icon: <Globe size={14} /> },
 ];
 
-function LookALikeBrandsView() {
+function LookALikeBrandsView({ initialDomain = '' }: { initialDomain?: string }) {
   const router = useRouter();
-  const [searchDomain, setSearchDomain] = useState('');
+  const [searchDomain, setSearchDomain] = useState(initialDomain);
   const [sourceDomain, setSourceDomain] = useState('');
   const [sourceName, setSourceName] = useState('');
   const [activeBases, setActiveBases] = useState<Set<string>>(new Set(['category']));
@@ -1868,6 +2518,22 @@ function LookALikeBrandsView() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [searched, setSearched] = useState(false);
+  const [sourceCategory, setSourceCategory] = useState('');
+
+  // Filters for narrowing results
+  const [filterRegion, setFilterRegion] = useState('');
+  const [filterBizModel, setFilterBizModel] = useState('');
+  const [filterAppPresence, setFilterAppPresence] = useState('');
+  const [filterStores, setFilterStores] = useState('');
+
+  // Auto-search if initialDomain provided
+  useEffect(() => {
+    if (initialDomain) {
+      const d = initialDomain.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+      setSourceDomain(d);
+      setSearchDomain(d);
+    }
+  }, [initialDomain]);
 
   // Watchlist
   const [watchlists, setWatchlists] = useState<{_id: string; name: string; domains: string[]}[]>([]);
@@ -1917,6 +2583,7 @@ function LookALikeBrandsView() {
       setAccounts(data.accounts || []);
       setBasisLabel(data.basisLabel || '');
       if (data.source?.name) setSourceName(data.source.name);
+      if (data.source?.category) setSourceCategory(data.source.category);
     } catch {
       setAccounts([]);
     } finally {
@@ -1935,16 +2602,30 @@ function LookALikeBrandsView() {
   };
 
   const selectAll = () => {
-    if (selected.size === accounts.length) setSelected(new Set());
-    else setSelected(new Set(accounts.map(a => a.normalizedDomain)));
+    if (selected.size === filteredAccounts.length) setSelected(new Set());
+    else setSelected(new Set(filteredAccounts.map(a => a.normalizedDomain)));
   };
 
+  // Client-side filter
+  const filteredAccounts = accounts.filter(a => {
+    if (filterRegion && a.region !== filterRegion) return false;
+    if (filterBizModel && (a.businessModel || 'Pure D2C') !== filterBizModel) return false;
+    if (filterAppPresence && a.appPresence !== filterAppPresence) return false;
+    if (filterStores && a.offlineStores !== filterStores) return false;
+    return true;
+  });
+
+  // Extract unique values for filter dropdowns
+  const uniqueRegions = [...new Set(accounts.map(a => a.region).filter(Boolean))].sort();
+  const uniqueBizModels = [...new Set(accounts.map(a => a.businessModel || 'Pure D2C').filter(Boolean))].sort();
+  const uniqueAppPresence = [...new Set(accounts.map(a => a.appPresence).filter(Boolean))].sort();
+  const uniqueStores = [...new Set(accounts.map(a => a.offlineStores).filter(Boolean))].sort();
+  const activeFilterCount = [filterRegion, filterBizModel, filterAppPresence, filterStores].filter(Boolean).length;
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6">
       {/* Search bar */}
       <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm dark:shadow-none">
-        <h2 className="text-[16px] font-bold text-slate-800 dark:text-white mb-1">Find LookALike Brands</h2>
-        <p className="text-[13px] text-slate-400 dark:text-neutral-500 mb-4">Enter any brand domain to discover similar accounts based on category, tech stack, business model, and more.</p>
         <div className="flex gap-3">
           <input
             type="text"
@@ -1961,15 +2642,109 @@ function LookALikeBrandsView() {
         </div>
       </div>
 
-      {/* Filter tabs + results */}
+      {/* Results with filter sidebar */}
       {sourceDomain && (
-        <>
-          {/* Source brand + filters */}
+        <div className="flex gap-6">
+          {/* Filter sidebar */}
+          <div className="hidden lg:block w-[240px] flex-shrink-0 space-y-4">
+            <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 shadow-sm dark:shadow-none">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[13px] font-bold text-slate-800 dark:text-white">Filters</h3>
+                {activeFilterCount > 0 && (
+                  <button onClick={() => { setFilterRegion(''); setFilterBizModel(''); setFilterAppPresence(''); setFilterStores(''); }}
+                    className="text-[11px] text-[#C94C1E] font-semibold">Clear all</button>
+                )}
+              </div>
+
+              {/* Category (fixed) */}
+              <div className="mb-4">
+                <p className="text-[10px] font-extrabold text-slate-500 dark:text-neutral-400 uppercase tracking-wider mb-2">Category</p>
+                <div className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-[12px] font-semibold text-slate-700 dark:text-neutral-200">
+                  {sourceCategory || 'All'}
+                </div>
+              </div>
+
+              {/* Region */}
+              {uniqueRegions.length > 1 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-extrabold text-slate-500 dark:text-neutral-400 uppercase tracking-wider mb-2">Region</p>
+                  <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[12px] font-medium text-slate-700 dark:text-neutral-200 outline-none focus:border-[#C94C1E]">
+                    <option value="">All Regions</option>
+                    {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Business Model */}
+              {uniqueBizModels.length > 1 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-extrabold text-slate-500 dark:text-neutral-400 uppercase tracking-wider mb-2">Business Model</p>
+                  <select value={filterBizModel} onChange={e => setFilterBizModel(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[12px] font-medium text-slate-700 dark:text-neutral-200 outline-none focus:border-[#C94C1E]">
+                    <option value="">All Models</option>
+                    {uniqueBizModels.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* App Presence */}
+              {uniqueAppPresence.length > 1 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-extrabold text-slate-500 dark:text-neutral-400 uppercase tracking-wider mb-2">App Presence</p>
+                  <select value={filterAppPresence} onChange={e => setFilterAppPresence(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[12px] font-medium text-slate-700 dark:text-neutral-200 outline-none focus:border-[#C94C1E]">
+                    <option value="">All</option>
+                    {uniqueAppPresence.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Offline Stores */}
+              {uniqueStores.length > 1 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-extrabold text-slate-500 dark:text-neutral-400 uppercase tracking-wider mb-2">Offline Stores</p>
+                  <select value={filterStores} onChange={e => setFilterStores(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[12px] font-medium text-slate-700 dark:text-neutral-200 outline-none focus:border-[#C94C1E]">
+                    <option value="">All</option>
+                    {uniqueStores.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Similarity basis */}
+              <div>
+                <p className="text-[10px] font-extrabold text-slate-500 dark:text-neutral-400 uppercase tracking-wider mb-2">Similar By</p>
+                <div className="space-y-1">
+                  {LOOKALIKE_BASES.map(b => {
+                    const isActive = activeBases.has(b.key);
+                    return (
+                      <button key={b.key} onClick={() => toggleBasis(b.key)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-semibold transition-all text-left ${
+                          isActive ? 'bg-[#C94C1E]/10 text-[#C94C1E]' : 'text-slate-600 dark:text-neutral-400 hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                        }`}>
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                          isActive ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.15]'
+                        }`}>
+                          {isActive && <Check size={10} className="text-white stroke-[3]" />}
+                        </div>
+                        {b.icon}
+                        {b.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Results */}
+          <div className="flex-1 min-w-0">
           <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
             <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
               <div>
                 <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">Similar to {sourceName || sourceDomain}</h3>
-                {basisLabel && <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">{basisLabel}</p>}
+                {sourceCategory && <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">{sourceCategory}{basisLabel ? ` · ${basisLabel}` : ''}</p>}
               </div>
               <div className="flex items-center gap-3">
                 {wlAdded && <span className="text-[12px] font-bold text-emerald-600">Added!</span>}
@@ -2008,7 +2783,7 @@ function LookALikeBrandsView() {
                   </div>
                 )}
                 {selected.size > 0 && !wlAdded && <span className="text-[13px] font-bold text-[#C94C1E]">{selected.size} selected</span>}
-                {!loading && <span className="text-[12px] text-slate-400 dark:text-neutral-500">{accounts.length} results</span>}
+                {!loading && <span className="text-[12px] text-slate-400 dark:text-neutral-500">{filteredAccounts.length} of {accounts.length} results{activeFilterCount > 0 ? ` (${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''})` : ''}</span>}
               </div>
             </div>
 
@@ -2059,9 +2834,15 @@ function LookALikeBrandsView() {
                   <p className="text-[14px] font-semibold text-slate-500 dark:text-neutral-400">No lookalikes found</p>
                   <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1">Try different filter combinations</p>
                 </div>
+              ) : filteredAccounts.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-[14px] font-semibold text-slate-400 dark:text-neutral-500">No accounts match the current filters</p>
+                  <button onClick={() => { setFilterRegion(''); setFilterBizModel(''); setFilterAppPresence(''); setFilterStores(''); }}
+                    className="text-[12px] text-[#C94C1E] font-semibold mt-2">Clear filters</button>
+                </div>
               ) : (
                 <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-                  {accounts.map(a => (
+                  {filteredAccounts.map(a => (
                     <div key={a.normalizedDomain}
                       className={`flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors group ${
                         selected.has(a.normalizedDomain) ? 'bg-orange-50/40 dark:bg-[#C94C1E]/5' : ''
@@ -2125,7 +2906,8 @@ function LookALikeBrandsView() {
               )}
             </div>
           </div>
-        </>
+          </div>
+        </div>
       )}
 
       {/* Empty state — before search */}
@@ -2140,16 +2922,216 @@ function LookALikeBrandsView() {
   );
 }
 
+/* ── Admin Accounts View ───────────────────────────────────────────────── */
+function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'success' | 'error') => void }) {
+  const [accounts, setAccounts] = useState<{normalizedDomain: string; category: string; subCategory: string; region: string; monthlyVisitsFormatted: string | null; adminHidden: boolean; adminApproved: boolean; adminNote: string; updatedAt: string}[]>([]);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [stats, setStats] = useState<{total: number; approved: number; hidden: number; pending: number}>({ total: 0, approved: 0, hidden: 0, pending: 0 });
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const fetchAccounts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/accounts?search=${encodeURIComponent(search)}&status=${statusFilter}&page=${page}&limit=50`);
+      if (!res.ok) { setLoading(false); return; }
+      const data = await res.json();
+      setAccounts(data.accounts || []);
+      setTotal(data.total || 0);
+      setStats(data.stats || { total: 0, approved: 0, hidden: 0, pending: 0 });
+    } catch {}
+    setLoading(false);
+  }, [search, statusFilter, page]);
+
+  useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+
+  const doAction = async (domain: string, action: string, extra?: Record<string, string>) => {
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, action, ...extra }),
+      });
+      if (!res.ok) { showToast('Action failed', 'error'); return; }
+      const data = await res.json();
+      showToast(`${domain} ${data.action}`, 'success');
+      fetchAccounts();
+    } catch {
+      showToast('Action failed', 'error');
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        {[
+          { label: 'Total', value: stats.total, color: 'text-slate-800 dark:text-white' },
+          { label: 'Approved', value: stats.approved, color: 'text-emerald-600' },
+          { label: 'Hidden', value: stats.hidden, color: 'text-red-500' },
+          { label: 'Pending', value: stats.pending, color: 'text-amber-500' },
+        ].map(s => (
+          <div key={s.label} className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl p-4">
+            <p className="text-[11px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider mb-1">{s.label}</p>
+            <p className={`text-[24px] font-extrabold ${s.color}`}>{s.value.toLocaleString()}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Search + Filter */}
+      <div className="flex gap-3">
+        <div className="flex-1 relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search by domain or category..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[13px] text-slate-800 dark:text-white placeholder-slate-400 outline-none focus:border-[#C94C1E] transition-all"
+          />
+        </div>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+          className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[13px] font-medium text-slate-700 dark:text-neutral-200 outline-none">
+          <option value="all">All Accounts</option>
+          <option value="approved">Approved</option>
+          <option value="hidden">Hidden</option>
+          <option value="pending">Pending/Unknown</option>
+        </select>
+      </div>
+
+      {/* Account list */}
+      <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
+        <div className="px-6 py-3 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
+          <span className="text-[12px] font-bold text-slate-500 dark:text-neutral-400">{total} accounts</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 text-[11px] rounded border border-slate-200 dark:border-white/[0.08] disabled:opacity-30">Prev</button>
+            <span className="text-[11px] text-slate-400">Page {page}</span>
+            <button onClick={() => setPage(p => p + 1)} disabled={accounts.length < 50} className="px-2 py-1 text-[11px] rounded border border-slate-200 dark:border-white/[0.08] disabled:opacity-30">Next</button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={20} className="animate-spin text-slate-300" />
+          </div>
+        ) : accounts.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-[13px] text-slate-400">No accounts found</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+            {accounts.map(a => (
+              <div key={a.normalizedDomain} className="flex items-center gap-4 px-6 py-3 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`https://www.google.com/s2/favicons?domain=${a.normalizedDomain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 bg-white p-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-bold text-slate-800 dark:text-white truncate">{a.normalizedDomain}</span>
+                    {a.adminApproved && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded uppercase">Approved</span>}
+                    {a.adminHidden && <span className="text-[9px] font-bold text-red-500 bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded uppercase">Hidden</span>}
+                    {!a.adminApproved && !a.adminHidden && a.category !== 'Unknown' && <span className="text-[9px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-500/10 px-1.5 py-0.5 rounded uppercase">New</span>}
+                    {a.category === 'Unknown' && <span className="text-[9px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-1.5 py-0.5 rounded uppercase">Pending</span>}
+                  </div>
+                  <p className="text-[11px] text-slate-400 dark:text-neutral-500 truncate">
+                    {a.category || 'Unknown'} · {a.region || 'Global'}{a.monthlyVisitsFormatted ? ` · ${a.monthlyVisitsFormatted}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <a href={`https://${a.normalizedDomain}`} target="_blank" rel="noopener noreferrer"
+                    className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 dark:bg-white/[0.04] rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors"
+                    title="Visit website">
+                    <ExternalLink size={13} />
+                  </a>
+                  {!a.adminApproved && !a.adminHidden && (
+                    <button onClick={() => doAction(a.normalizedDomain, 'approve')}
+                      className="px-3 py-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors">
+                      Approve
+                    </button>
+                  )}
+                  {a.adminApproved && (
+                    <span className="px-3 py-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg border border-emerald-200 dark:border-emerald-500/30">
+                      ✓ Approved
+                    </span>
+                  )}
+                  {a.adminHidden ? (
+                    <button onClick={() => doAction(a.normalizedDomain, 'unhide')}
+                      className="px-3 py-1.5 text-[11px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-500/10 rounded-lg hover:bg-blue-100 transition-colors">
+                      Unhide
+                    </button>
+                  ) : (
+                    <button onClick={() => doAction(a.normalizedDomain, 'hide')}
+                      className="px-3 py-1.5 text-[11px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-500/10 rounded-lg hover:bg-amber-100 transition-colors">
+                      Hide
+                    </button>
+                  )}
+                  <button onClick={() => { if (confirm(`Delete ${a.normalizedDomain} permanently?`)) doAction(a.normalizedDomain, 'delete'); }}
+                    className="px-3 py-1.5 text-[11px] font-semibold text-red-500 bg-red-50 dark:bg-red-500/10 rounded-lg hover:bg-red-100 transition-colors">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MarketIntelligenceView() {
+  const router = useRouter();
   const [period, setPeriod] = useState<'week' | '2weeks' | 'month'>('week');
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [signals, setSignals] = useState<SignalItem[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [recommendations, setRecommendations] = useState<RecommendedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [recsLoading, setRecsLoading] = useState(true);
+  const [signalTab, setSignalTab] = useState<'all' | 'funding' | 'key_hire'>('all');
+  const [expanded, setExpanded] = useState<string | null>(null);
 
-  const toggleSection = (key: string) => setExpanded(prev => prev === key ? null : key);
+  // TAL (Target Audience List) state
+  const [talId, setTalId] = useState<string | null>(null);
+  const [talDomains, setTalDomains] = useState<Set<string>>(new Set());
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Find or create TAL watchlist on mount — load existing domains
+  useEffect(() => {
+    fetch('/api/watchlists').then(r => r.json()).then(d => {
+      const wls = d.watchlists || [];
+      const tal = wls.find((w: {name: string}) => w.name === 'Target Audience List');
+      if (tal) {
+        setTalId(tal._id);
+        setTalDomains(new Set(tal.domains || []));
+      }
+    }).catch(() => {});
+  }, []);
+
+  const addToTAL = async (domain: string, brandName: string) => {
+    if (talDomains.has(domain)) return; // already added
+    try {
+      let id = talId;
+      if (!id) {
+        const res = await fetch('/api/watchlists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Target Audience List' }) });
+        if (!res.ok) { showToast('Please login to add to TAL', 'error'); return; }
+        const data = await res.json();
+        if (data.watchlist?._id) { id = data.watchlist._id; setTalId(id); }
+        else { showToast('Could not create TAL', 'error'); return; }
+      }
+      const addRes = await fetch('/api/watchlists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, domain }) });
+      if (!addRes.ok) { showToast('Failed to add — please try again', 'error'); return; }
+      setTalDomains(prev => new Set(prev).add(domain));
+      showToast(`${brandName} added to Target Audience List`, 'success');
+    } catch {
+      showToast('Something went wrong — try again', 'error');
+    }
+  };
 
   // Fetch signals when period changes
   useEffect(() => {
@@ -2185,12 +3167,51 @@ function MarketIntelligenceView() {
     groupedSignals[sig.signalType].push(sig);
   }
 
+  const fundingSignals = groupedSignals['funding'] || [];
+  const hiringSignals = groupedSignals['key_hire'] || [];
+  const buyingWindowAccounts = recommendations.filter(a => a.signalCount >= 2).sort((a, b) => b.score - a.score);
+  const topRecommendations = [...recommendations].sort((a, b) => b.score - a.score).slice(0, 3);
+  const totalActions = recommendations.length;
+
+  const filteredSignals = signalTab === 'all' ? signals : signals.filter(s => s.signalType === signalTab);
+
+  const signalEmoji = (type: string) => {
+    if (type === 'funding') return '\uD83D\uDCB0';
+    if (type === 'key_hire') return '\uD83D\uDC64';
+    if (type === 'store_expansion') return '\uD83C\uDFEA';
+    if (type === 'app_launch') return '\uD83D\uDCF1';
+    if (type === 'marketplace') return '\uD83D\uDED2';
+    if (type === 'traffic_growth') return '\uD83D\uDCC8';
+    return '\u26A1';
+  };
+
+  const signalSummary = (acc: RecommendedAccount) => {
+    return acc.signals.slice(0, 2).map((s, i) => (
+      <span key={i}>
+        {i > 0 && ' + '}
+        <span>{signalEmoji(s.signalType)} {s.headline.length > 35 ? s.headline.slice(0, 35) + '...' : s.headline}</span>
+      </span>
+    ));
+  };
+
+  const initialsOf = (name: string) => {
+    const parts = name.split(/\s+/);
+    return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
+  };
+
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Sub-header */}
+      {/* Top Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[13px] text-slate-400 dark:text-neutral-500">Live buying signals from news &amp; hiring data</p>
+          <h2 className="text-[22px] font-extrabold text-slate-800 dark:text-white tracking-tight">Intelligence Hub</h2>
+          <p className="text-[13px] text-slate-400 dark:text-neutral-500 mt-0.5">
+            {dateStr} &middot;{' '}
+            <span className="text-[#C94C1E] font-semibold">{totalActions} actions recommended</span> across your universe
+          </p>
         </div>
         <div className="flex items-center gap-1 bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl p-1">
           {([['week', 'This Week'], ['2weeks', 'Last 2 Weeks'], ['month', 'Last Month']] as const).map(([key, label]) => (
@@ -2206,124 +3227,253 @@ function MarketIntelligenceView() {
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4">
-        {STAT_CARD_CONFIG.map(card => (
-          <div key={card.key}
-            className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5 hover:border-slate-300 dark:hover:border-white/[0.12] hover:shadow-sm dark:hover:shadow-none transition-all">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">{card.label}</span>
-              <span className="text-slate-300 dark:text-neutral-600">{card.icon}</span>
-            </div>
-            <p className="text-[28px] font-extrabold leading-none text-slate-800 dark:text-white mb-1">
-              {loading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : (stats[card.key] || 0)}
-            </p>
-            <p className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium">in selected period</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Recommended This Week */}
-      {recommendations.length > 0 && (
-        <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Target size={18} className="text-[#C94C1E]" />
-            <span className="text-[15px] font-bold text-slate-800 dark:text-white">Recommended This Week</span>
-            <span className="w-6 h-6 rounded-full bg-[#C94C1E]/10 text-[#C94C1E] text-[11px] font-bold flex items-center justify-center">
-              {recommendations.length}
-            </span>
-          </div>
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {recommendations.slice(0, 20).map(acc => (
-              <div key={acc.domain} className="flex items-center gap-4 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors">
-                <img src={`https://www.google.com/s2/favicons?domain=${acc.domain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 dark:bg-white dark:p-[2px]" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-bold text-slate-800 dark:text-white">{acc.name}</span>
-                    <span className="text-[11px] text-slate-400 dark:text-neutral-500">{acc.domain}</span>
-                    {acc.category && <span className="text-[10px] bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-neutral-400 px-1.5 py-0.5 rounded">{acc.category}</span>}
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate">{acc.reason}</p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-[13px] font-bold text-[#C94C1E]">{acc.score}</div>
-                  <div className="text-[10px] text-slate-400 dark:text-neutral-500">score</div>
-                </div>
+      {/* 2x2 Card Grid */}
+      {loading && recsLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={24} className="animate-spin text-slate-300 dark:text-neutral-600" />
+          <span className="ml-3 text-[13px] text-slate-400 dark:text-neutral-500">Loading intelligence...</span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Card 1: Recommended Actions */}
+          <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
+            <div className="border-l-[3px] border-l-[#C94C1E] p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Target size={16} className="text-[#C94C1E]" />
+                <span className="text-[14px] font-bold text-slate-800 dark:text-white">Recommended Actions</span>
+                <span className="ml-auto w-5 h-5 rounded-full bg-[#C94C1E]/10 text-[#C94C1E] text-[10px] font-bold flex items-center justify-center">{recommendations.length}</span>
               </div>
-            ))}
+              <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar">
+                {(expanded === 'recs' ? [...recommendations].sort((a, b) => b.score - a.score) : topRecommendations).map(acc => (
+                  <div key={acc.domain}
+                    className="flex items-start gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                    onClick={() => router.push(`/account/${acc.domain}`)}>
+                    <img src={`https://www.google.com/s2/favicons?domain=${acc.domain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 dark:bg-white dark:p-[2px]" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[13px] font-bold text-slate-800 dark:text-white">{acc.name}</span>
+                        <span className="text-[10px] text-slate-400 dark:text-neutral-500">
+                          {[acc.category, acc.region].filter(Boolean).join(' \u00B7 ')}
+                        </span>
+                        <span className="text-[11px] font-bold text-[#C94C1E]">{acc.score}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5 truncate">{signalSummary(acc)}</p>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); addToTAL(acc.domain, acc.name); }}
+                      title="Add to Target Audience List"
+                      disabled={talDomains.has(acc.domain)}
+                      className={`flex-shrink-0 px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all whitespace-nowrap mt-0.5 ${
+                        talDomains.has(acc.domain)
+                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 cursor-default'
+                          : 'border border-[#C94C1E] text-[#C94C1E] hover:bg-[#C94C1E] hover:text-white'
+                      }`}>
+                      {talDomains.has(acc.domain) ? '✓ Added' : 'Add to TAL'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {recommendations.length > 3 && (
+                <button onClick={() => setExpanded(expanded === 'recs' ? null : 'recs')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
+                  {expanded === 'recs' ? 'Show less' : `View all ${recommendations.length}`} &rarr;
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: Buying Windows */}
+          <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Zap size={16} className="text-amber-500" />
+              <span className="text-[14px] font-bold text-slate-800 dark:text-white">Buying Windows</span>
+              <span className="ml-auto w-5 h-5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold flex items-center justify-center">{buyingWindowAccounts.length}</span>
+            </div>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar">
+              {(expanded === 'bw' ? buyingWindowAccounts : buyingWindowAccounts.slice(0, 3)).map(acc => (
+                <div key={acc.domain}
+                  className="flex items-start gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  onClick={() => router.push(`/account/${acc.domain}`)}>
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
+                    {initialsOf(acc.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[13px] font-bold text-slate-800 dark:text-white">{acc.name}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-neutral-500">
+                        {[acc.category, acc.region].filter(Boolean).join(' \u00B7 ')}
+                      </span>
+                      <span className="text-[11px] font-bold text-[#C94C1E]">{acc.score}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {acc.signals.slice(0, 3).map((s, i) => (
+                        <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-neutral-400">
+                          {signalEmoji(s.signalType)} {s.signalType.replace('_', ' ')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); addToTAL(acc.domain, acc.name); }}
+                    title="Add to Target Audience List" className="flex-shrink-0 px-3 py-1.5 text-[11px] font-semibold border border-[#C94C1E] text-[#C94C1E] rounded-lg hover:bg-[#C94C1E] hover:text-white transition-all whitespace-nowrap mt-0.5">
+                    Add to TAL
+                  </button>
+                </div>
+              ))}
+            </div>
+            {buyingWindowAccounts.length > 3 && (
+              <button onClick={() => setExpanded(expanded === 'bw' ? null : 'bw')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
+                {expanded === 'bw' ? 'Show less' : `View all ${buyingWindowAccounts.length}`} &rarr;
+              </button>
+            )}
+          </div>
+
+          {/* Card 3: Funding Rounds */}
+          <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign size={16} className="text-emerald-500" />
+              <span className="text-[14px] font-bold text-slate-800 dark:text-white">Funding Rounds</span>
+              <span className="ml-auto w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center justify-center">{fundingSignals.length}</span>
+            </div>
+            <div className="space-y-2.5">
+              {fundingSignals.slice(0, 3).map((s, i) => (
+                <div key={i}
+                  className="flex items-center gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  onClick={() => router.push(`/account/${s.domain}`)}>
+                  <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 dark:bg-white dark:p-[2px]" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[13px] font-bold text-slate-800 dark:text-white">{domainToBrand(s.domain)}</span>
+                    <p className="text-[12px] text-slate-500 dark:text-neutral-400 truncate mt-0.5">{s.headline}</p>
+                    {s.details?.amount ? (
+                      <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        {String(s.details.amount)}{s.details.round ? ` \u00B7 ${String(s.details.round)}` : ''}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium flex-shrink-0">{formatTimeAgo(s.signalDate || s.detectedAt)}</span>
+                </div>
+              ))}
+            </div>
+            {fundingSignals.length > 3 && (
+              <button onClick={() => setSignalTab('funding')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
+                View all {fundingSignals.length} &rarr;
+              </button>
+            )}
+          </div>
+
+          {/* Card 4: Key Hires */}
+          <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Users size={16} className="text-cyan-500" />
+              <span className="text-[14px] font-bold text-slate-800 dark:text-white">Key Hires</span>
+              <span className="ml-auto w-5 h-5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] font-bold flex items-center justify-center">{hiringSignals.length}</span>
+            </div>
+            <div className="space-y-2.5">
+              {hiringSignals.slice(0, 3).map((s, i) => (
+                <div key={i}
+                  className="flex items-center gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  onClick={() => router.push(`/account/${s.domain}`)}>
+                  <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 dark:bg-white dark:p-[2px]" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[13px] font-bold text-slate-800 dark:text-white">{domainToBrand(s.domain)}</span>
+                    <p className="text-[12px] text-slate-500 dark:text-neutral-400 truncate mt-0.5">
+                      {s.details?.person ? `${String(s.details.person)}${s.details.title ? ` \u2014 ${String(s.details.title)}` : ''}` : s.headline}
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium flex-shrink-0">{formatTimeAgo(s.signalDate || s.detectedAt)}</span>
+                </div>
+              ))}
+            </div>
+            {hiringSignals.length > 3 && (
+              <button onClick={() => setSignalTab('key_hire')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
+                View all {hiringSignals.length} &rarr;
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* Signal accordion sections */}
-      <div className="space-y-3">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 size={24} className="animate-spin text-slate-300 dark:text-neutral-600" />
-            <span className="ml-3 text-[13px] text-slate-400 dark:text-neutral-500">Loading signals...</span>
-          </div>
-        ) : signals.length === 0 ? (
-          <div className="text-center py-12">
-            <Radar size={40} className="mx-auto text-slate-200 dark:text-neutral-700 mb-3" />
-            <p className="text-[14px] font-semibold text-slate-500 dark:text-neutral-400">No signals detected yet</p>
-            <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1">Run the signal scanner to populate live data</p>
-          </div>
-        ) : (
-          SIGNAL_SECTIONS.map(section => {
-            const sectionSignals = groupedSignals[section.apiType] || [];
-            if (sectionSignals.length === 0) return null;
-            const isOpen = expanded === section.key;
-            return (
-              <div key={section.key}
-                className={`bg-white dark:bg-[#141414]/60 border rounded-2xl transition-all ${isOpen ? 'border-slate-300 dark:border-white/[0.12] shadow-sm dark:shadow-none' : 'border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.12]'}`}>
-                <button onClick={() => toggleSection(section.key)}
-                  className="w-full flex items-center justify-between px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl ${section.bg} flex items-center justify-center ${section.color}`}>
-                      {section.icon}
-                    </div>
-                    <span className="text-[15px] font-bold text-slate-800 dark:text-white">{section.label}</span>
-                    <span className="w-6 h-6 rounded-full bg-[#C94C1E]/10 text-[#C94C1E] text-[11px] font-bold flex items-center justify-center">
-                      {sectionSignals.length}
-                    </span>
-                  </div>
-                  <ChevronDown size={18} className={`text-slate-300 dark:text-neutral-600 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-                </button>
+      {/* Bottom Section: All Signals with Tabs */}
+      <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
+        {/* Tab Bar */}
+        <div className="flex items-center gap-0 border-b border-slate-100 dark:border-white/[0.06] px-5">
+          {([
+            ['all', `All Signals (${signals.length})`],
+            ['funding', `Funding (${fundingSignals.length})`],
+            ['key_hire', `Key Hires (${hiringSignals.length})`],
+          ] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setSignalTab(key as 'all' | 'funding' | 'key_hire')}
+              className={`px-4 py-3 text-[12px] font-semibold border-b-2 transition-all ${
+                signalTab === key
+                  ? 'border-[#C94C1E] text-[#C94C1E]'
+                  : 'border-transparent text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
 
-                {isOpen && (
-                  <div className="px-6 pb-5 space-y-3 border-t border-slate-100 dark:border-white/[0.06] pt-4">
-                    {sectionSignals.map((s, i) => (
-                      <div key={i} className="flex items-start gap-4 p-4 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors group/card">
-                        <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`} alt="" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 mt-0.5 dark:bg-white dark:p-[3px]" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-[13px] font-bold text-slate-800 dark:text-white">{domainToBrand(s.domain)}</span>
-                            <span className="text-[11px] text-slate-400 dark:text-neutral-500">{s.domain}</span>
-                          </div>
-                          <p className="text-[13px] text-slate-600 dark:text-neutral-300 leading-snug">{s.headline}</p>
-                          {s.details && (s.details.amount || s.details.person) ? (
-                            <p className="text-[11px] text-slate-400 dark:text-neutral-500 mt-1">
-                              {s.details.amount ? <span>{String(s.details.amount)} {s.details.round ? `(${String(s.details.round)})` : ''}</span> : null}
-                              {s.details.person ? <span>{String(s.details.person)}{s.details.title ? ` — ${String(s.details.title)}` : ''}</span> : null}
-                            </p>
-                          ) : null}
-                        </div>
-                        <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium flex-shrink-0 mt-1">{formatTimeAgo(s.signalDate || s.detectedAt)}</span>
-                        {s.sourceUrl && (
-                          <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer"
-                            className="opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 hover:bg-white dark:hover:bg-white/[0.06] rounded-lg flex-shrink-0 mt-0.5">
-                            <ExternalLink size={14} className="text-slate-400 dark:text-neutral-500" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
+        {/* Signal List */}
+        <div className="max-h-[420px] overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={20} className="animate-spin text-slate-300 dark:text-neutral-600" />
+              <span className="ml-3 text-[13px] text-slate-400 dark:text-neutral-500">Loading signals...</span>
+            </div>
+          ) : filteredSignals.length === 0 ? (
+            <div className="text-center py-12">
+              <Radar size={32} className="mx-auto text-slate-200 dark:text-neutral-700 mb-2" />
+              <p className="text-[13px] text-slate-400 dark:text-neutral-500">No signals in this category</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-50 dark:divide-white/[0.04]">
+              {filteredSignals.map((s, i) => (
+                <div key={i}
+                  className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50/70 dark:hover:bg-white/[0.04] transition-colors cursor-pointer group/row"
+                  onClick={() => router.push(`/account/${s.domain}`)}>
+                  <span className="text-[16px] flex-shrink-0">{signalEmoji(s.signalType)}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-slate-700 dark:text-neutral-200 leading-snug">
+                      <span className="font-bold text-slate-800 dark:text-white">{domainToBrand(s.domain)}</span>{' '}
+                      {s.headline}
+                    </p>
                   </div>
-                )}
-              </div>
-            );
-          })
-        )}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={(e) => { e.stopPropagation(); addToTAL(s.domain, domainToBrand(s.domain)); }}
+                      title="Add to Target Audience List" className="opacity-0 group-hover/row:opacity-100 px-2.5 py-1 text-[10px] font-semibold border border-[#C94C1E]/50 text-[#C94C1E] rounded-lg hover:bg-[#C94C1E] hover:text-white transition-all whitespace-nowrap">
+                      + TAL
+                    </button>
+                    <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium">{formatTimeAgo(s.signalDate || s.detectedAt)}</span>
+                    {s.sourceUrl && (
+                      <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="opacity-0 group-hover/row:opacity-100 transition-opacity p-1 hover:bg-white dark:hover:bg-white/[0.06] rounded-lg">
+                        <ExternalLink size={13} className="text-slate-400 dark:text-neutral-500" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Toast notification — top right */}
+      {toast && (
+        <div className={`fixed top-5 right-5 z-[200] px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 max-w-[400px] ${
+          toast.type === 'success' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-red-600 text-white'
+        }`}>
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+            toast.type === 'success' ? 'bg-emerald-500' : 'bg-white/20'
+          }`}>
+            {toast.type === 'success' ? <Check size={14} className="text-white stroke-[3]" /> : <X size={14} className="text-white" />}
+          </div>
+          <p className="text-[13px] font-semibold flex-1">{toast.msg}</p>
+          <button onClick={() => setToast(null)} className="text-white/40 hover:text-white transition-colors flex-shrink-0 ml-2">
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

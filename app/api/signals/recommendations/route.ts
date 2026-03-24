@@ -80,9 +80,15 @@ export async function GET() {
 
 /** Extract brand name from domain */
 function domainToBrand(domain: string): string {
-  return domain
-    .replace(/^www\d*\./, '')
-    .replace(/\.(com|in|co|io|net|org|co\.in|com\.au|co\.uk)$/i, '')
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
+  let base = domain.replace(/^www\d*\./, '').split('.')[0];
+  const _px = /^(with|get|try|use|go|hey|the|my|our|join|meet|hello)(?=[a-z]{3,})/i.exec(base); if (_px && base.length > _px[1].length + 2) base = base.slice(_px[1].length);
+  const W = new Set(['shop','store','mart','hub','club','box','lab','studio','house','home','world','zone','tech','digital','online','global','india','express','market','fashion','style','wear','clothing','couture','beauty','skin','care','hair','health','wellness','fitness','food','foods','kitchen','cafe','coffee','organic','fresh','farm','baby','kids','pet','life','lifestyle','living','decor','gold','silver','jewel','diamond','auto','car','bike','travel','pay','money','capital','bank','learn','academy','game','play','sport','media','news','smart','fast','easy','quick','super','big','new','first','best','top','pro','blue','green','red','black','white','star','sun','urban','city','royal','company','brand','basket','cart','bag','trunk','earth','nature','eco','pure','sugar','honey','pepper','kart','shoes','campus','cosmetics','stone','clue','biryan','tale','eye','face','body','flower','bloom','garden','snap','click','grow','edge','core','ware','goods','and','the','of','my','our','forty','winks']);
+  const N = new Set(['nykaa','myntra','meesho','zepto','swiggy','zomato','flipkart','paytm','razorpay','phonepe','groww','cred','pepperfry','lenskart','bewakoof','ajio','mamaearth','mokobara','caratlane','healthandglow','shopclues']);
+  const l = base.toLowerCase();
+  if (base.includes('-') || base.includes('_')) return base.split(/[-_]/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  if (N.has(l) || base.length <= 6) return base.charAt(0).toUpperCase() + base.slice(1);
+  let best: [string,string]|null = null, bs = 0;
+  for (let i = 3; i < l.length - 2; i++) { const a = l.slice(0, i), b = l.slice(i); const ak = W.has(a), bk = W.has(b); if (!ak && !bk) continue; const s = (ak ? a.length : 0) + (bk ? b.length * 2 : 0); if (s > bs) { bs = s; best = [a, b]; } }
+  if (best) return best.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return base.charAt(0).toUpperCase() + base.slice(1);
 }

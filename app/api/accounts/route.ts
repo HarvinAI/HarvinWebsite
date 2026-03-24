@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 const { getDb } = require('@/lib/scan/db');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { INDIA_STATES, INDIA_CITY_STATE, CITY_ALIASES, normalizeCity, formatDisplayLocation, lookupKnownBrand } = require('@/lib/scan/companyMeta');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { TECH_CATEGORY_MAP } = require('@/lib/scan/detect');
 
 /* Set of known city names (lowercase) for validation */
 const KNOWN_CITIES = new Set<string>(Object.keys(INDIA_CITY_STATE as Record<string, string>));
@@ -237,11 +239,12 @@ export async function GET(req: NextRequest) {
     const db = await getDb();
     const col = db.collection('company_meta');
 
-    // Build query — all accounts with complete data
+    // Build query — all accounts with complete data (exclude admin-hidden)
     const query: Record<string, unknown> = {
       category: { $exists: true, $nin: [null, ''] },
       region: { $exists: true, $nin: [null, ''] },
       normalizedDomain: { $nin: ['harvin.ai'] },
+      adminHidden: { $ne: true },
     };
 
     if (categories.length > 0) {
@@ -433,9 +436,24 @@ export async function GET(req: NextRequest) {
       col.countDocuments(query),
     ]);
 
-    // Fetch real signals for all domains in this batch
+    // Fetch real signals + tech cache for all domains in this batch
     const allDomains = accounts.map((a: Record<string, unknown>) => a.normalizedDomain as string);
     const { signalMap: realSignalMap, fundingMap: realFundingMap } = await fetchRealSignals(db, allDomains);
+
+    // Fetch real tech from tech_cache for domains that lack techStack in company_meta
+    const techCacheMap: Record<string, { names: string[]; count: number }> = {};
+    try {
+      const techDocs = await db.collection('tech_cache').find(
+        { domain: { $in: allDomains } }
+      ).project({ domain: 1, technologies: 1, count: 1, _id: 0 }).toArray();
+      for (const td of techDocs) {
+        const techs = (td.technologies || []) as { name: string }[];
+        techCacheMap[td.domain as string] = {
+          names: techs.map((t: { name: string }) => t.name).slice(0, 10),
+          count: (td.count as number) || techs.length,
+        };
+      }
+    } catch {}
 
     // Apply overrides + infer missing fields + fix misclassified locations
     const processed = accounts.map((a: Record<string, unknown>) => {
@@ -487,8 +505,8 @@ export async function GET(req: NextRequest) {
         offlineStores,
         storeRawCount: rawCount,
         aiStoreCount: a.aiStoreCount,
-        techCount: a.techCount || (5 + Math.floor(Math.abs(Math.sin(domain.length * 9301 + 49297) * 25))),
-        techStack: a.techStack || [],
+        techCount: a.techCount || (a.techStack as string[] || []).length || techCacheMap[domain]?.count || 0,
+        techStack: (a.techStack as string[] || []).length > 0 ? a.techStack : (techCacheMap[domain]?.names || []),
         businessModel: a.businessModel || inferBusinessModel(domain),
         monthlyVisits: hasTrafficData ? (a.monthlyVisits as number) : null,
         monthlyVisitsFormatted: hasTrafficData ? (a.monthlyVisitsFormatted as string) : null,
@@ -523,20 +541,72 @@ export async function GET(req: NextRequest) {
     const filtered = hasInferredFilters ? allFiltered.slice(skip, skip + limit) : allFiltered;
 
     // Get distinct values for filter options
-    const [allCategories, allRegions] = await Promise.all([
+    const [allCategories, allRegions, allTechNames] = await Promise.all([
       col.distinct('category', { category: { $exists: true, $nin: [null, ''] } }),
       col.distinct('region', { region: { $exists: true, $nin: [null, ''] } }),
+      col.distinct('techStack', { techStack: { $exists: true, $not: { $size: 0 } } }),
     ]);
+
+    // Group tech names by their category from detect.js
+    const techByCategory: Record<string, string[]> = {};
+    for (const name of allTechNames as string[]) {
+      const cat = (TECH_CATEGORY_MAP as Record<string, string>)[name] || 'Other';
+      if (!techByCategory[cat]) techByCategory[cat] = [];
+      techByCategory[cat].push(name);
+    }
+    // Sort techs within each category
+    for (const cat of Object.keys(techByCategory)) {
+      techByCategory[cat].sort();
+    }
 
     // Regions: only valid countries
     const cleanRegions = allRegions.filter((r: unknown) => typeof r === 'string' && r && VALID_REGIONS.has(r));
 
-    // States: only use the canonical INDIA_STATES list (no garbage from DB)
-    const cleanStates = [...(INDIA_STATES as string[])];
+    // Build reverse map: state → cities
+    const cityStateMap = INDIA_CITY_STATE as Record<string, string>;
+    const stateToCities: Record<string, Set<string>> = {};
+    const cityAliasMap = CITY_ALIASES as Record<string, string>;
+    for (const [cityLower, state] of Object.entries(cityStateMap)) {
+      if (!stateToCities[state]) stateToCities[state] = new Set();
+      // Use canonical city name from aliases, or capitalize the key
+      const canonical = cityAliasMap[cityLower] || cityLower.charAt(0).toUpperCase() + cityLower.slice(1);
+      stateToCities[state].add(canonical);
+    }
 
-    // Cities: only recognized cities from CITY_ALIASES (canonical names, deduplicated)
-    const canonicalCities = [...new Set(Object.values(CITY_ALIASES as Record<string, string>))];
-    const cleanCities = canonicalCities.sort() as string[];
+    // States: if a region is selected, only show states for that region
+    // Currently only India has states — other regions show no states
+    const selectedRegions = regions;
+    let cleanStates: string[];
+    if (selectedRegions.length > 0) {
+      if (selectedRegions.includes('India')) {
+        cleanStates = [...(INDIA_STATES as string[])];
+      } else {
+        cleanStates = []; // No states for non-India regions
+      }
+    } else {
+      cleanStates = [...(INDIA_STATES as string[])];
+    }
+
+    // Cities: if states are selected, only show cities in those states
+    const selectedStates = states;
+    let cleanCities: string[];
+    if (selectedStates.length > 0) {
+      const citySet = new Set<string>();
+      for (const st of selectedStates) {
+        const cities = stateToCities[st];
+        if (cities) cities.forEach(c => citySet.add(c));
+      }
+      cleanCities = [...citySet].sort();
+    } else if (selectedRegions.length > 0 && !selectedRegions.includes('India')) {
+      cleanCities = []; // Non-India regions: no cities
+    } else {
+      // No state filter: show all canonical cities
+      const allCities = new Set<string>();
+      for (const cities of Object.values(stateToCities)) {
+        cities.forEach(c => allCities.add(c));
+      }
+      cleanCities = [...allCities].sort();
+    }
 
     return NextResponse.json({
       accounts: filtered,
@@ -549,6 +619,7 @@ export async function GET(req: NextRequest) {
         states: cleanStates.sort(),
         cities: cleanCities.sort(),
         offlineStores: ['Online', '1-10', '11-20', '21-50', '51-100', '100+'],
+        techStackOptions: techByCategory,
       },
     }, { headers: corsHeaders });
   } catch (err: unknown) {
