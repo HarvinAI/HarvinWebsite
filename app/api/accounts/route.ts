@@ -426,6 +426,7 @@ export async function GET(req: NextRequest) {
           fundingStage: 1,
           updatedAt: 1,
           overrides: 1,
+          brandName: 1,
         });
 
     if (dbSkip > 0) findCursor = findCursor.skip(dbSkip);
@@ -514,6 +515,7 @@ export async function GET(req: NextRequest) {
         appPresence: a.appPresence || 'No App',
         activeSignals: realSignalMap[domain] || ((dbSignals && dbSignals.length > 0) ? dbSignals : []),
         fundingStage: realFundingMap[domain] || a.fundingStage || null,
+        brandName: a.brandName || null,
         updatedAt: a.updatedAt,
       };
     });

@@ -1,0 +1,11 @@
+{
+  "status": "completed",
+  "lastRunDate": "2026-03-27T10:08:33.079Z",
+  "processed": 1,
+  "fetched": 0,
+  "fetchFailed": 1,
+  "reclassified": 0,
+  "improved": 0,
+  "unchanged": 1,
+  "elapsedSeconds": 7.5
+}

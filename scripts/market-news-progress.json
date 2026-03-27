@@ -1,0 +1,21 @@
+{
+  "status": "completed",
+  "lastRunDate": "2026-03-27T04:06:58.894Z",
+  "totalFetched": 24712,
+  "processed": 1095,
+  "extracted": 365,
+  "skipped": 730,
+  "written": 365,
+  "typeCounts": {
+    "funding": 103,
+    "hiring": 7,
+    "acquisition": 128,
+    "launch": 10,
+    "shutdown": 57,
+    "partnership": 33,
+    "expansion": 23,
+    "regulatory": 4
+  },
+  "elapsedSeconds": 632.3,
+  "mode": "zero-api"
+}

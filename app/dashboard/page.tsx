@@ -49,6 +49,7 @@ type Account = {
   appPresence: string | null;
   activeSignals: string[];
   fundingStage: string | null;
+  brandName: string | null;
   updatedAt: string;
 };
 type Filters = { category: string[]; region: string[]; state: string[]; city: string[]; businessModel: string[]; scale: string[]; offlinePresence: string[]; appPresence: string[]; techStack: string[]; activeSignals: string[]; funding: string[] };
@@ -76,7 +77,7 @@ const TAB_TITLES: Record<SidebarTab, string> = {
   'tech-scanner': 'Tech Scanner',
   'lookalike-brands': 'LookALike Brands',
   'my-watchlists': 'My Watchlists',
-  'recently-funded': 'Recently Funded',
+  'recently-funded': 'Market News',
   'competitor-clients': 'Competitor Clients',
   'current-clients': 'Current Clients',
   'icp-preferences': 'ICP & Preferences',
@@ -1053,7 +1054,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
     <div className="flex h-screen w-full bg-[#FDFDFD] dark:bg-[#0a0a0a] font-sans text-slate-900 dark:text-white overflow-hidden">
 
       {/* ── Nav Sidebar (expanded with labels) ── */}
-      <aside className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0 w-[220px]">
+      <aside className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0 w-[210px]">
         <div className="flex items-center gap-2.5 flex-shrink-0 px-5 py-4">
           <a href="/" className="flex items-center gap-0.5">
             <div className="h-7 w-8 overflow-hidden flex-shrink-0">
@@ -1063,8 +1064,8 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
           </a>
         </div>
 
-        <div className="flex-1 py-2">
-          <div className="space-y-4 px-3 divide-y divide-slate-100 dark:divide-white/[0.06] [&>*]:pt-4 [&>*:first-child]:pt-0">
+        <div className="flex-1 min-h-0 overflow-y-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="space-y-2.5 px-3 divide-y divide-slate-100 dark:divide-white/[0.06] [&>*]:pt-2.5 [&>*:first-child]:pt-0">
             <div>
               <h3 className="px-3 mb-1 text-[11px] font-black text-slate-500 dark:text-neutral-400 uppercase tracking-widest">Intelligence</h3>
               <div className="space-y-0.5">
@@ -1088,7 +1089,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
               <div className="space-y-0.5" data-tour="watchlists">
                 <NavBtn icon={<Star size={18} />} label="My Watchlists" active={activeTab === 'my-watchlists'} onClick={() => setActiveTab('my-watchlists')}
                   badge={watchlists.length > 0 ? String(watchlists.length) : undefined} />
-                <NavBtn icon={<Target size={18} />} label="Recently Funded" active={activeTab === 'recently-funded'} onClick={() => setActiveTab('recently-funded')} />
+                <NavBtn icon={<Zap size={18} />} label="Market News" active={activeTab === 'recently-funded'} onClick={() => setActiveTab('recently-funded')} />
                 <NavBtn icon={<Briefcase size={18} />} label="Current Clients" locked />
               </div>
             </div>
@@ -1113,7 +1114,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         </div>
 
         {/* Theme toggle */}
-        <div className="px-3 pb-2">
+        <div className="px-3 pb-2 mt-auto flex-shrink-0">
           <button
             onClick={onToggleTheme}
             aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -1255,23 +1256,48 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                 </div>
               )}
               <FilterItem label="None detected" on={filters.techStack.includes('None detected')} onClick={() => toggle('techStack', 'None detected')} />
-              {/* Priority categories shown first */}
+              {/* Curated tech categories */}
               {(() => {
-                const priorityOrder = ['Ecommerce Platform', 'Customer Engagement / CRM', 'Payments & Checkout - Gateway', 'Analytics & Behavior', 'Customer Support', 'Marketing automation'];
-                const searchLower = techSearch.toLowerCase();
-                const allCats = Object.keys(filterOptions.techStackOptions);
-                const ordered = [
-                  ...priorityOrder.filter(c => allCats.includes(c)),
-                  ...allCats.filter(c => !priorityOrder.includes(c)).sort(),
+                const TECH_FILTER_CATS: [string[], string][] = [
+                  [['Ecommerce', 'Ecommerce Platform'], 'Ecommerce Platform'],
+                  [['Marketing automation'], 'Marketing Automation'],
+                  [['Analytics', 'Analytics & Behavior', 'Analytics & Optimization Platform'], 'Analytics'],
+                  [['Buy now pay later', 'Buy Now Pay Later', 'Payments & Checkout - Checkout / BNPL'], 'BNPL'],
+                  [['CDN', 'CDN & Infrastructure', 'CDN & Security'], 'CDN'],
+                  [['CMS', 'Headless CMS'], 'CMS'],
+                  [['CRM', 'Customer Engagement / CRM'], 'CRM'],
+                  [['Hosting'], 'Hosting'],
+                  [['Live chat', 'Customer Support'], 'Live Chat'],
+                  [['Payment processors', 'Payments & Checkout - Gateway', 'Payments & Checkout Platform'], 'Payment Processors'],
+                  [['SEO'], 'SEO'],
+                  [['Shopify apps', 'Shopify Apps'], 'Shopify Apps'],
                 ];
-                return ordered.map(cat => {
-                  const techs = filterOptions.techStackOptions[cat] || [];
-                  const filtered = searchLower ? techs.filter(t => t.toLowerCase().includes(searchLower)) : techs;
-                  if (filtered.length === 0) return null;
-                  return (
-                    <TechCategoryGroup key={cat} category={cat} techs={filtered} filters={filters} toggle={toggle} />
-                  );
-                });
+                const searchLower = techSearch.toLowerCase();
+                const curatedKeys = new Set(TECH_FILTER_CATS.flatMap(([keys]) => keys));
+                const allCats = Object.keys(filterOptions.techStackOptions);
+                const extraCats = searchLower
+                  ? allCats.filter(c => !curatedKeys.has(c)).sort()
+                  : [];
+                return (
+                  <>
+                    {TECH_FILTER_CATS.map(([dbCats, displayName]) => {
+                      const techs = [...new Set(dbCats.flatMap(c => filterOptions.techStackOptions[c] || []))].sort();
+                      const filtered = searchLower ? techs.filter(t => t.toLowerCase().includes(searchLower)) : techs;
+                      if (filtered.length === 0) return null;
+                      return (
+                        <TechCategoryGroup key={displayName} category={displayName} techs={filtered} filters={filters} toggle={toggle} />
+                      );
+                    })}
+                    {extraCats.map(cat => {
+                      const techs = filterOptions.techStackOptions[cat] || [];
+                      const filtered = techs.filter(t => t.toLowerCase().includes(searchLower));
+                      if (filtered.length === 0) return null;
+                      return (
+                        <TechCategoryGroup key={cat} category={cat} techs={filtered} filters={filters} toggle={toggle} />
+                      );
+                    })}
+                  </>
+                );
               })()}
             </FilterSection>
 
@@ -1545,11 +1571,11 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                           <div className="p-4 flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-100 dark:border-white/[0.06] flex items-center justify-center font-serif text-slate-400 dark:text-neutral-500 text-lg flex-shrink-0 cursor-pointer"
                               onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
-                              {domainToName(a.normalizedDomain)[0]}
+                              {(a.brandName || domainToName(a.normalizedDomain))[0]}
                             </div>
                             <div className="min-w-0 flex-1 cursor-pointer" onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
                               <div className="flex items-center gap-2">
-                                <h3 className="text-[15px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors">{domainToName(a.normalizedDomain)}</h3>
+                                <h3 className="text-[15px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors">{a.brandName || domainToName(a.normalizedDomain)}</h3>
                                 <span className="text-[11px] text-slate-400 dark:text-neutral-500">{a.normalizedDomain}</span>
                               </div>
                               <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">
@@ -1817,7 +1843,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                       {/* Table rows */}
                       <div className="divide-y divide-slate-100/80 dark:divide-white/[0.04]">
                         {filtered.map(a => {
-                          const name = domainToName(a.normalizedDomain);
+                          const name = a.brandName || domainToName(a.normalizedDomain);
                           const topTech = pickPriorityTech((a.techStack || []) as string[], techCategoryLookup);
                           const scanned = (a as Record<string, unknown>).scanned !== false;
                           const status = universeStatuses[a.normalizedDomain] || '';
@@ -2039,7 +2065,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                 {accounts.map(raw => {
                   const a = demoFill(raw);
                   const isSelected = selectedAccounts.has(a.normalizedDomain);
-                  const name = domainToName(a.normalizedDomain);
+                  const name = a.brandName || domainToName(a.normalizedDomain);
                   const signalCount = (a.activeSignals || []).length;
                   const topTech = [...new Set((a.techStack || []) as string[])].slice(0, 3);
                   return (
@@ -2242,7 +2268,7 @@ function NavBtn({ icon, label, active, locked, onClick, badge }: {
 }) {
   if (locked) {
     return (
-      <div className="flex items-center justify-between rounded-lg text-slate-400 dark:text-neutral-500 cursor-not-allowed transition-all px-3 py-2">
+      <div className="flex items-center justify-between rounded-lg text-slate-400 dark:text-neutral-500 cursor-not-allowed transition-all px-3 py-1.5">
         <div className="flex items-center gap-2.5">
           <span className="text-slate-300 dark:text-neutral-600 flex-shrink-0">{icon}</span>
           <span className="text-[13px] font-bold">{label}</span>
@@ -2254,7 +2280,7 @@ function NavBtn({ icon, label, active, locked, onClick, badge }: {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-2.5 rounded-lg transition-all px-3 py-2 ${
+      className={`w-full flex items-center gap-2.5 rounded-lg transition-all px-3 py-1.5 ${
         active
           ? 'bg-orange-50 dark:bg-[#C94C1E]/10 text-[#C94C1E]'
           : 'text-slate-500 dark:text-neutral-400 hover:bg-slate-50 dark:hover:bg-white/[0.04]'
@@ -2277,113 +2303,443 @@ const SIGNAL_SECTIONS = [
   { key: 'growth', label: 'High Growth', icon: <TrendingUp size={18} />, color: 'text-emerald-400', bg: 'bg-emerald-400/10', apiType: 'traffic_growth' },
 ] as const;
 
-type SignalItem = {
-  domain: string;
-  signalType: string;
+/* ── Market News Views ─────────────────────────────────────────────────── */
+type MarketNewsArticle = {
+  title: string;
+  snippet: string;
+  url: string;
+  source: string;
+  sourceName: string;
+  imageUrl: string;
+  publishedAt: string;
+  newsType: string;
+  companyName: string;
+  category: string;
   headline: string;
-  details: Record<string, unknown>;
-  sourceUrl: string;
+  summary: string;
+  country: string | null;
+  marketImpact: string;
   confidence: number;
-  detectedAt: string;
-  signalDate?: string;
+  details: {
+    // Funding
+    amount?: string | null;
+    amountUSD?: number | null;
+    round?: string | null;
+    investors?: string[];
+    // Hiring
+    person?: string | null;
+    role?: string | null;
+    roleLevel?: string | null;
+    hiringCount?: number | null;
+    // Acquisition
+    acquirer?: string | null;
+    target?: string | null;
+    dealAmount?: string | null;
+    // Launch
+    productName?: string | null;
+    market?: string | null;
+    // Shutdown
+    reason?: string | null;
+    impactedCount?: number | null;
+    // Regulatory
+    regulator?: string | null;
+    impact?: string | null;
+    // Partnership
+    partner?: string | null;
+  };
 };
 
-type RecommendedAccount = {
-  domain: string;
-  name: string;
-  category: string | null;
-  region: string | null;
-  score: number;
-  signalCount: number;
-  signals: { signalType: string; headline: string; detectedAt: string }[];
-  topSignal: string | null;
-  reason: string | null;
+type MarketNewsStats = {
+  newsTypes: Record<string, number>;
+  categories: Record<string, number>;
+  countries: Record<string, number>;
+  totalFundingUSD: number;
+  highImpact: number;
 };
 
-const PERIOD_MAP = { week: '7d', '2weeks': '14d', month: '30d' } as const;
-
-const STAT_CARD_CONFIG = [
-  { key: 'funding', label: 'FUNDING ROUNDS', icon: <DollarSign size={16} /> },
-  { key: 'key_hire', label: 'KEY HIRES', icon: <Users size={16} /> },
+const NEWS_PERIODS = [
+  { key: '24h', label: '24h' },
+  { key: '3d', label: '3 Days' },
+  { key: '7d', label: '7 Days' },
+  { key: '14d', label: '14 Days' },
+  { key: '30d', label: '30 Days' },
 ];
 
-function formatTimeAgo(dateStr: string): string {
+const NEWS_TYPE_CONFIG: Record<string, { label: string; icon: string; color: string; badgeClass: string }> = {
+  funding:     { label: 'Funding',     icon: '$',  color: '#10b981', badgeClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' },
+  hiring:      { label: 'Hiring',      icon: '+',  color: '#3b82f6', badgeClass: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400' },
+  acquisition: { label: 'Acquisition', icon: 'M',  color: '#8b5cf6', badgeClass: 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400' },
+  launch:      { label: 'Launch',      icon: '!',  color: '#f59e0b', badgeClass: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' },
+  shutdown:    { label: 'Shutdown',    icon: 'x',  color: '#ef4444', badgeClass: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400' },
+  regulatory:  { label: 'Regulatory',  icon: 'R',  color: '#6366f1', badgeClass: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400' },
+  partnership: { label: 'Partnership', icon: 'P',  color: '#14b8a6', badgeClass: 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400' },
+  expansion:   { label: 'Expansion',   icon: 'E',  color: '#f97316', badgeClass: 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400' },
+  other:       { label: 'Other',       icon: '?',  color: '#94a3b8', badgeClass: 'bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-neutral-300' },
+};
+
+const ROUND_COLORS: Record<string, string> = {
+  'Pre-Seed': 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',
+  'Seed': 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  'Pre-Series A': 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400',
+  'Series A': 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  'Series B': 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400',
+  'Series C': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  'Series D': 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
+  'Debt': 'bg-slate-100 text-slate-700 dark:bg-white/[0.06] dark:text-neutral-300',
+  'Bridge': 'bg-pink-50 text-pink-700 dark:bg-pink-500/10 dark:text-pink-400',
+  'IPO': 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
+};
+
+function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  if (days === 0) return 'today';
-  if (days === 1) return '1 day ago';
-  if (days < 7) return `${days} days ago`;
-  if (days < 14) return '1 week ago';
-  return `${Math.floor(days / 7)} weeks ago`;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-function domainToBrand(domain: string): string {
-  return domain
-    .replace(/^www\d*\./, '')
-    .replace(/\.(com|in|co|io|net|org|co\.in|com\.au|co\.uk)$/i, '')
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
+function formatUSD(m: number) {
+  if (m >= 1000) return `$${(m / 1000).toFixed(1)}B`;
+  if (m >= 1) return `$${m.toFixed(0)}M`;
+  return `$${(m * 1000).toFixed(0)}K`;
 }
 
-/* ── Recently Funded View ──────────────────────────────────────────────── */
+function NewsDetailBadge({ article }: { article: MarketNewsArticle }) {
+  const d = article.details;
+  switch (article.newsType) {
+    case 'funding':
+      return d.amount ? (
+        <span className="inline-block text-[13px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 rounded-lg">
+          {d.amount}
+        </span>
+      ) : null;
+    case 'hiring':
+      return d.role ? (
+        <span className="inline-block text-[11px] font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2.5 py-1 rounded-lg">
+          {d.roleLevel === 'mass-hiring' ? `${d.hiringCount || ''}+ hiring` : d.roleLevel === 'layoff' ? `${d.impactedCount || ''} layoffs` : d.role}
+        </span>
+      ) : null;
+    case 'acquisition':
+      return d.dealAmount ? (
+        <span className="inline-block text-[11px] font-bold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-2.5 py-1 rounded-lg">
+          {d.dealAmount}
+        </span>
+      ) : null;
+    case 'shutdown':
+      return d.impactedCount ? (
+        <span className="inline-block text-[11px] font-bold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-2.5 py-1 rounded-lg">
+          {d.impactedCount} affected
+        </span>
+      ) : null;
+    default:
+      return null;
+  }
+}
+
+function NewsSubDetail({ article }: { article: MarketNewsArticle }) {
+  const d = article.details;
+  switch (article.newsType) {
+    case 'funding':
+      return d.investors && d.investors.length > 0 ? (
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          <Users size={12} className="text-slate-400 dark:text-neutral-500 flex-shrink-0" />
+          <span className="text-[11px] text-slate-500 dark:text-neutral-400">
+            {d.investors.slice(0, 4).join(', ')}{d.investors.length > 4 && ` +${d.investors.length - 4} more`}
+          </span>
+        </div>
+      ) : null;
+    case 'hiring':
+      return d.person ? (
+        <div className="flex items-center gap-1.5 mb-2">
+          <Users size={12} className="text-blue-400 dark:text-blue-500 flex-shrink-0" />
+          <span className="text-[11px] text-slate-500 dark:text-neutral-400">
+            {d.person}{d.role ? ` as ${d.role}` : ''}
+          </span>
+        </div>
+      ) : null;
+    case 'acquisition':
+      return d.acquirer && d.target ? (
+        <div className="flex items-center gap-1.5 mb-2">
+          <TrendingUp size={12} className="text-violet-400 dark:text-violet-500 flex-shrink-0" />
+          <span className="text-[11px] text-slate-500 dark:text-neutral-400">
+            {d.acquirer} acquires {d.target}
+          </span>
+        </div>
+      ) : null;
+    case 'partnership':
+      return d.partner ? (
+        <div className="flex items-center gap-1.5 mb-2">
+          <Users size={12} className="text-teal-400 dark:text-teal-500 flex-shrink-0" />
+          <span className="text-[11px] text-slate-500 dark:text-neutral-400">
+            Partnership with {d.partner}
+          </span>
+        </div>
+      ) : null;
+    case 'launch':
+      return d.productName ? (
+        <div className="flex items-center gap-1.5 mb-2">
+          <Sparkles size={12} className="text-amber-400 dark:text-amber-500 flex-shrink-0" />
+          <span className="text-[11px] text-slate-500 dark:text-neutral-400">
+            {d.productName}{d.market ? ` in ${d.market}` : ''}
+          </span>
+        </div>
+      ) : null;
+    case 'regulatory':
+      return d.regulator ? (
+        <div className="flex items-center gap-1.5 mb-2">
+          <Shield size={12} className="text-indigo-400 dark:text-indigo-500 flex-shrink-0" />
+          <span className="text-[11px] text-slate-500 dark:text-neutral-400">
+            {d.regulator}{d.impact ? ` (${d.impact})` : ''}
+          </span>
+        </div>
+      ) : null;
+    default:
+      return null;
+  }
+}
+
 function RecentlyFundedView() {
-  const router = useRouter();
-  const [accounts, setAccounts] = useState<{domain: string; name: string; category: string; region: string; signals: {signalType: string; headline: string; detectedAt: string; details: Record<string, unknown>}[]; score: number}[]>([]);
+  const [articles, setArticles] = useState<MarketNewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<MarketNewsStats>({ newsTypes: {}, categories: {}, countries: {}, totalFundingUSD: 0, highImpact: 0 });
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
+  // Filters
+  const [period, setPeriod] = useState('7d');
+  const [newsType, setNewsType] = useState('all');
+  const [category, setCategory] = useState('all');
+  const [country, setCountry] = useState('all');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search
   useEffect(() => {
-    fetch('/api/signals/recommendations')
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Fetch data
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ period, page: String(page), limit: '30' });
+    if (newsType !== 'all') params.set('newsType', newsType);
+    if (category !== 'all') params.set('category', category);
+    if (country !== 'all') params.set('country', country);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+
+    fetch(`/api/market-news?${params}`)
       .then(r => r.json())
       .then(data => {
-        setAccounts(data.accounts || []);
+        setArticles(data.articles || []);
+        setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+        if (data.stats) setStats(data.stats);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [period, newsType, category, country, debouncedSearch, page]);
+
+  // Reset page on filter change
+  useEffect(() => { setPage(1); }, [period, newsType, category, country, debouncedSearch]);
+
+  const topCategories = Object.entries(stats.categories).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const topCountries = Object.entries(stats.countries).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const totalNews = Object.values(stats.newsTypes).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div>
-        <p className="text-[13px] text-slate-400 dark:text-neutral-500">Brands that recently raised funding — sorted by signal score</p>
+    <div className="max-w-6xl mx-auto space-y-5">
+      {/* Header stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 uppercase tracking-wide">Total News</p>
+          <p className="text-[22px] font-bold text-slate-800 dark:text-white mt-0.5">{totalNews}</p>
+        </div>
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 uppercase tracking-wide">Funding</p>
+          <p className="text-[22px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.totalFundingUSD > 0 ? formatUSD(stats.totalFundingUSD) : (stats.newsTypes.funding || 0)}</p>
+        </div>
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 uppercase tracking-wide">Hiring</p>
+          <p className="text-[22px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">{stats.newsTypes.hiring || 0}</p>
+        </div>
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 uppercase tracking-wide">High Impact</p>
+          <p className="text-[22px] font-bold text-red-600 dark:text-red-400 mt-0.5">{stats.highImpact}</p>
+        </div>
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 uppercase tracking-wide">Categories</p>
+          <p className="text-[22px] font-bold text-slate-800 dark:text-white mt-0.5">{Object.keys(stats.categories).length}</p>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-slate-300" />
+      {/* News type tabs */}
+      <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <button onClick={() => setNewsType('all')}
+            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${newsType === 'all' ? 'bg-[#C94C1E] text-white shadow-sm' : 'bg-slate-50 dark:bg-white/[0.04] text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-white'}`}>
+            All {totalNews > 0 && `(${totalNews})`}
+          </button>
+          {Object.entries(NEWS_TYPE_CONFIG).map(([key, cfg]) => {
+            const count = stats.newsTypes[key] || 0;
+            if (count === 0 && key !== newsType) return null;
+            return (
+              <button key={key} onClick={() => setNewsType(key)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${newsType === key ? cfg.badgeClass + ' ring-1 ring-current/20' : 'bg-slate-50 dark:bg-white/[0.04] text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-white'}`}>
+                {cfg.label} ({count})
+              </button>
+            );
+          })}
         </div>
-      ) : accounts.length === 0 ? (
-        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-12 text-center">
-          <DollarSign size={36} className="mx-auto text-slate-200 dark:text-neutral-700 mb-3" />
-          <p className="text-[14px] font-semibold text-slate-500 dark:text-neutral-400">No funded brands detected yet</p>
-          <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1">Run the signal scanner to populate funding data</p>
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
-          <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-            {accounts.map(a => (
-              <button key={a.domain} onClick={() => router.push(`/account/${a.domain}`)}
-                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors group text-left">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`https://www.google.com/s2/favicons?domain=${a.domain}&sz=64`} alt="" className="w-10 h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] flex-shrink-0 bg-white dark:bg-white/[0.04] p-0.5" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[15px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors truncate">{a.name}</span>
-                    <span className="text-[11px] text-slate-400 dark:text-neutral-500">{a.domain}</span>
-                  </div>
-                  <p className="text-[12px] text-slate-500 dark:text-neutral-400 truncate">
-                    {a.category} · {a.region}
-                    {a.signals?.[0]?.headline && <> · {(a.signals[0].headline as string).substring(0, 60)}...</>}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {a.signals?.[0]?.details?.amount ? (
-                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-lg">{String(a.signals[0].details.amount)}</span>
-                  ) : null}
-                  <span className="text-[12px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 px-2.5 py-1 rounded-lg">{a.score}</span>
-                </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Period pills */}
+          <div className="flex items-center gap-1 bg-slate-50 dark:bg-white/[0.04] rounded-lg p-0.5">
+            {NEWS_PERIODS.map(p => (
+              <button key={p.key} onClick={() => setPeriod(p.key)}
+                className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${period === p.key ? 'bg-white dark:bg-white/[0.1] text-[#C94C1E] shadow-sm' : 'text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-white'}`}>
+                {p.label}
               </button>
             ))}
           </div>
+
+          {/* Category filter */}
+          <select value={category} onChange={e => setCategory(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#1a1a1a] text-[11px] font-semibold text-slate-700 dark:text-neutral-300 outline-none focus:border-[#C94C1E] transition-colors">
+            <option value="all">All Categories</option>
+            {topCategories.map(([c, n]) => (
+              <option key={c} value={c}>{c} ({n})</option>
+            ))}
+          </select>
+
+          {/* Country filter */}
+          <select value={country} onChange={e => setCountry(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#1a1a1a] text-[11px] font-semibold text-slate-700 dark:text-neutral-300 outline-none focus:border-[#C94C1E] transition-colors">
+            <option value="all">All Countries</option>
+            {topCountries.map(([c, n]) => (
+              <option key={c} value={c}>{c} ({n})</option>
+            ))}
+          </select>
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" size={13} />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search company, category, news..."
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#1a1a1a] text-[11px] font-medium text-slate-700 dark:text-neutral-300 placeholder-slate-400 dark:placeholder-neutral-500 outline-none focus:border-[#C94C1E] transition-colors" />
+          </div>
+        </div>
+      </div>
+
+      {/* News feed */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={24} className="animate-spin text-[#C94C1E]" />
+          <span className="ml-3 text-[13px] text-slate-400 dark:text-neutral-500">Loading market news...</span>
+        </div>
+      ) : articles.length === 0 ? (
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-12 text-center">
+          <Zap size={40} className="mx-auto text-slate-200 dark:text-neutral-700 mb-3" />
+          <p className="text-[15px] font-semibold text-slate-500 dark:text-neutral-400">No market news found</p>
+          <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1.5 max-w-md mx-auto">
+            {debouncedSearch || newsType !== 'all' || category !== 'all'
+              ? 'Try adjusting your filters or search query'
+              : 'Run the market news scanner: node scripts/market-news-scan.js'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {articles.map((a, idx) => {
+            const ntCfg = NEWS_TYPE_CONFIG[a.newsType] || NEWS_TYPE_CONFIG.other;
+            return (
+              <a key={`${a.companyName}-${idx}`} href={a.url} target="_blank" rel="noopener noreferrer"
+                className="block bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl hover:border-[#C94C1E]/30 hover:shadow-md hover:shadow-orange-500/5 transition-all group">
+                <div className="flex items-start gap-4 p-5">
+                  {/* News type icon */}
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-[16px] font-black border"
+                    style={{ backgroundColor: ntCfg.color + '12', borderColor: ntCfg.color + '25', color: ntCfg.color }}>
+                    {ntCfg.icon}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-[15px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors">
+                        {a.companyName || 'Unknown'}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${ntCfg.badgeClass}`}>
+                        {ntCfg.label}
+                      </span>
+                      {a.newsType === 'funding' && a.details?.round && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${ROUND_COLORS[a.details.round] || 'bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-neutral-300'}`}>
+                          {a.details.round}
+                        </span>
+                      )}
+                      {a.category && (
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-neutral-500 bg-slate-50 dark:bg-white/[0.04] px-2 py-0.5 rounded-md">
+                          {a.category}
+                        </span>
+                      )}
+                      {a.marketImpact === 'high' && (
+                        <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-2 py-0.5 rounded-md">
+                          HIGH IMPACT
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[13px] text-slate-600 dark:text-neutral-300 leading-relaxed mb-2 line-clamp-2">
+                      {a.summary || a.headline || a.title}
+                    </p>
+
+                    {/* Type-specific sub-detail */}
+                    <NewsSubDetail article={a} />
+
+                    {/* Meta row */}
+                    <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-neutral-500">
+                      {a.country && (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={11} /> {a.country}
+                        </span>
+                      )}
+                      {a.sourceName && <span>{a.sourceName}</span>}
+                      <span>{timeAgo(a.publishedAt)}</span>
+                      <ExternalLink size={11} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
+
+                  {/* Right badge */}
+                  <div className="flex-shrink-0">
+                    <NewsDetailBadge article={a} />
+                  </div>
+                </div>
+              </a>
+            );
+          })}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-[12px] text-slate-400 dark:text-neutral-500">
+                Showing {(page - 1) * 30 + 1}-{Math.min(page * 30, total)} of {total} news
+              </p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[12px] font-semibold text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="text-[12px] font-bold text-slate-600 dark:text-neutral-300">{page} / {totalPages}</span>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[12px] font-semibold text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -3080,127 +3436,254 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
   );
 }
 
+function MarketNewsFeed() {
+  const [articles, setArticles] = useState<MarketNewsArticle[]>([]);
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [feedStats, setFeedStats] = useState<MarketNewsStats>({ newsTypes: {}, categories: {}, countries: {}, totalFundingUSD: 0, highImpact: 0 });
+  const [feedTotal, setFeedTotal] = useState(0);
+  const [feedPage, setFeedPage] = useState(1);
+  const [feedTotalPages, setFeedTotalPages] = useState(1);
+  const [feedType, setFeedType] = useState('all');
+  const [feedCategory, setFeedCategory] = useState('all');
+  const [feedSearch, setFeedSearch] = useState('');
+  const [debouncedFeedSearch, setDebouncedFeedSearch] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedFeedSearch(feedSearch), 400);
+    return () => clearTimeout(t);
+  }, [feedSearch]);
+
+  useEffect(() => {
+    setFeedLoading(true);
+    const params = new URLSearchParams({ period: '14d', page: String(feedPage), limit: '20' });
+    if (feedType !== 'all') params.set('newsType', feedType);
+    if (feedCategory !== 'all') params.set('category', feedCategory);
+    if (debouncedFeedSearch) params.set('search', debouncedFeedSearch);
+
+    fetch(`/api/market-news?${params}`)
+      .then(r => r.json())
+      .then(data => {
+        setArticles(data.articles || []);
+        setFeedTotal(data.total || 0);
+        setFeedTotalPages(data.totalPages || 1);
+        if (data.stats) setFeedStats(data.stats);
+        setFeedLoading(false);
+      })
+      .catch(() => setFeedLoading(false));
+  }, [feedType, feedCategory, debouncedFeedSearch, feedPage]);
+
+  useEffect(() => { setFeedPage(1); }, [feedType, feedCategory, debouncedFeedSearch]);
+
+  const topCategories = Object.entries(feedStats.categories).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const totalNews = Object.values(feedStats.newsTypes).reduce((a, b) => a + b, 0);
+
+  return (
+    <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-3">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Zap size={16} className="text-[#C94C1E]" />
+            <span className="text-[14px] font-bold text-slate-800 dark:text-white">Market News</span>
+            {totalNews > 0 && <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 px-2 py-0.5 rounded-full">{totalNews}</span>}
+          </div>
+
+          {/* Category filter + Search */}
+          <div className="flex items-center gap-2">
+            <select value={feedCategory} onChange={e => setFeedCategory(e.target.value)}
+              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#1a1a1a] text-[10px] font-semibold text-slate-600 dark:text-neutral-300 outline-none focus:border-[#C94C1E] transition-colors">
+              <option value="all">All Categories</option>
+              {topCategories.map(([c, n]) => (
+                <option key={c} value={c}>{c} ({n})</option>
+              ))}
+            </select>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" size={12} />
+              <input type="text" value={feedSearch} onChange={e => setFeedSearch(e.target.value)}
+                placeholder="Search..."
+                className="w-[140px] pl-7 pr-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#1a1a1a] text-[10px] font-medium text-slate-700 dark:text-neutral-300 placeholder-slate-400 dark:placeholder-neutral-500 outline-none focus:border-[#C94C1E] transition-colors" />
+            </div>
+          </div>
+        </div>
+
+        {/* News type pills */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button onClick={() => setFeedType('all')}
+            className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${feedType === 'all' ? 'bg-[#C94C1E] text-white' : 'bg-slate-50 dark:bg-white/[0.04] text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-white'}`}>
+            All
+          </button>
+          {Object.entries(NEWS_TYPE_CONFIG).map(([key, cfg]) => {
+            const count = feedStats.newsTypes[key] || 0;
+            if (count === 0 && key !== feedType) return null;
+            return (
+              <button key={key} onClick={() => setFeedType(key)}
+                className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${feedType === key ? cfg.badgeClass + ' ring-1 ring-current/20' : 'bg-slate-50 dark:bg-white/[0.04] text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-white'}`}>
+                {cfg.label} {count > 0 && `(${count})`}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* News list */}
+      <div className="max-h-[520px] overflow-y-auto">
+        {feedLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={20} className="animate-spin text-slate-300 dark:text-neutral-600" />
+            <span className="ml-3 text-[13px] text-slate-400 dark:text-neutral-500">Loading market news...</span>
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="text-center py-12">
+            <Zap size={32} className="mx-auto text-slate-200 dark:text-neutral-700 mb-2" />
+            <p className="text-[13px] text-slate-400 dark:text-neutral-500">
+              {debouncedFeedSearch || feedType !== 'all' || feedCategory !== 'all'
+                ? 'No news matching your filters'
+                : 'No market news yet — run: node scripts/market-news-scan.js'}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50 dark:divide-white/[0.04]">
+            {articles.map((a, idx) => {
+              const ntCfg = NEWS_TYPE_CONFIG[a.newsType] || NEWS_TYPE_CONFIG.other;
+              return (
+                <a key={`${a.companyName}-${idx}`} href={a.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-start gap-3.5 px-5 py-3.5 hover:bg-slate-50/70 dark:hover:bg-white/[0.04] transition-colors group/row">
+                  {/* Type icon */}
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-[13px] font-black mt-0.5"
+                    style={{ backgroundColor: ntCfg.color + '12', color: ntCfg.color }}>
+                    {ntCfg.icon}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                      <span className="text-[13px] font-bold text-slate-800 dark:text-white group-hover/row:text-[#C94C1E] transition-colors">
+                        {a.companyName || 'Unknown'}
+                      </span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${ntCfg.badgeClass}`}>
+                        {ntCfg.label}
+                      </span>
+                      {a.newsType === 'funding' && a.details?.round && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${ROUND_COLORS[a.details.round] || 'bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-neutral-300'}`}>
+                          {a.details.round}
+                        </span>
+                      )}
+                      {a.category && (
+                        <span className="text-[9px] font-semibold text-slate-400 dark:text-neutral-500 bg-slate-50 dark:bg-white/[0.04] px-1.5 py-0.5 rounded">
+                          {a.category}
+                        </span>
+                      )}
+                      {a.marketImpact === 'high' && (
+                        <span className="text-[9px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded">
+                          HIGH
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-slate-600 dark:text-neutral-300 leading-relaxed line-clamp-2">
+                      {a.summary || a.headline || a.title}
+                    </p>
+                    {/* Sub-details inline */}
+                    {a.newsType === 'funding' && a.details?.investors && a.details.investors.length > 0 && (
+                      <span className="text-[10px] text-slate-400 dark:text-neutral-500 mt-0.5 block truncate">
+                        Investors: {a.details.investors.slice(0, 3).join(', ')}
+                      </span>
+                    )}
+                    {a.newsType === 'hiring' && a.details?.person && (
+                      <span className="text-[10px] text-slate-400 dark:text-neutral-500 mt-0.5 block">
+                        {a.details.person}{a.details.role ? ` — ${a.details.role}` : ''}
+                      </span>
+                    )}
+                    {a.newsType === 'acquisition' && a.details?.acquirer && a.details?.target && (
+                      <span className="text-[10px] text-slate-400 dark:text-neutral-500 mt-0.5 block">
+                        {a.details.acquirer} acquires {a.details.target}
+                      </span>
+                    )}
+                    {a.newsType === 'partnership' && a.details?.partner && (
+                      <span className="text-[10px] text-slate-400 dark:text-neutral-500 mt-0.5 block">
+                        Partnership with {a.details.partner}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-2.5 mt-1 text-[10px] text-slate-400 dark:text-neutral-500">
+                      {a.country && <span className="flex items-center gap-0.5"><MapPin size={10} /> {a.country}</span>}
+                      {a.sourceName && <span>{a.sourceName}</span>}
+                      <span>{timeAgo(a.publishedAt)}</span>
+                    </div>
+                  </div>
+
+                  {/* Right badge */}
+                  <div className="flex-shrink-0 mt-1">
+                    <NewsDetailBadge article={a} />
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {feedTotalPages > 1 && (
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 dark:border-white/[0.06]">
+          <p className="text-[11px] text-slate-400 dark:text-neutral-500">
+            {(feedPage - 1) * 20 + 1}-{Math.min(feedPage * 20, feedTotal)} of {feedTotal}
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setFeedPage(p => Math.max(1, p - 1))} disabled={feedPage === 1}
+              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[11px] font-semibold text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+              <ChevronLeft size={13} />
+            </button>
+            <span className="text-[11px] font-bold text-slate-600 dark:text-neutral-300">{feedPage}/{feedTotalPages}</span>
+            <button onClick={() => setFeedPage(p => Math.min(feedTotalPages, p + 1))} disabled={feedPage === feedTotalPages}
+              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[11px] font-semibold text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+              <ChevronRight size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MarketIntelligenceView() {
-  const router = useRouter();
   const [period, setPeriod] = useState<'week' | '2weeks' | 'month'>('week');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  const [signals, setSignals] = useState<SignalItem[]>([]);
-  const [stats, setStats] = useState<Record<string, number>>({});
-  const [recommendations, setRecommendations] = useState<RecommendedAccount[]>([]);
+  const [allNews, setAllNews] = useState<MarketNewsArticle[]>([]);
+  const [newsStats, setNewsStats] = useState<MarketNewsStats>({ newsTypes: {}, categories: {}, countries: {}, totalFundingUSD: 0, highImpact: 0 });
   const [loading, setLoading] = useState(true);
-  const [recsLoading, setRecsLoading] = useState(true);
-  const [signalTab, setSignalTab] = useState<'all' | 'funding' | 'key_hire'>('all');
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
-  // TAL (Target Audience List) state
-  const [talId, setTalId] = useState<string | null>(null);
-  const [talDomains, setTalDomains] = useState<Set<string>>(new Set());
+  const periodMap = { week: '7d', '2weeks': '14d', month: '30d' } as const;
 
-  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  // Find or create TAL watchlist on mount — load existing domains
-  useEffect(() => {
-    fetch('/api/watchlists').then(r => r.json()).then(d => {
-      const wls = d.watchlists || [];
-      const tal = wls.find((w: {name: string}) => w.name === 'Target Audience List');
-      if (tal) {
-        setTalId(tal._id);
-        setTalDomains(new Set(tal.domains || []));
-      }
-    }).catch(() => {});
-  }, []);
-
-  const addToTAL = async (domain: string, brandName: string) => {
-    if (talDomains.has(domain)) return; // already added
-    try {
-      let id = talId;
-      if (!id) {
-        const res = await fetch('/api/watchlists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Target Audience List' }) });
-        if (!res.ok) { showToast('Please login to add to TAL', 'error'); return; }
-        const data = await res.json();
-        if (data.watchlist?._id) { id = data.watchlist._id; setTalId(id); }
-        else { showToast('Could not create TAL', 'error'); return; }
-      }
-      const addRes = await fetch('/api/watchlists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, domain }) });
-      if (!addRes.ok) { showToast('Failed to add — please try again', 'error'); return; }
-      setTalDomains(prev => new Set(prev).add(domain));
-      showToast(`${brandName} added to Target Audience List`, 'success');
-    } catch {
-      showToast('Something went wrong — try again', 'error');
-    }
-  };
-
-  // Fetch signals when period changes
+  // Fetch all news from market_news collection
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const apiPeriod = PERIOD_MAP[period];
-    fetch(`/api/signals?period=${apiPeriod}&limit=500`)
+    fetch(`/api/market-news?period=${periodMap[period]}&limit=100`)
       .then(r => r.json())
       .then(data => {
         if (cancelled) return;
-        setSignals(data.signals || []);
-        setStats(data.stats || {});
+        setAllNews(data.articles || []);
+        if (data.stats) setNewsStats(data.stats);
         setLoading(false);
       })
       .catch(() => {
-        if (!cancelled) { setSignals([]); setStats({}); setLoading(false); }
+        if (!cancelled) { setAllNews([]); setLoading(false); }
       });
     return () => { cancelled = true; };
   }, [period]);
 
-  // Fetch recommendations once
-  useEffect(() => {
-    fetch('/api/signals/recommendations')
-      .then(r => r.json())
-      .then(data => { setRecommendations(data.accounts || []); setRecsLoading(false); })
-      .catch(() => { setRecommendations([]); setRecsLoading(false); });
-  }, []);
+  // Derive card data from market_news
+  const highImpactNews = allNews.filter(a => a.marketImpact === 'high');
+  const fundingNews = allNews.filter(a => a.newsType === 'funding');
+  const hiringNews = allNews.filter(a => a.newsType === 'hiring');
+  const acqShutdownNews = allNews.filter(a => ['acquisition', 'shutdown', 'regulatory'].includes(a.newsType));
 
-  // Group signals by type
-  const groupedSignals: Record<string, SignalItem[]> = {};
-  for (const sig of signals) {
-    if (!groupedSignals[sig.signalType]) groupedSignals[sig.signalType] = [];
-    groupedSignals[sig.signalType].push(sig);
-  }
-
-  const fundingSignals = groupedSignals['funding'] || [];
-  const hiringSignals = groupedSignals['key_hire'] || [];
-  const buyingWindowAccounts = recommendations.filter(a => a.signalCount >= 2).sort((a, b) => b.score - a.score);
-  const topRecommendations = [...recommendations].sort((a, b) => b.score - a.score).slice(0, 3);
-  const totalActions = recommendations.length;
-
-  const filteredSignals = signalTab === 'all' ? signals : signals.filter(s => s.signalType === signalTab);
-
-  const signalEmoji = (type: string) => {
-    if (type === 'funding') return '\uD83D\uDCB0';
-    if (type === 'key_hire') return '\uD83D\uDC64';
-    if (type === 'store_expansion') return '\uD83C\uDFEA';
-    if (type === 'app_launch') return '\uD83D\uDCF1';
-    if (type === 'marketplace') return '\uD83D\uDED2';
-    if (type === 'traffic_growth') return '\uD83D\uDCC8';
-    return '\u26A1';
-  };
-
-  const signalSummary = (acc: RecommendedAccount) => {
-    return acc.signals.slice(0, 2).map((s, i) => (
-      <span key={i}>
-        {i > 0 && ' + '}
-        <span>{signalEmoji(s.signalType)} {s.headline.length > 35 ? s.headline.slice(0, 35) + '...' : s.headline}</span>
-      </span>
-    ));
-  };
-
-  const initialsOf = (name: string) => {
-    const parts = name.split(/\s+/);
-    return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
-  };
+  const totalNews = Object.values(newsStats.newsTypes).reduce((a, b) => a + b, 0);
 
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  const ntCfg = (type: string) => NEWS_TYPE_CONFIG[type] || NEWS_TYPE_CONFIG.other;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -3210,7 +3693,8 @@ function MarketIntelligenceView() {
           <h2 className="text-[22px] font-extrabold text-slate-800 dark:text-white tracking-tight">Intelligence Hub</h2>
           <p className="text-[13px] text-slate-400 dark:text-neutral-500 mt-0.5">
             {dateStr} &middot;{' '}
-            <span className="text-[#C94C1E] font-semibold">{totalActions} actions recommended</span> across your universe
+            <span className="text-[#C94C1E] font-semibold">{totalNews} market signals</span> &middot;{' '}
+            <span className="text-red-500 font-semibold">{newsStats.highImpact} high impact</span>
           </p>
         </div>
         <div className="flex items-center gap-1 bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl p-1">
@@ -3227,102 +3711,114 @@ function MarketIntelligenceView() {
         </div>
       </div>
 
+      {/* 5 Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[10px] font-semibold text-slate-400 dark:text-neutral-500 uppercase tracking-wide">Total News</p>
+          <p className="text-[20px] font-bold text-slate-800 dark:text-white mt-0.5">{totalNews}</p>
+        </div>
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wide">Funding</p>
+          <p className="text-[20px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{newsStats.totalFundingUSD > 0 ? formatUSD(newsStats.totalFundingUSD) : (newsStats.newsTypes.funding || 0)}</p>
+        </div>
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wide">Hiring</p>
+          <p className="text-[20px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">{newsStats.newsTypes.hiring || 0}</p>
+        </div>
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-wide">M&A</p>
+          <p className="text-[20px] font-bold text-violet-600 dark:text-violet-400 mt-0.5">{newsStats.newsTypes.acquisition || 0}</p>
+        </div>
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3">
+          <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wide">High Impact</p>
+          <p className="text-[20px] font-bold text-red-600 dark:text-red-400 mt-0.5">{newsStats.highImpact}</p>
+        </div>
+      </div>
+
       {/* 2x2 Card Grid */}
-      {loading && recsLoading ? (
+      {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 size={24} className="animate-spin text-slate-300 dark:text-neutral-600" />
           <span className="ml-3 text-[13px] text-slate-400 dark:text-neutral-500">Loading intelligence...</span>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Card 1: Recommended Actions */}
+          {/* Card 1: High Impact News */}
           <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
-            <div className="border-l-[3px] border-l-[#C94C1E] p-5">
+            <div className="border-l-[3px] border-l-red-500 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <Target size={16} className="text-[#C94C1E]" />
-                <span className="text-[14px] font-bold text-slate-800 dark:text-white">Recommended Actions</span>
-                <span className="ml-auto w-5 h-5 rounded-full bg-[#C94C1E]/10 text-[#C94C1E] text-[10px] font-bold flex items-center justify-center">{recommendations.length}</span>
+                <Zap size={16} className="text-red-500" />
+                <span className="text-[14px] font-bold text-slate-800 dark:text-white">High Impact</span>
+                <span className="ml-auto w-5 h-5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold flex items-center justify-center">{highImpactNews.length}</span>
               </div>
-              <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar">
-                {(expanded === 'recs' ? [...recommendations].sort((a, b) => b.score - a.score) : topRecommendations).map(acc => (
-                  <div key={acc.domain}
-                    className="flex items-start gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
-                    onClick={() => router.push(`/account/${acc.domain}`)}>
-                    <img src={`https://www.google.com/s2/favicons?domain=${acc.domain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 dark:bg-white dark:p-[2px]" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[13px] font-bold text-slate-800 dark:text-white">{acc.name}</span>
-                        <span className="text-[10px] text-slate-400 dark:text-neutral-500">
-                          {[acc.category, acc.region].filter(Boolean).join(' \u00B7 ')}
-                        </span>
-                        <span className="text-[11px] font-bold text-[#C94C1E]">{acc.score}</span>
+              {highImpactNews.length === 0 ? (
+                <p className="text-[12px] text-slate-400 dark:text-neutral-500 py-4 text-center">No high impact news this period</p>
+              ) : (
+                <div className="space-y-2.5 max-h-[400px] overflow-y-auto custom-scrollbar">
+                  {(expandedCard === 'high' ? highImpactNews : highImpactNews.slice(0, 4)).map((a, i) => (
+                    <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-start gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[12px] font-black"
+                        style={{ backgroundColor: ntCfg(a.newsType).color + '12', color: ntCfg(a.newsType).color }}>
+                        {ntCfg(a.newsType).icon}
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5 truncate">{signalSummary(acc)}</p>
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); addToTAL(acc.domain, acc.name); }}
-                      title="Add to Target Audience List"
-                      disabled={talDomains.has(acc.domain)}
-                      className={`flex-shrink-0 px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all whitespace-nowrap mt-0.5 ${
-                        talDomains.has(acc.domain)
-                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 cursor-default'
-                          : 'border border-[#C94C1E] text-[#C94C1E] hover:bg-[#C94C1E] hover:text-white'
-                      }`}>
-                      {talDomains.has(acc.domain) ? '✓ Added' : 'Add to TAL'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-              {recommendations.length > 3 && (
-                <button onClick={() => setExpanded(expanded === 'recs' ? null : 'recs')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
-                  {expanded === 'recs' ? 'Show less' : `View all ${recommendations.length}`} &rarr;
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[13px] font-bold text-slate-800 dark:text-white">{a.companyName || 'Unknown'}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${ntCfg(a.newsType).badgeClass}`}>{ntCfg(a.newsType).label}</span>
+                          {a.category && <span className="text-[9px] text-slate-400 dark:text-neutral-500 bg-slate-50 dark:bg-white/[0.04] px-1.5 py-0.5 rounded">{a.category}</span>}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5 line-clamp-2">{a.headline}</p>
+                      </div>
+                      <div className="flex-shrink-0"><NewsDetailBadge article={a} /></div>
+                    </a>
+                  ))}
+                </div>
+              )}
+              {highImpactNews.length > 4 && (
+                <button onClick={() => setExpandedCard(expandedCard === 'high' ? null : 'high')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
+                  {expandedCard === 'high' ? 'Show less' : `View all ${highImpactNews.length}`} &rarr;
                 </button>
               )}
             </div>
           </div>
 
-          {/* Card 2: Buying Windows */}
+          {/* Card 2: Acquisitions, Shutdowns & Regulatory */}
           <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Zap size={16} className="text-amber-500" />
-              <span className="text-[14px] font-bold text-slate-800 dark:text-white">Buying Windows</span>
-              <span className="ml-auto w-5 h-5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold flex items-center justify-center">{buyingWindowAccounts.length}</span>
+              <TrendingUp size={16} className="text-violet-500" />
+              <span className="text-[14px] font-bold text-slate-800 dark:text-white">M&A, Shutdowns & Regulatory</span>
+              <span className="ml-auto w-5 h-5 rounded-full bg-violet-500/10 text-violet-500 text-[10px] font-bold flex items-center justify-center">{acqShutdownNews.length}</span>
             </div>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar">
-              {(expanded === 'bw' ? buyingWindowAccounts : buyingWindowAccounts.slice(0, 3)).map(acc => (
-                <div key={acc.domain}
-                  className="flex items-start gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
-                  onClick={() => router.push(`/account/${acc.domain}`)}>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
-                    {initialsOf(acc.name)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[13px] font-bold text-slate-800 dark:text-white">{acc.name}</span>
-                      <span className="text-[10px] text-slate-400 dark:text-neutral-500">
-                        {[acc.category, acc.region].filter(Boolean).join(' \u00B7 ')}
-                      </span>
-                      <span className="text-[11px] font-bold text-[#C94C1E]">{acc.score}</span>
+            {acqShutdownNews.length === 0 ? (
+              <p className="text-[12px] text-slate-400 dark:text-neutral-500 py-4 text-center">No M&A or regulatory news this period</p>
+            ) : (
+              <div className="space-y-2.5 max-h-[400px] overflow-y-auto custom-scrollbar">
+                {(expandedCard === 'acq' ? acqShutdownNews : acqShutdownNews.slice(0, 4)).map((a, i) => (
+                  <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-start gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[12px] font-black"
+                      style={{ backgroundColor: ntCfg(a.newsType).color + '12', color: ntCfg(a.newsType).color }}>
+                      {ntCfg(a.newsType).icon}
                     </div>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {acc.signals.slice(0, 3).map((s, i) => (
-                        <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-neutral-400">
-                          {signalEmoji(s.signalType)} {s.signalType.replace('_', ' ')}
-                        </span>
-                      ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[13px] font-bold text-slate-800 dark:text-white">{a.companyName || 'Unknown'}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${ntCfg(a.newsType).badgeClass}`}>{ntCfg(a.newsType).label}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5 line-clamp-2">{a.headline}</p>
+                      {a.newsType === 'acquisition' && a.details?.acquirer && a.details?.target && (
+                        <span className="text-[10px] text-violet-500 dark:text-violet-400 mt-0.5 block">{a.details.acquirer} → {a.details.target}</span>
+                      )}
                     </div>
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); addToTAL(acc.domain, acc.name); }}
-                    title="Add to Target Audience List" className="flex-shrink-0 px-3 py-1.5 text-[11px] font-semibold border border-[#C94C1E] text-[#C94C1E] rounded-lg hover:bg-[#C94C1E] hover:text-white transition-all whitespace-nowrap mt-0.5">
-                    Add to TAL
-                  </button>
-                </div>
-              ))}
-            </div>
-            {buyingWindowAccounts.length > 3 && (
-              <button onClick={() => setExpanded(expanded === 'bw' ? null : 'bw')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
-                {expanded === 'bw' ? 'Show less' : `View all ${buyingWindowAccounts.length}`} &rarr;
+                    <span className="text-[10px] text-slate-400 dark:text-neutral-500 flex-shrink-0 mt-1">{timeAgo(a.publishedAt)}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+            {acqShutdownNews.length > 4 && (
+              <button onClick={() => setExpandedCard(expandedCard === 'acq' ? null : 'acq')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
+                {expandedCard === 'acq' ? 'Show less' : `View all ${acqShutdownNews.length}`} &rarr;
               </button>
             )}
           </div>
@@ -3332,131 +3828,99 @@ function MarketIntelligenceView() {
             <div className="flex items-center gap-2 mb-4">
               <DollarSign size={16} className="text-emerald-500" />
               <span className="text-[14px] font-bold text-slate-800 dark:text-white">Funding Rounds</span>
-              <span className="ml-auto w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center justify-center">{fundingSignals.length}</span>
+              <span className="ml-auto w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center justify-center">{fundingNews.length}</span>
             </div>
-            <div className="space-y-2.5">
-              {fundingSignals.slice(0, 3).map((s, i) => (
-                <div key={i}
-                  className="flex items-center gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
-                  onClick={() => router.push(`/account/${s.domain}`)}>
-                  <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 dark:bg-white dark:p-[2px]" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[13px] font-bold text-slate-800 dark:text-white">{domainToBrand(s.domain)}</span>
-                    <p className="text-[12px] text-slate-500 dark:text-neutral-400 truncate mt-0.5">{s.headline}</p>
-                    {s.details?.amount ? (
-                      <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        {String(s.details.amount)}{s.details.round ? ` \u00B7 ${String(s.details.round)}` : ''}
-                      </span>
-                    ) : null}
-                  </div>
-                  <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium flex-shrink-0">{formatTimeAgo(s.signalDate || s.detectedAt)}</span>
-                </div>
-              ))}
-            </div>
-            {fundingSignals.length > 3 && (
-              <button onClick={() => setSignalTab('funding')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
-                View all {fundingSignals.length} &rarr;
+            {fundingNews.length === 0 ? (
+              <p className="text-[12px] text-slate-400 dark:text-neutral-500 py-4 text-center">No funding news this period</p>
+            ) : (
+              <div className="space-y-2.5 max-h-[400px] overflow-y-auto custom-scrollbar">
+                {(expandedCard === 'fund' ? fundingNews : fundingNews.slice(0, 4)).map((a, i) => (
+                  <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-start gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 text-[13px] font-black text-emerald-600 dark:text-emerald-400">$</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[13px] font-bold text-slate-800 dark:text-white">{a.companyName || 'Unknown'}</span>
+                        {a.details?.round && (
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${ROUND_COLORS[a.details.round] || 'bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-neutral-300'}`}>
+                            {a.details.round}
+                          </span>
+                        )}
+                        {a.category && <span className="text-[9px] text-slate-400 dark:text-neutral-500 bg-slate-50 dark:bg-white/[0.04] px-1.5 py-0.5 rounded">{a.category}</span>}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5 line-clamp-1">{a.headline}</p>
+                      {a.details?.investors && a.details.investors.length > 0 && (
+                        <span className="text-[10px] text-slate-400 dark:text-neutral-500 mt-0.5 block truncate">Led by {a.details.investors.slice(0, 3).join(', ')}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      {a.details?.amount && (
+                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-lg">{a.details.amount}</span>
+                      )}
+                      <span className="text-[10px] text-slate-400 dark:text-neutral-500">{timeAgo(a.publishedAt)}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+            {fundingNews.length > 4 && (
+              <button onClick={() => setExpandedCard(expandedCard === 'fund' ? null : 'fund')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
+                {expandedCard === 'fund' ? 'Show less' : `View all ${fundingNews.length}`} &rarr;
               </button>
             )}
           </div>
 
-          {/* Card 4: Key Hires */}
+          {/* Card 4: Hiring & Leadership */}
           <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Users size={16} className="text-cyan-500" />
-              <span className="text-[14px] font-bold text-slate-800 dark:text-white">Key Hires</span>
-              <span className="ml-auto w-5 h-5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] font-bold flex items-center justify-center">{hiringSignals.length}</span>
+              <Users size={16} className="text-blue-500" />
+              <span className="text-[14px] font-bold text-slate-800 dark:text-white">Hiring & Leadership</span>
+              <span className="ml-auto w-5 h-5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold flex items-center justify-center">{hiringNews.length}</span>
             </div>
-            <div className="space-y-2.5">
-              {hiringSignals.slice(0, 3).map((s, i) => (
-                <div key={i}
-                  className="flex items-center gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
-                  onClick={() => router.push(`/account/${s.domain}`)}>
-                  <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 dark:bg-white dark:p-[2px]" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[13px] font-bold text-slate-800 dark:text-white">{domainToBrand(s.domain)}</span>
-                    <p className="text-[12px] text-slate-500 dark:text-neutral-400 truncate mt-0.5">
-                      {s.details?.person ? `${String(s.details.person)}${s.details.title ? ` \u2014 ${String(s.details.title)}` : ''}` : s.headline}
-                    </p>
-                  </div>
-                  <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium flex-shrink-0">{formatTimeAgo(s.signalDate || s.detectedAt)}</span>
-                </div>
-              ))}
-            </div>
-            {hiringSignals.length > 3 && (
-              <button onClick={() => setSignalTab('key_hire')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
-                View all {hiringSignals.length} &rarr;
+            {hiringNews.length === 0 ? (
+              <p className="text-[12px] text-slate-400 dark:text-neutral-500 py-4 text-center">No hiring news this period</p>
+            ) : (
+              <div className="space-y-2.5 max-h-[400px] overflow-y-auto custom-scrollbar">
+                {(expandedCard === 'hire' ? hiringNews : hiringNews.slice(0, 4)).map((a, i) => (
+                  <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-start gap-3 p-3 bg-slate-50/70 dark:bg-white/[0.04] rounded-xl hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 text-[13px] font-black text-blue-600 dark:text-blue-400">+</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[13px] font-bold text-slate-800 dark:text-white">{a.companyName || 'Unknown'}</span>
+                        {a.details?.roleLevel && (
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                            a.details.roleLevel === 'c-suite' ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400'
+                            : a.details.roleLevel === 'layoff' ? 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400'
+                            : a.details.roleLevel === 'mass-hiring' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+                            : 'bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-neutral-300'
+                          }`}>
+                            {a.details.roleLevel === 'c-suite' ? 'C-Suite' : a.details.roleLevel === 'mass-hiring' ? 'Mass Hiring' : a.details.roleLevel === 'layoff' ? 'Layoff' : String(a.details.roleLevel).toUpperCase()}
+                          </span>
+                        )}
+                        {a.category && <span className="text-[9px] text-slate-400 dark:text-neutral-500 bg-slate-50 dark:bg-white/[0.04] px-1.5 py-0.5 rounded">{a.category}</span>}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5 line-clamp-1">{a.headline}</p>
+                      {a.details?.person && (
+                        <span className="text-[10px] text-blue-500 dark:text-blue-400 mt-0.5 block">{a.details.person}{a.details.role ? ` — ${a.details.role}` : ''}</span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-400 dark:text-neutral-500 flex-shrink-0 mt-1">{timeAgo(a.publishedAt)}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+            {hiringNews.length > 4 && (
+              <button onClick={() => setExpandedCard(expandedCard === 'hire' ? null : 'hire')} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#a83d16] mt-3 transition-colors">
+                {expandedCard === 'hire' ? 'Show less' : `View all ${hiringNews.length}`} &rarr;
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* Bottom Section: All Signals with Tabs */}
-      <div className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
-        {/* Tab Bar */}
-        <div className="flex items-center gap-0 border-b border-slate-100 dark:border-white/[0.06] px-5">
-          {([
-            ['all', `All Signals (${signals.length})`],
-            ['funding', `Funding (${fundingSignals.length})`],
-            ['key_hire', `Key Hires (${hiringSignals.length})`],
-          ] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setSignalTab(key as 'all' | 'funding' | 'key_hire')}
-              className={`px-4 py-3 text-[12px] font-semibold border-b-2 transition-all ${
-                signalTab === key
-                  ? 'border-[#C94C1E] text-[#C94C1E]'
-                  : 'border-transparent text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300'
-              }`}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Signal List */}
-        <div className="max-h-[420px] overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 size={20} className="animate-spin text-slate-300 dark:text-neutral-600" />
-              <span className="ml-3 text-[13px] text-slate-400 dark:text-neutral-500">Loading signals...</span>
-            </div>
-          ) : filteredSignals.length === 0 ? (
-            <div className="text-center py-12">
-              <Radar size={32} className="mx-auto text-slate-200 dark:text-neutral-700 mb-2" />
-              <p className="text-[13px] text-slate-400 dark:text-neutral-500">No signals in this category</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-50 dark:divide-white/[0.04]">
-              {filteredSignals.map((s, i) => (
-                <div key={i}
-                  className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50/70 dark:hover:bg-white/[0.04] transition-colors cursor-pointer group/row"
-                  onClick={() => router.push(`/account/${s.domain}`)}>
-                  <span className="text-[16px] flex-shrink-0">{signalEmoji(s.signalType)}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] text-slate-700 dark:text-neutral-200 leading-snug">
-                      <span className="font-bold text-slate-800 dark:text-white">{domainToBrand(s.domain)}</span>{' '}
-                      {s.headline}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button onClick={(e) => { e.stopPropagation(); addToTAL(s.domain, domainToBrand(s.domain)); }}
-                      title="Add to Target Audience List" className="opacity-0 group-hover/row:opacity-100 px-2.5 py-1 text-[10px] font-semibold border border-[#C94C1E]/50 text-[#C94C1E] rounded-lg hover:bg-[#C94C1E] hover:text-white transition-all whitespace-nowrap">
-                      + TAL
-                    </button>
-                    <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-medium">{formatTimeAgo(s.signalDate || s.detectedAt)}</span>
-                    {s.sourceUrl && (
-                      <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="opacity-0 group-hover/row:opacity-100 transition-opacity p-1 hover:bg-white dark:hover:bg-white/[0.06] rounded-lg">
-                        <ExternalLink size={13} className="text-slate-400 dark:text-neutral-500" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Bottom Section: Full Market News Feed */}
+      <MarketNewsFeed />
 
       {/* Toast notification — top right */}
       {toast && (

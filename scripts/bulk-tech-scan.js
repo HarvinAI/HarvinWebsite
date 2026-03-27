@@ -18,6 +18,7 @@ require('fs').existsSync(dotenvPath) && require('dotenv').config({ path: dotenvP
 
 const { getDb } = require('../lib/scan/db');
 const { scanSingleUrl } = require('../lib/scan/scan');
+const { closeBrowser } = require('../lib/scan/fetch');
 const fs = require('fs');
 const path = require('path');
 
@@ -185,20 +186,23 @@ async function main() {
   const totalAccounts = await col.countDocuments({});
   console.log(`\n📊 DB Status: ${withTech}/${totalAccounts} accounts now have tech data (${(withTech/totalAccounts*100).toFixed(1)}%)`);
 
+  await closeBrowser();
   process.exit(0);
 }
 
 // Handle crashes gracefully
-process.on('uncaughtException', (err) => {
+process.on('uncaughtException', async (err) => {
   console.error('\n❌ Crash:', err.message);
   saveProgress(stats.scanned);
+  await closeBrowser();
   console.log('💾 Progress saved. Run with --resume to continue.');
   process.exit(1);
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('\n\n⏸️  Interrupted. Saving progress...');
   saveProgress(stats.scanned);
+  await closeBrowser();
   console.log('💾 Run with --resume to continue.');
   process.exit(0);
 });

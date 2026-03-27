@@ -669,14 +669,7 @@ async function capturePageData() {
     },
   });
 
-  // 2. Capture cookies via chrome.cookies API
-  let cookieStr = '';
-  try {
-    const cookies = await chrome.cookies.getAll({ url: tab.url });
-    cookieStr = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-  } catch {}
-
-  return { ...result, cookies: cookieStr };
+  return { ...result, cookies: '' };
 }
 
 async function fetchFresh(forceRefresh) {
@@ -685,9 +678,13 @@ async function fetchFresh(forceRefresh) {
     const apiUrl = `${API_BASE}/api/detect?url=${encodeURIComponent(currentUrl)}${refreshParam}`;
 
     // Try to capture real page data from the active tab
+    // Skip for pages Chrome doesn't allow scripting (chrome://, chrome-extension://, Web Store)
     let pageData = null;
-    try { pageData = await capturePageData(); } catch (e) {
-      console.warn('[HarvinAI] Could not capture page data:', e);
+    const unscriptable = /^(chrome|chrome-extension|about|edge|brave):\/\/|chromewebstore\.google\.com/i;
+    if (!unscriptable.test(currentUrl)) {
+      try { pageData = await capturePageData(); } catch (e) {
+        console.warn('[HarvinAI] Could not capture page data:', e.message);
+      }
     }
 
     let res;
