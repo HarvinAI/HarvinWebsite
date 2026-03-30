@@ -144,19 +144,198 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
       } catch {}
     }
 
-    // Enrich with MAU / traffic data from DB (skip flat fallback estimates)
+    // Enrich with MAU / traffic data from DB, or estimate for new domains
     try {
       const db = await getDb();
       const doc = await db.collection('company_meta').findOne(
         { normalizedDomain: domain },
         { projection: { monthlyVisits: 1, monthlyVisitsFormatted: 1, trafficSource: 1 } },
       );
-      if (doc && result.companyMeta) {
-        // Show traffic data if available (any source)
-        result.companyMeta.monthlyVisits = (doc.monthlyVisits || 0) > 0 ? doc.monthlyVisits : null;
-        result.companyMeta.monthlyVisitsFormatted = (doc.monthlyVisits || 0) > 0 ? doc.monthlyVisitsFormatted : null;
+      if (doc && result.companyMeta && (doc.monthlyVisits || 0) > 0) {
+        result.companyMeta.monthlyVisits = doc.monthlyVisits;
+        result.companyMeta.monthlyVisitsFormatted = doc.monthlyVisitsFormatted;
+      } else if (result.companyMeta && (!result.companyMeta.monthlyVisits || result.companyMeta.monthlyVisits === 0)) {
+        // New domain not in DB — estimate traffic via CrUX API, then Tranco fallback
+        let estimated = false;
+        // ── Attempt 1: CrUX API ──
+        try {
+          const https = await import('https');
+          const cruxKey = process.env.GOOGLE_API_KEY;
+          if (cruxKey) {
+            const cruxResult = await new Promise<{estimate: number; source: string} | null>((resolve) => {
+              const postData = JSON.stringify({ origin: `https://${domain}` });
+              const req = https.default.request({
+                hostname: 'chromeuxreport.googleapis.com',
+                path: `/v1/records:queryRecord?key=${cruxKey}`,
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
+                timeout: 5000,
+              }, (res: import('http').IncomingMessage) => {
+                let data = '';
+                res.on('data', (chunk: string) => data += chunk);
+                res.on('end', () => {
+                  try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.error || !parsed.record) { resolve(null); return; }
+                    const phone = parsed.record.metrics?.form_factors?.fractions?.phone || 0;
+                    let est = 5000;
+                    if (phone > 0.7) est = 50000;
+                    else if (phone > 0.5) est = 20000;
+                    else if (phone > 0.3) est = 10000;
+                    resolve({ estimate: est, source: 'crux' });
+                  } catch { resolve(null); }
+                });
+              });
+              req.on('error', () => resolve(null));
+              req.on('timeout', () => { req.destroy(); resolve(null); });
+              req.write(postData);
+              req.end();
+            });
+            if (cruxResult) {
+              const mv = cruxResult.estimate;
+              const fmt = mv >= 1000000 ? `${(mv / 1000000).toFixed(1)}M` : mv >= 1000 ? `${(mv / 1000).toFixed(1)}K` : String(mv);
+              result.companyMeta.monthlyVisits = mv;
+              result.companyMeta.monthlyVisitsFormatted = fmt;
+              estimated = true;
+              await db.collection('company_meta').updateOne(
+                { normalizedDomain: domain },
+                { $set: { monthlyVisits: mv, monthlyVisitsFormatted: fmt, trafficSource: 'crux', trafficUpdatedAt: new Date() } },
+                { upsert: true },
+              ).catch(() => {});
+            }
+          }
+        } catch { /* CrUX estimation is best-effort */ }
+
+        // ── Attempt 2: Tranco rank-based estimation (fallback when CrUX has no data) ──
+        if (!estimated) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const fs = require('fs') as typeof import('fs');
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const pathMod = require('path') as typeof import('path');
+            const trancoPath = pathMod.resolve(process.cwd(), 'scripts', 'tranco-list.csv');
+            if (fs.existsSync(trancoPath)) {
+              // Search for the domain in the Tranco CSV (format: "rank,domain")
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const readline = require('readline') as typeof import('readline');
+              const stream = fs.createReadStream(trancoPath, { encoding: 'utf-8' });
+              const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+              let trancoRank = 0;
+              for await (const line of rl) {
+                const comma = line.indexOf(',');
+                if (comma === -1) continue;
+                const csvDomain = line.slice(comma + 1).trim();
+                if (csvDomain === domain) {
+                  trancoRank = parseInt(line.slice(0, comma), 10);
+                  break;
+                }
+              }
+              stream.destroy();
+
+              if (trancoRank > 0) {
+                // Rank → visits model (same as scripts/estimate-traffic.js)
+                const RANK_A = 8.86e10, RANK_B = 1.068;
+                const CORRECTIONS = [
+                  { max: 100, factor: 0.68 }, { max: 500, factor: 0.32 },
+                  { max: 1000, factor: 0.95 }, { max: 5000, factor: 1.33 },
+                  { max: 10000, factor: 1.97 }, { max: 50000, factor: 1.23 },
+                  { max: 100000, factor: 1.44 }, { max: 500000, factor: 1.06 },
+                  { max: Infinity, factor: 1.02 },
+                ];
+                const base = RANK_A / Math.pow(trancoRank, RANK_B);
+                const corr = CORRECTIONS.find(c => trancoRank <= c.max);
+                const mv = Math.round(base * (corr?.factor || 1));
+                const fmt = mv >= 1_000_000 ? `${(mv / 1_000_000).toFixed(1)}M`
+                          : mv >= 1_000 ? `${(mv / 1_000).toFixed(1)}K`
+                          : String(mv);
+                result.companyMeta.monthlyVisits = mv;
+                result.companyMeta.monthlyVisitsFormatted = fmt;
+                await db.collection('company_meta').updateOne(
+                  { normalizedDomain: domain },
+                  { $set: { monthlyVisits: mv, monthlyVisitsFormatted: fmt, trafficSource: 'tranco', trafficRank: trancoRank, trafficUpdatedAt: new Date() } },
+                  { upsert: true },
+                ).catch(() => {});
+              }
+            }
+          } catch { /* Tranco fallback is best-effort */ }
+        }
       }
     } catch { /* non-critical — skip if DB unavailable */ }
+
+    // D2C vs Non-D2C determination
+    // Priority: DB validation > DB category > scan result category
+    if (result.companyMeta) {
+      const NON_D2C_CATS = new Set([
+        'SaaS & B2B', 'Professional Services', 'Manufacturing', 'Wholesale & Distribution',
+        'Cloud & DevTools', 'Data Center & Infrastructure', 'Web Hosting & Domains',
+        'Staffing & Workforce Solutions', 'Government & Public Sector',
+        'NGO & Non-Profit', 'International & Diplomatic Organizations', 'Professional & Trade Associations',
+        'Schools & Universities', 'Railways & Metro', 'Nuclear & Atomic Energy', 'Aerospace & Defense',
+        'Mining & Quarrying', 'Chemicals & Petrochemicals', 'Rubber, Plastics & Composites',
+        'Glass, Ceramics & Nonmetallic Minerals', 'Wire, Cable & Electrical', 'Semiconductor & Chips',
+        'Conglomerates & Holding Companies', 'Private Equity & Venture Capital',
+        'Import/Export & Trade', 'Social Services & Welfare',
+        'Robotics & Automation', 'IoT & Connected Devices',
+        'Quantum Computing', 'AI & Data Science', 'Printing & Packaging', 'Construction & Building Materials',
+        'Forestry & Timber', 'Aquaculture & Fisheries', 'Plantation & Cash Crops',
+        'Marine & Shipping', 'Outdoor Advertising & Signage',
+      ]);
+
+      try {
+        const db2 = await getDb();
+        const metaDoc = await db2.collection('company_meta').findOne(
+          { normalizedDomain: domain },
+          { projection: { category: 1, subCategory: 1, d2cValidation: 1, techStack: 1, appPresence: 1 } },
+        );
+
+        if (metaDoc) {
+          const dbCat = metaDoc.category;
+          const dbValidation = metaDoc.d2cValidation;
+
+          // Case 1: Explicitly validated as D2C — trust DB, use DB category
+          if (dbValidation?.isD2C === true) {
+            if (dbCat && dbCat !== 'Unknown' && dbCat !== 'Not Required' && dbCat !== '') {
+              result.companyMeta.category = dbCat;
+              result.companyMeta.subCategory = metaDoc.subCategory || result.companyMeta.subCategory;
+            }
+            // NOT Non-D2C — skip all Non-D2C checks
+          }
+          // Case 2: Explicitly validated as Non-D2C
+          else if (dbCat === 'Not Required' || dbValidation?.isD2C === false) {
+            result.companyMeta.category = 'Not Required';
+            result.companyMeta.subCategory = 'Non D2C Brand';
+            result.companyMeta.isNonD2C = true;
+            result.companyMeta.nonD2CReason = dbValidation?.reason || 'This is not a D2C brand';
+          }
+          // Case 3: DB has a valid D2C category but scan returned Unknown
+          else if (dbCat && dbCat !== 'Unknown' && dbCat !== '' && !NON_D2C_CATS.has(dbCat)) {
+            const scanCat = result.companyMeta.category;
+            if (!scanCat || scanCat === 'Unknown' || scanCat === '') {
+              // Scan couldn't classify — use DB category instead
+              result.companyMeta.category = dbCat;
+              result.companyMeta.subCategory = metaDoc.subCategory || 'General';
+            }
+          }
+          // Case 4: Both scan and DB have Non-D2C/Unknown category
+          else {
+            const finalCat = result.companyMeta.category || dbCat;
+            // Check if has ecommerce tech or app — then it's likely D2C despite unknown category
+            const ecomPlatforms = ['Shopify', 'WooCommerce', 'Magento', 'BigCommerce', 'PrestaShop', 'Salesforce Commerce Cloud'];
+            const hasEcom = (metaDoc.techStack || []).some((t: string) => ecomPlatforms.some(p => t.includes(p)));
+            const hasApp = metaDoc.appPresence && metaDoc.appPresence !== 'No App';
+
+            if (hasEcom || hasApp) {
+              // Has ecommerce or app — likely D2C, don't flag
+            } else if (!finalCat || finalCat === 'Unknown' || finalCat === '' || NON_D2C_CATS.has(finalCat)) {
+              result.companyMeta.isNonD2C = true;
+              result.companyMeta.nonD2CReason = !finalCat || finalCat === 'Unknown' || finalCat === ''
+                ? 'Could not identify as a D2C brand — no consumer checkout or product catalog detected'
+                : `Non-D2C industry: ${finalCat}`;
+            }
+          }
+        }
+      } catch { /* non-critical */ }
+    }
 
     return NextResponse.json(result, { headers: corsHeaders });
   } catch (err: unknown) {

@@ -63,7 +63,7 @@ const ICON_DOMAINS = {
   'shopify': 'shopify.com', 'shopify checkout': 'shopify.com', 'shopify payments': 'shopify.com', 'shop pay': 'shopify.com',
   'woocommerce': 'woocommerce.com', 'bigcommerce': 'bigcommerce.com', 'magento': 'magento.com',
   'prestashop': 'prestashop.com', 'wix': 'wix.com', 'squarespace': 'squarespace.com',
-  'salesforce commerce cloud': 'salesforce.com', 'sap commerce cloud': 'sap.com',
+  'salesforce commerce cloud': 'https://cdn.simpleicons.org/salesforce/00A1E0', 'sap commerce cloud': 'sap.com',
   'opencart': 'opencart.com', 'vtex': 'vtex.com', 'ecwid': 'ecwid.com',
   'commercetools': 'commercetools.com', 'shopware': 'shopware.com',
   'dukaan': 'mydukaan.io', 'shopline': 'shopline.com', 'nuvemshop': 'nuvemshop.com',
@@ -76,7 +76,7 @@ const ICON_DOMAINS = {
   'contentful': 'contentful.com', 'joomla': 'joomla.org', 'webflow': 'webflow.com',
   'strapi': 'strapi.io', 'sanity': 'sanity.io', 'prismic': 'prismic.io',
   'storyblok': 'storyblok.com', 'sitecore': 'sitecore.com',
-  'adobe experience manager': 'adobe.com', 'typo3': 'typo3.org', 'umbraco': 'umbraco.com',
+  'adobe experience manager': 'https://cdn.simpleicons.org/adobeexperiencecloud/EB1000', 'typo3': 'typo3.org', 'umbraco': 'umbraco.com',
   'kentico': 'kentico.com', 'hugo': 'gohugo.io', 'jekyll': 'jekyllrb.com',
   'blogger': 'blogger.com', 'tilda': 'tilda.cc', 'tumblr': 'tumblr.com',
   'medium': 'medium.com', 'hexo': 'hexo.io', 'craft cms': 'craftcms.com',
@@ -142,13 +142,20 @@ const ICON_DOMAINS = {
   'express': 'expressjs.com', 'django': 'djangoproject.com', 'laravel': 'laravel.com',
   'rails': 'rubyonrails.org', 'spring': 'spring.io',
   // Analytics & Tracking
-  'google analytics': 'analytics.google.com', 'google tag manager': 'tagmanager.google.com',
-  'google ads': 'ads.google.com', 'google adsense': 'adsense.google.com',
-  'google optimize': 'optimize.google.com', 'google remarketing': 'ads.google.com',
-  'google search console': 'search.google.com', 'google ad manager': 'admanager.google.com',
-  'facebook pixel': 'facebook.com', 'facebook ads': 'facebook.com',
-  'facebook retargeting': 'facebook.com', 'meta pixel': 'facebook.com',
-  'microsoft clarity': 'clarity.microsoft.com', 'microsoft advertising': 'ads.microsoft.com',
+  'google analytics': 'https://cdn.simpleicons.org/googleanalytics/E37400',
+  'google tag manager': 'https://cdn.simpleicons.org/googletagmanager/246FDB',
+  'google ads': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'google adsense': 'https://cdn.simpleicons.org/googleadsense/4285F4',
+  'google optimize': 'https://cdn.simpleicons.org/googleoptimize/B366F6',
+  'google remarketing': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'google search console': 'https://cdn.simpleicons.org/googlesearchconsole/458CF5',
+  'google ad manager': 'https://cdn.simpleicons.org/googleadmob/EA4335',
+  'facebook pixel': 'https://cdn.simpleicons.org/facebook/1877F2',
+  'facebook ads': 'https://cdn.simpleicons.org/facebook/1877F2',
+  'facebook retargeting': 'https://cdn.simpleicons.org/facebook/1877F2',
+  'meta pixel': 'https://cdn.simpleicons.org/meta/0081FB',
+  'microsoft clarity': 'clarity.microsoft.com',
+  'microsoft advertising': 'https://cdn.simpleicons.org/microsoftadvertising/0078D4',
   'linkedin insight tag': 'linkedin.com', 'pinterest tag': 'pinterest.com',
   'tiktok pixel': 'tiktok.com', 'snapchat pixel': 'snapchat.com',
   'twitter pixel': 'twitter.com', 'reddit pixel': 'reddit.com',
@@ -184,8 +191,9 @@ const ICON_DOMAINS = {
   'lemnisk': 'lemnisk.co', 'appier': 'appier.com', 'airship': 'airship.com',
   'klaviyo': 'klaviyo.com', 'mailchimp': 'mailchimp.com', 'hubspot': 'hubspot.com',
   'marketo': 'marketo.com', 'activecampaign': 'activecampaign.com',
-  'bitespeed': 'bitespeed.co', 'salesforce': 'salesforce.com',
-  'zoho crm': 'zoho.com', 'pipedrive': 'pipedrive.com',
+  'bitespeed': 'bitespeed.co',
+  'salesforce': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'zoho crm': 'https://cdn.simpleicons.org/zoho/C8202B', 'pipedrive': 'pipedrive.com',
   'freshsales': 'freshworks.com', 'microsoft dynamics 365': 'dynamics.microsoft.com',
   'sugarcrm': 'sugarcrm.com', 'insightly': 'insightly.com',
   'agile crm': 'agilecrm.com', 'bitrix24': 'bitrix24.com',
@@ -223,9 +231,11 @@ const ICON_DOMAINS = {
   'pure chat': 'purechat.com', 'customerly': 'customerly.io',
   'dixa': 'dixa.com', 'sleeknote': 'sleeknote.com',
   'kommunicate': 'kommunicate.io', 'genesys cloud': 'genesys.com',
-  'salesforce live agent': 'salesforce.com', 'trengo': 'trengo.com',
-  'sprinklr': 'sprinklr.com', 'zoho salesiq': 'zoho.com',
-  'zoho desk': 'zoho.com', 'zoho campaigns': 'zoho.com',
+  'salesforce live agent': 'https://cdn.simpleicons.org/salesforce/00A1E0', 'trengo': 'trengo.com',
+  'sprinklr': 'sprinklr.com',
+  'zoho salesiq': 'https://cdn.simpleicons.org/zoho/C8202B',
+  'zoho desk': 'https://cdn.simpleicons.org/zoho/C8202B',
+  'zoho campaigns': 'https://cdn.simpleicons.org/zoho/C8202B',
   // Payments
   'stripe': 'stripe.com', 'paypal': 'paypal.com', 'razorpay': 'razorpay.com',
   'cashfree': 'cashfree.com', 'payu': 'payu.in', 'paytm pg': 'paytm.com',
@@ -301,19 +311,24 @@ const ICON_DOMAINS = {
   'the trade desk': 'thetradedesk.com', 'rtb house': 'rtbhouse.com',
   'carbon ads': 'carbonads.net', 'inmobi': 'inmobi.com',
   'mediavine': 'mediavine.com', 'ezoic': 'ezoic.com',
-  'doubleclick': 'google.com', 'doubleclick floodlight': 'google.com',
-  'google publisher tag': 'google.com', 'mediamath': 'mediamath.com',
+  'doubleclick': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'doubleclick floodlight': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'google publisher tag': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'mediamath': 'mediamath.com',
   // CDN & Infrastructure
   'cloudflare': 'cloudflare.com', 'cloudflare browser insights': 'cloudflare.com',
   'cloudflare rocket loader': 'cloudflare.com',
   'fastly': 'fastly.com', 'akamai': 'akamai.com',
-  'aws cloudfront': 'aws.amazon.com', 'amazon cloudfront': 'aws.amazon.com',
+  'aws cloudfront': 'https://cdn.simpleicons.org/amazoncloudwatch/FF4F8B',
+  'amazon cloudfront': 'https://cdn.simpleicons.org/amazoncloudwatch/FF4F8B',
   'bunny cdn': 'bunny.net', 'keycdn': 'keycdn.com',
   'vercel': 'vercel.com', 'netlify': 'netlify.com',
-  'firebase': 'firebase.google.com', 'firebase cloud messaging': 'firebase.google.com',
+  'firebase': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'firebase cloud messaging': 'https://cdn.simpleicons.org/firebase/DD2C00',
   'heroku': 'heroku.com', 'digitalocean': 'digitalocean.com',
   'google cloud': 'cloud.google.com', 'azure': 'azure.microsoft.com',
-  'aws': 'aws.amazon.com', 'amazon s3': 'aws.amazon.com',
+  'aws': 'https://cdn.simpleicons.org/amazonaws/232F3E',
+  'amazon s3': 'https://cdn.simpleicons.org/amazons3/569A31',
   // Web Servers
   'nginx': 'nginx.com', 'apache': 'apache.org', 'iis': 'iis.net',
   'litespeed': 'litespeedtech.com', 'caddy': 'caddyserver.com',
@@ -329,16 +344,19 @@ const ICON_DOMAINS = {
   'w3 total cache': 'boldgrid.com', 'wp rocket': 'wp-rocket.me',
   'wp super cache': 'wordpress.org', 'autoptimize': 'autoptimize.com',
   // Security
-  'recaptcha': 'google.com', 'recaptcha v3': 'google.com',
-  'google recaptcha': 'google.com', 'hcaptcha': 'hcaptcha.com',
+  'recaptcha': 'https://www.gstatic.com/recaptcha/api2/logo_48.png',
+  'recaptcha v3': 'https://www.gstatic.com/recaptcha/api2/logo_48.png',
+  'google recaptcha': 'https://www.gstatic.com/recaptcha/api2/logo_48.png', 'hcaptcha': 'hcaptcha.com',
   'sucuri': 'sucuri.net', 'wordfence': 'wordfence.com',
   'cookiebot': 'cookiebot.com', 'onetrust': 'onetrust.com',
   'osano': 'osano.com', 'accessibe': 'accessibe.com', 'userway': 'userway.org',
   // Monitoring
   'sentry': 'sentry.io', 'datadog': 'datadoghq.com', 'new relic': 'newrelic.com',
   // Fonts & Media
-  'typekit': 'fonts.adobe.com', 'adobe fonts': 'fonts.adobe.com',
-  'google fonts': 'fonts.google.com', 'google maps': 'maps.google.com',
+  'typekit': 'https://cdn.simpleicons.org/adobefonts/000B1D',
+  'adobe fonts': 'https://cdn.simpleicons.org/adobefonts/000B1D',
+  'google fonts': 'https://cdn.simpleicons.org/googlefonts/4285F4',
+  'google maps': 'https://cdn.simpleicons.org/googlemaps/4285F4',
   'mapbox': 'mapbox.com', 'leaflet': 'leafletjs.com',
   'youtube': 'youtube.com', 'vimeo': 'vimeo.com', 'wistia': 'wistia.com',
   'algolia': 'algolia.com', 'algolia recommend': 'algolia.com',
@@ -374,16 +392,19 @@ const ICON_DOMAINS = {
   'store locator plus': 'storelocatorplus.com', 'storerocket': 'storerocket.io',
   'secomapp store locator': 'secomapp.com', 'progus commerce locator': 'progus.com',
   // Misc
-  'typeform': 'typeform.com', 'adobe experience cloud': 'adobe.com',
-  'adobe target': 'adobe.com', 'adobe analytics': 'adobe.com',
+  'typeform': 'typeform.com',
+  'adobe experience cloud': 'https://cdn.simpleicons.org/adobeexperiencecloud/EB1000',
+  'adobe target': 'https://cdn.simpleicons.org/adobe/FF0000',
+  'adobe analytics': 'https://cdn.simpleicons.org/adobeanalytics/EB1000',
   'insider': 'useinsider.com', 'engage360': 'engage360.io',
-  'superagi': 'superagi.com', 'pardot': 'salesforce.com',
+  'superagi': 'superagi.com',
+  'pardot': 'https://cdn.simpleicons.org/salesforce/00A1E0',
   'keap': 'keap.com', 'acoustic': 'acoustic.com',
   'loop returns': 'loopreturns.com', 'referralcandy': 'referralcandy.com',
   'gokwik': 'gokwik.co', 'grprogram': 'grprogram.com',
   'mesoka': 'mesoka.com', 'pinnacle': 'pinnacle.com',
   // Tag Managers
-  'adobe launch': 'adobe.com', 'tealium': 'tealium.com', 'segment': 'segment.com',
+  'adobe launch': 'https://cdn.simpleicons.org/adobeexperiencecloud/EB1000', 'tealium': 'tealium.com', 'segment': 'segment.com',
   'ensighten': 'ensighten.com', 'tagcommander': 'tagcommander.com',
   'piwik tag manager': 'matomo.org',
   // Live Chat
@@ -417,14 +438,17 @@ const ICON_DOMAINS = {
   'accessibe': 'accessibe.com', 'userway': 'userway.org',
   'equalweb': 'equalweb.com', 'audioeye': 'audioeye.com',
   // Security
-  'cloudflare': 'cloudflare.com', 'recaptcha': 'google.com', 'hcaptcha': 'hcaptcha.com',
+  'cloudflare': 'cloudflare.com',
+  'recaptcha': 'https://www.gstatic.com/recaptcha/api2/logo_48.png',
+  'hcaptcha': 'hcaptcha.com',
   'akamai bot manager': 'akamai.com', 'imperva': 'imperva.com',
   'perimeterx': 'perimeterx.com', 'turnstile': 'cloudflare.com',
   // CDN & Infrastructure
   'akamai cdn': 'akamai.com', 'fastly': 'fastly.com', 'keycdn': 'keycdn.com',
   'stackpath': 'stackpath.com', 'vercel': 'vercel.com', 'netlify': 'netlify.com',
-  'aws cloudfront': 'aws.amazon.com', 'google cloud cdn': 'cloud.google.com',
-  'azure cdn': 'azure.microsoft.com', 'bunnycdn': 'bunny.net', 'imgix': 'imgix.com',
+  'aws cloudfront': 'https://cdn.simpleicons.org/amazoncloudwatch/FF4F8B',
+  'google cloud cdn': 'https://cdn.simpleicons.org/googlecloud/4285F4',
+  'azure cdn': 'https://cdn.simpleicons.org/microsoftazure/0078D4', 'bunnycdn': 'bunny.net', 'imgix': 'imgix.com',
   // Performance
   'new relic': 'newrelic.com', 'datadog rum': 'datadoghq.com', 'sentry': 'sentry.io',
   'speedcurve': 'speedcurve.com', 'dynatrace': 'dynatrace.com',
@@ -435,10 +459,12 @@ const ICON_DOMAINS = {
   'heroku': 'heroku.com', 'render': 'render.com', 'railway': 'railway.app',
   'digitalocean': 'digitalocean.com', 'fly.io': 'fly.io',
   // Font Scripts
-  'google fonts': 'fonts.google.com', 'adobe fonts': 'fonts.adobe.com',
+  'google fonts': 'https://cdn.simpleicons.org/googlefonts/4285F4',
+  'adobe fonts': 'https://cdn.simpleicons.org/adobefonts/000B1D',
   'font awesome': 'fontawesome.com',
   // Maps
-  'google maps': 'maps.google.com', 'mapbox': 'mapbox.com', 'leaflet': 'leafletjs.com',
+  'google maps': 'https://cdn.simpleicons.org/googlemaps/4285F4',
+  'mapbox': 'mapbox.com', 'leaflet': 'leafletjs.com',
   'openstreetmap': 'openstreetmap.org', 'here maps': 'here.com',
   // Video Players
   'youtube embed': 'youtube.com', 'vimeo': 'vimeo.com', 'wistia': 'wistia.com',
@@ -459,9 +485,10 @@ const ICON_DOMAINS = {
   // Email
   'mailgun': 'mailgun.com', 'postmark': 'postmarkapp.com',
   // Databases
-  'firebase': 'firebase.google.com', 'supabase': 'supabase.com',
+  'firebase': 'https://cdn.simpleicons.org/firebase/DD2C00', 'supabase': 'supabase.com',
   // Authentication
-  'google sign-in': 'google.com', 'facebook login': 'facebook.com',
+  'google sign-in': 'https://cdn.simpleicons.org/google/4285F4',
+  'facebook login': 'https://cdn.simpleicons.org/facebook/1877F2',
   'auth0': 'auth0.com', 'okta': 'okta.com', 'clerk': 'clerk.com',
   // India-specific
   'unicommerce': 'unicommerce.com', 'vinculum': 'vinculumgroup.com',
@@ -477,6 +504,126 @@ const ICON_DOMAINS = {
   'visenze': 'visenze.com',
   // Shopify Apps additions
   'wishlist plus': 'swym.it', 'wishlist king': 'appmate.io',
+  // ── Missing techs (synced from dashboard TECH_LOGO_MAP) ──
+  'adobe fonts (typekit)': 'https://cdn.simpleicons.org/adobefonts/000B1D',
+  'akamai mpulse': 'akamai.com',
+  'algolia ai': 'algolia.com',
+  'amazon ses': 'https://cdn.simpleicons.org/amazonsimpleemailservice/DD344C',
+  'apollo client': 'apollographql.com', 'apollo graphql': 'apollographql.com',
+  'appdynamics': 'appdynamics.com',
+  'baremetrics': 'baremetrics.com',
+  'barilliance recommendations': 'barilliance.com',
+  'bing uet': 'https://cdn.simpleicons.org/microsoftbing/258FFA',
+  'blue triangle': 'bluetriangle.com',
+  'blueconic': 'blueconic.com',
+  'boomerang': 'akamai.com',
+  'bugsnag': 'bugsnag.com',
+  'builder.io': 'builder.io',
+  'bun': 'bun.sh',
+  'cal.com': 'cal.com',
+  'census': 'getcensus.com',
+  'chartbeat': 'chartbeat.com',
+  'chatbot (ai)': 'chatbot.com',
+  'clicky': 'clicky.com',
+  'cloudflare turnstile': 'cloudflare.com',
+  'cloudinary': 'cloudinary.com',
+  'comscore': 'comscore.com', 'comScore': 'comscore.com',
+  'datatables': 'datatables.net',
+  'decibel insight': 'decibelinsight.com',
+  'deno': 'deno.land',
+  'didomi': 'didomi.io',
+  'discord widget': 'discord.com',
+  'docusaurus': 'docusaurus.io',
+  'eleventy': '11ty.dev',
+  'eloqua': 'https://cdn.simpleicons.org/oracle/F80000',
+  'envoy': 'envoyproxy.io',
+  'fathom analytics': 'usefathom.com',
+  'firebase analytics': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'firebase auth': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'firework': 'firework.com',
+  'flagsmith': 'flagsmith.com',
+  'fonts.com': 'fonts.com',
+  'framer motion': 'framer.com',
+  'getbutton': 'getbutton.io',
+  'gift reggie': 'giftreggie.com',
+  'gosquared': 'gosquared.com',
+  'graphql': 'graphql.org',
+  'hsts': 'hstspreload.org',
+  'headless ui': 'headlessui.com',
+  'hightouch': 'hightouch.com',
+  'hygraph': 'hygraph.com',
+  'imagekit': 'imagekit.io',
+  'impact': 'impact.com',
+  'indicative': 'indicative.com',
+  'jotform': 'jotform.com',
+  'keycloak': 'keycloak.org',
+  'kochava': 'kochava.com',
+  'leanplum': 'leanplum.com',
+  'liveintent': 'liveintent.com',
+  'loadable-components': 'loadable-components.com',
+  'localize': 'localizejs.com',
+  'localytics': 'localytics.com',
+  'lytics': 'lytics.com',
+  'mobx': 'mobx.js.org',
+  'neon': 'neon.tech',
+  'nextdoor ads': 'nextdoor.com',
+  'ometria': 'ometria.com',
+  'onetrust cookiepro': 'onetrust.com',
+  'oribi': 'oribi.io',
+  'parse.ly': 'parsely.com',
+  'petite vue': 'vuejs.org',
+  'pirsch': 'pirsch.io',
+  'planetscale': 'planetscale.com',
+  'polyfill.io': 'polyfill.io',
+  'popupsmart': 'popupsmart.com',
+  'priority hints': 'web.dev',
+  'profitwell': 'profitwell.com',
+  'pushowl': 'pushowl.com',
+  'pusher': 'pusher.com',
+  'radix ui': 'radix-ui.com',
+  'relay': 'relay.dev',
+  'retention.com': 'retention.com',
+  'revlifter': 'revlifter.com',
+  'rollbar': 'rollbar.com',
+  'rudderstack': 'rudderstack.com',
+  'salesforce dmp (krux)': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'salesforce einstein': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'salesforce marketing cloud': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'searchanise': 'searchanise.com',
+  'signifyd': 'signifyd.com',
+  'simon data': 'simondata.com',
+  'simple analytics': 'simpleanalytics.com',
+  'singular': 'singular.net',
+  'snowplow': 'snowplow.io',
+  'sprig': 'sprig.com',
+  'statcounter': 'statcounter.com',
+  'supabase auth': 'supabase.com',
+  'tally': 'tally.so',
+  'taplytics': 'taplytics.com',
+  'transifex': 'transifex.com',
+  'treasure data': 'treasuredata.com',
+  'upi': 'npci.org.in',
+  'uxcam': 'uxcam.com',
+  'unleash': 'getunleash.io',
+  'uploadcare': 'uploadcare.com',
+  'upstash': 'upstash.com',
+  'usabilla': 'usabilla.com',
+  'usercentrics': 'usercentrics.com',
+  'vercel ai sdk': 'vercel.com',
+  'whatsapp chat widget': 'whatsapp.com',
+  'woopra': 'woopra.com',
+  'yalo': 'yalo.com',
+  'zustand': 'zustand-demo.pmnd.rs',
+  'generator': 'https://cdn.simpleicons.org/wordpress/21759B',
+  'google-site-verification': 'https://cdn.simpleicons.org/googlesearchconsole/458CF5',
+  'igodigital': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'jsdelivr cdn': 'jsdelivr.com',
+  'mparticle': 'mparticle.com',
+  'msvalidate.01': 'https://cdn.simpleicons.org/microsoftbing/258FFA',
+  'shadcn/ui': 'ui.shadcn.com',
+  'styled-components': 'styled-components.com',
+  'trpc': 'trpc.io',
+  'unpkg': 'unpkg.com',
 };
 
 // ── DOM refs ────────────────────────────────────────────────────────────
@@ -734,41 +881,74 @@ function renderDetails(data) {
   html += `<div class="detail-card full"><div class="detail-label">Website</div><div class="detail-url">${esc(url)}</div></div>`;
 
   if (companyMeta) {
-    // Category
-    html += `<div class="detail-card"><div class="detail-label">Category</div><div class="detail-value">${esc(companyMeta.category)}</div></div>`;
+    // Non-D2C Brand banner — show for explicit Non-D2C OR Unknown/unclassified categories
+    const isNonD2C = companyMeta.isNonD2C || companyMeta.category === 'Not Required' || companyMeta.category === 'Unknown' || !companyMeta.category;
+    if (isNonD2C) {
+      const nonD2CReason = companyMeta.nonD2CReason
+        || (companyMeta.category === 'Unknown' || !companyMeta.category
+          ? 'Could not identify as a D2C brand — no consumer checkout or product catalog detected'
+          : 'This company does not sell directly to consumers');
+      html += `<div class="detail-card full" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:16px;">&#9888;</span>
+          <div>
+            <div style="font-weight:700;font-size:12px;color:#dc2626;">Non D2C Brand</div>
+            <div style="font-size:10px;color:#92400e;margin-top:2px;">${esc(nonD2CReason)}</div>
+          </div>
+        </div>
+      </div>`;
 
-    // Sub-category
-    html += `<div class="detail-card"><div class="detail-label">Sub-Category</div><div class="detail-value">${esc(companyMeta.subCategory || 'General')}</div></div>`;
+      // Still show App Presence and Traffic for Non-D2C
+      const appPresence = companyMeta.appPresence || 'No App';
+      const appBadgeClass = appPresence === 'No App' ? 'online-only' :
+                            appPresence === 'Both iOS & Android' ? 'has-stores' : 'unknown';
+      html += `<div class="detail-card"><div class="detail-label">App Presence</div><div class="detail-value"><span class="store-badge ${appBadgeClass}">${esc(appPresence)}</span></div></div>`;
 
-    // Region
-    html += `<div class="detail-card"><div class="detail-label">Region</div><div class="detail-value">${esc(companyMeta.region)}</div></div>`;
+      if (companyMeta.monthlyVisitsFormatted) {
+        html += `<div class="detail-card"><div class="detail-label">Est. Traffic</div><div class="detail-value">${esc(companyMeta.monthlyVisitsFormatted)} <span class="mau-sub">visits/mo</span></div></div>`;
+      }
 
-    // Store count
-    const stores = companyMeta.offlineStores || 'Unknown';
-    const badgeClass = stores === 'Online' ? 'online-only' :
-                       stores === 'Unknown' ? 'unknown' : 'has-stores';
-    html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span></div></div>`;
+      if (companyMeta.region) {
+        html += `<div class="detail-card"><div class="detail-label">Region</div><div class="detail-value">${esc(companyMeta.region)}</div></div>`;
+      }
+    } else {
+      // Normal D2C brand — show full details
+      // Category
+      html += `<div class="detail-card"><div class="detail-label">Category</div><div class="detail-value">${esc(companyMeta.category)}</div></div>`;
 
-    // Business Model — derive from stores if not set
-    let bizModel = companyMeta.businessModel;
-    if (!bizModel) {
+      // Sub-category
+      html += `<div class="detail-card"><div class="detail-label">Sub-Category</div><div class="detail-value">${esc(companyMeta.subCategory || 'General')}</div></div>`;
+
+      // Region
+      html += `<div class="detail-card"><div class="detail-label">Region</div><div class="detail-value">${esc(companyMeta.region)}</div></div>`;
+
+      // Store count
       const stores = companyMeta.offlineStores || 'Unknown';
-      bizModel = (stores !== 'Online' && stores !== 'Unknown') ? 'Omnichannel' : 'Pure D2C';
-    }
-    const bizColor = bizModel === 'Pure D2C' ? 'online-only' :
-                     bizModel === 'Omnichannel' ? 'has-stores' :
-                     bizModel === 'D2C + Marketplace' ? 'unknown' : 'unknown';
-    html += `<div class="detail-card"><div class="detail-label">Business Model</div><div class="detail-value"><span class="store-badge ${bizColor}">${esc(bizModel)}</span></div></div>`;
+      const badgeClass = stores === 'Online' ? 'online-only' :
+                         stores === 'Unknown' ? 'unknown' : 'has-stores';
+      html += `<div class="detail-card"><div class="detail-label">Offline Stores</div><div class="detail-value"><span class="store-badge ${badgeClass}">${esc(stores)}</span></div></div>`;
 
-    // App Presence
-    const appPresence = companyMeta.appPresence || 'No App';
-    const appBadgeClass = appPresence === 'No App' ? 'online-only' :
-                          appPresence === 'Both iOS & Android' ? 'has-stores' : 'unknown';
-    html += `<div class="detail-card"><div class="detail-label">App Presence</div><div class="detail-value"><span class="store-badge ${appBadgeClass}">${esc(appPresence)}</span></div></div>`;
+      // Business Model — derive from stores if not set
+      let bizModel = companyMeta.businessModel;
+      if (!bizModel) {
+        const stores2 = companyMeta.offlineStores || 'Unknown';
+        bizModel = (stores2 !== 'Online' && stores2 !== 'Unknown') ? 'Omnichannel' : 'Pure D2C';
+      }
+      const bizColor = bizModel === 'Pure D2C' ? 'online-only' :
+                       bizModel === 'Omnichannel' ? 'has-stores' :
+                       bizModel === 'D2C + Marketplace' ? 'unknown' : 'unknown';
+      html += `<div class="detail-card"><div class="detail-label">Business Model</div><div class="detail-value"><span class="store-badge ${bizColor}">${esc(bizModel)}</span></div></div>`;
 
-    // MAU / Estimated Traffic
-    if (companyMeta.monthlyVisitsFormatted) {
-      html += `<div class="detail-card"><div class="detail-label">Est. Traffic</div><div class="detail-value">${esc(companyMeta.monthlyVisitsFormatted)} <span class="mau-sub">visits/mo</span></div></div>`;
+      // App Presence
+      const appPresence = companyMeta.appPresence || 'No App';
+      const appBadgeClass = appPresence === 'No App' ? 'online-only' :
+                            appPresence === 'Both iOS & Android' ? 'has-stores' : 'unknown';
+      html += `<div class="detail-card"><div class="detail-label">App Presence</div><div class="detail-value"><span class="store-badge ${appBadgeClass}">${esc(appPresence)}</span></div></div>`;
+
+      // MAU / Estimated Traffic
+      if (companyMeta.monthlyVisitsFormatted) {
+        html += `<div class="detail-card"><div class="detail-label">Est. Traffic</div><div class="detail-value">${esc(companyMeta.monthlyVisitsFormatted)} <span class="mau-sub">visits/mo</span></div></div>`;
+      }
     }
   }
 
@@ -847,8 +1027,14 @@ function renderTechStack(data) {
 // ── Helpers ──────────────────────────────────────────────────────────────
 function getIconUrl(techName) {
   const key = techName.toLowerCase();
-  const domain = ICON_DOMAINS[key];
-  if (domain) return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+  const val = ICON_DOMAINS[key];
+  // If the map value starts with http, use it directly as an icon URL;
+  // otherwise treat it as a domain for Google's favicon API.
+  if (val) {
+    return val.startsWith('http')
+      ? val
+      : `https://www.google.com/s2/favicons?domain=${val}&sz=64`;
+  }
 
   // Smart domain guess: strip common suffixes and try .com
   const cleaned = key

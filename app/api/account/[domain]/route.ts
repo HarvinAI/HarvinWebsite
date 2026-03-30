@@ -42,15 +42,30 @@ function domainToName(domain: string): string {
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
-function computeScore(meta: Record<string, unknown>, techCount: number): number {
-  let score = 40; // base
-  if (meta.category && meta.category !== 'Unknown') score += 10;
-  if (meta.subCategory && meta.subCategory !== 'General') score += 5;
-  if (meta.region && meta.region !== 'Global') score += 5;
-  if (meta.offlineStores && meta.offlineStores !== 'Unknown' && meta.offlineStores !== 'Online') score += 10;
-  if (techCount > 0) score += Math.min(techCount * 2, 20);
-  if (meta.aiStoreCount && (meta.aiStoreCount as number) > 0) score += 10;
-  return Math.min(score, 99);
+function computeHarvinScore(meta: Record<string, unknown>, techCount: number): number {
+  const mv = (meta.monthlyVisits as number) || 0;
+  const tc = techCount || 0;
+  const app = (meta.appPresence as string) || 'No App';
+  const bm = (meta.businessModel as string) || 'Pure D2C';
+  const conf = (meta.categoryConfidence as string) || 'low';
+  const stores = (meta.offlineStores as string) || 'Online';
+
+  let s = 0;
+  // Traffic (max 30)
+  if (mv >= 20_000_000) s += 30; else if (mv >= 5_000_000) s += 25; else if (mv >= 1_000_000) s += 20;
+  else if (mv >= 500_000) s += 15; else if (mv >= 200_000) s += 10; else if (mv >= 50_000) s += 5; else if (mv >= 10_000) s += 2;
+  // Tech stack (max 20)
+  if (tc >= 20) s += 20; else if (tc >= 15) s += 15; else if (tc >= 10) s += 10; else if (tc >= 5) s += 5; else if (tc >= 1) s += 2;
+  // App presence (max 15)
+  if (app === 'Both iOS & Android') s += 15; else if (app !== 'No App') s += 8;
+  // Offline stores (max 15)
+  if (stores === '500+' || stores === '100+') s += 15; else if (stores === '100-500' || stores === '51-100') s += 12;
+  else if (stores === '50-100' || stores === '21-50') s += 9; else if (stores === '10-50' || stores === '11-20') s += 6; else if (stores === '1-10') s += 3;
+  // Category confidence (max 10)
+  if (conf === 'high') s += 10; else if (conf === 'medium') s += 6; else s += 2;
+  // Business model (max 10)
+  if (bm === 'Omnichannel') s += 10; else if (bm === 'D2C + Marketplace') s += 8; else if (bm === 'D2C + B2B') s += 6; else s += 5;
+  return s;
 }
 
 export async function GET(
@@ -149,11 +164,13 @@ export async function GET(
       }
     }
 
-    const score = computeScore(meta, 0); // tech count added client-side
+    // Use DB-stored harvinScore — single source of truth across all pages
+    const harvinScore = doc?.harvinScore || 0;
 
     return NextResponse.json({
       ...meta,
-      score,
+      score: harvinScore,
+      harvinScore,
       similar,
       found: !!doc,
     }, {

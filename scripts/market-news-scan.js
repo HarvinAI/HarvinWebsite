@@ -1,22 +1,20 @@
 #!/usr/bin/env node
 
 /**
- * Market Intelligence News Scanner — ZERO API version
+ * Market News Scanner — D2C Brand-Specific
  *
- * Fetches ALL market-relevant news from Google News RSS + Bing News RSS
- * and extracts structured data using pure regex (no LLM, no API keys).
+ * Fetches news ONLY for D2C brands in the database.
+ * Searches Google News RSS + Bing RSS for each brand by name,
+ * extracts structured data using pure regex (no LLM, no API keys).
  *
- * Covers: Funding, Hiring (CEO → fresher), Acquisition, Product Launch,
- *         Shutdown/Layoff, Regulatory, Partnership, Expansion
- *
- * Speed: Processes 500+ articles in ~2 minutes (vs 8+ hours with LLM)
+ * Priority: scans highest Harvin Score brands first.
  *
  * Usage:
- *   node scripts/market-news-scan.js                     # full run
- *   node scripts/market-news-scan.js --dry-run           # don't write to DB
- *   node scripts/market-news-scan.js --limit 50          # limit articles
- *   node scripts/market-news-scan.js --cluster 3         # specific cluster
- *   node scripts/market-news-scan.js --type hiring       # only hiring queries
+ *   node scripts/market-news-scan.js                     # full run (top 500 brands)
+ *   node scripts/market-news-scan.js --dry-run           # preview
+ *   node scripts/market-news-scan.js --limit 50          # limit brands
+ *   node scripts/market-news-scan.js --domain nykaa.com  # single brand
+ *   node scripts/market-news-scan.js --min-score 40      # only brands with score >= 40
  *   node scripts/market-news-scan.js --verbose           # print every extraction
  */
 
@@ -25,7 +23,7 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 
-// Load .env.local (only for MONGO_URI — no other API keys needed!)
+// Load .env.local
 try {
   const envPath = path.resolve(__dirname, '..', '.env.local');
   const envContent = fs.readFileSync(envPath, 'utf-8');
@@ -53,55 +51,27 @@ const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
 const VERBOSE = args.includes('--verbose');
 const limitIdx = args.indexOf('--limit');
-const LIMIT = limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 0; // 0 = no limit
-const clusterIdx = args.indexOf('--cluster');
-const ONLY_CLUSTER = clusterIdx !== -1 ? parseInt(args[clusterIdx + 1], 10) : null;
-const typeIdx = args.indexOf('--type');
-const ONLY_TYPE = typeIdx !== -1 ? args[typeIdx + 1] : null;
+const LIMIT = limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 500;
+const domainIdx = args.indexOf('--domain');
+const SINGLE_DOMAIN = domainIdx !== -1 ? args[domainIdx + 1] : null;
+const minScoreIdx = args.indexOf('--min-score');
+const MIN_SCORE = minScoreIdx !== -1 ? parseInt(args[minScoreIdx + 1], 10) : 0;
 
 const PROGRESS_FILE = path.resolve(__dirname, 'market-news-progress.json');
 
-// ── Category clusters with search queries ─────────────────────────────────
+// ── Domain → Brand name ──────────────────────────────────────────────────
 
-const CATEGORY_CLUSTERS = [
-  { name: 'Fintech & Banking', queryTerms: ['fintech', 'banking startup', 'neobank', 'payments startup', 'lending startup', 'crypto', 'insurance startup'] },
-  { name: 'Ecommerce & Retail', queryTerms: ['ecommerce startup', 'D2C brand', 'online retail', 'quick commerce', 'grocery startup', 'FMCG brand'] },
-  { name: 'Fashion & Beauty', queryTerms: ['fashion brand', 'D2C fashion', 'beauty startup', 'skincare brand', 'jewelry brand', 'luxury brand India'] },
-  { name: 'Food & Beverage', queryTerms: ['food startup', 'food delivery', 'cloud kitchen', 'restaurant chain', 'QSR India', 'beverage brand'] },
-  { name: 'Health & Pharma', queryTerms: ['healthtech startup', 'pharma company', 'biotech startup', 'telemedicine', 'wellness brand', 'hospital chain'] },
-  { name: 'EdTech', queryTerms: ['edtech startup', 'online learning', 'ed-tech India', 'skill development startup'] },
-  { name: 'SaaS & Enterprise', queryTerms: ['SaaS startup', 'B2B SaaS', 'enterprise software', 'cybersecurity startup', 'cloud platform'] },
-  { name: 'AI & Deep Tech', queryTerms: ['AI startup', 'artificial intelligence company', 'generative AI', 'robotics startup', 'semiconductor company', 'deeptech'] },
-  { name: 'Logistics & Mobility', queryTerms: ['logistics startup', 'EV startup', 'electric vehicle', 'mobility startup', 'supply chain', 'fleet management'] },
-  { name: 'Real Estate & Infra', queryTerms: ['proptech startup', 'real estate startup', 'construction tech', 'coworking startup', 'home services'] },
-  { name: 'Media & Entertainment', queryTerms: ['gaming startup', 'OTT platform', 'media company India', 'creator economy', 'esports', 'entertainment startup'] },
-  { name: 'Travel & Hospitality', queryTerms: ['travel tech', 'hotel chain', 'tourism startup', 'booking platform', 'hospitality startup'] },
-  { name: 'HR & Services', queryTerms: ['HR tech startup', 'recruitment platform', 'staffing startup', 'legal tech'] },
-  { name: 'Energy & Climate', queryTerms: ['cleantech startup', 'renewable energy startup', 'solar company', 'EV charging', 'climate tech startup', 'green energy'] },
-  { name: 'Home & Lifestyle', queryTerms: ['home decor brand', 'pet care startup', 'fitness brand', 'baby care D2C', 'lifestyle brand India'] },
-  { name: 'Agriculture', queryTerms: ['agritech startup', 'agriculture technology India', 'farm tech startup'] },
-  { name: 'Manufacturing', queryTerms: ['manufacturing startup India', 'industrial tech', 'packaging company', 'smart manufacturing'] },
-  { name: 'Telecom & Defense', queryTerms: ['telecom company India', '5G startup', 'defense tech startup', 'space tech startup India'] },
-  { name: 'Social & Community', queryTerms: ['social media startup', 'dating app India', 'community platform startup'] },
-  { name: 'General Startup', queryTerms: ['startup India funding', 'Indian startup news', 'startup raises', 'startup acquisition', 'startup layoffs India', 'startup IPO India'] },
-];
-
-// ── News type query suffixes ──────────────────────────────────────────────
-
-const NEWS_TYPES = [
-  { type: 'funding',     suffix: 'funding OR raised OR investment OR series OR venture capital' },
-  { type: 'hiring',      suffix: 'appoints OR hires OR new CEO OR new CTO OR recruits OR hiring OR layoffs' },
-  { type: 'acquisition', suffix: 'acquires OR acquisition OR merger OR takeover OR buyout' },
-  { type: 'launch',      suffix: 'launches OR new product OR new service OR expands OR IPO' },
-  { type: 'shutdown',    suffix: 'shuts down OR layoffs OR closes OR bankruptcy OR downsizing' },
-  { type: 'regulatory',  suffix: 'regulation OR ban OR policy OR RBI OR SEBI OR government order' },
-  { type: 'partnership', suffix: 'partners with OR collaboration OR joint venture OR tie-up' },
-  { type: 'expansion',   suffix: 'expands to OR new store OR new market OR international expansion' },
-];
+function domainToBrand(domain) {
+  return domain
+    .replace(/^www\d*\./, '')
+    .replace(/\.(com|in|co|io|net|org|co\.in|com\.au|co\.uk|xyz|app|club|life|store|shop|online|tech|ai)$/i, '')
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────
 
-function httpGet(url, timeout = 12000) {
+function httpGet(url, timeout = 10000) {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith('https') ? https : http;
     const req = mod.get(url, {
@@ -116,13 +86,9 @@ function httpGet(url, timeout = 12000) {
         httpGet(res.headers.location, timeout).then(resolve).catch(reject);
         return;
       }
-      if (res.statusCode !== 200) {
-        reject(new Error(`HTTP ${res.statusCode}`));
-        res.resume();
-        return;
-      }
+      if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); res.resume(); return; }
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.on('data', chunk => { data += chunk; if (data.length > 100000) res.destroy(); });
       res.on('end', () => resolve(data));
     });
     req.on('error', reject);
@@ -143,34 +109,25 @@ function parseRSSItems(xml) {
     const link = extractTag(block, 'link');
     const description = extractTag(block, 'description');
     const pubDate = extractTag(block, 'pubDate');
-    if (title) {
-      items.push({
-        title: decodeEntities(title),
-        snippet: decodeEntities(description || ''),
-        url: link || '',
-        pubDate: pubDate || '',
-      });
-    }
+    if (title) items.push({ title: decodeEntities(title), snippet: decodeEntities(description || ''), url: link || '', pubDate: pubDate || '' });
   }
   return items;
 }
 
 function extractTag(xml, tag) {
   const cdataRegex = new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></${tag}>`, 'i');
-  const cdataMatch = cdataRegex.exec(xml);
-  if (cdataMatch) return cdataMatch[1].trim();
+  const m = cdataRegex.exec(xml);
+  if (m) return m[1].trim();
   const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i');
-  const m = regex.exec(xml);
-  return m ? m[1].trim() : '';
+  const m2 = regex.exec(xml);
+  return m2 ? m2[1].trim() : '';
 }
 
 function decodeEntities(str) {
-  return str
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/<[^>]+>/g, '');
+  return str.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/<[^>]+>/g, '');
 }
 
-// ── News fetchers (RSS only — no API keys!) ───────────────────────────────
+// ── News fetchers ─────────────────────────────────────────────────────────
 
 async function fetchGoogleNewsRSS(query) {
   const q = encodeURIComponent(query);
@@ -186,209 +143,238 @@ async function fetchBingNewsRSS(query) {
   return parseRSSItems(xml).map(a => ({ ...a, source: 'bing_news' }));
 }
 
-// ── Dedup ─────────────────────────────────────────────────────────────────
-
 function normalizeTitle(title) {
   return title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 80);
 }
+
+// ── News query templates per brand ────────────────────────────────────────
+// For each brand, we search multiple query types
+
+const QUERY_TEMPLATES = [
+  { suffix: 'funding OR raised OR investment OR series', type: 'funding' },
+  { suffix: 'appoints OR hires OR new CEO OR CTO OR layoffs', type: 'hiring' },
+  { suffix: 'acquires OR acquisition OR merger', type: 'acquisition' },
+  { suffix: 'launches OR new product OR expands OR IPO', type: 'launch' },
+  { suffix: 'shuts down OR closes OR layoffs OR bankruptcy', type: 'shutdown' },
+  { suffix: 'partners OR collaboration OR tie-up', type: 'partnership' },
+];
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
 async function main() {
   const startTime = Date.now();
-  console.log(`\n[market-scan] Starting (ZERO-API mode)${DRY_RUN ? ' — DRY RUN' : ''}...`);
-  console.log(`[market-scan] No API keys required — pure RSS + regex extraction\n`);
+  console.log(`\n[market-scan] D2C Brand-Specific News Scanner`);
+  console.log(`[market-scan] Zero API keys — RSS + regex only${DRY_RUN ? ' (DRY RUN)' : ''}\n`);
 
   const db = await getDb();
-  const col = db.collection('market_news');
+  const metaCol = db.collection('company_meta');
+  const newsCol = db.collection('market_news');
 
   // Ensure indexes
   if (!DRY_RUN) {
-    col.createIndex({ publishedAt: -1 }).catch(() => {});
-    col.createIndex({ titleHash: 1 }, { unique: true }).catch(() => {});
-    col.createIndex({ newsType: 1, publishedAt: -1 }).catch(() => {});
-    col.createIndex({ category: 1, publishedAt: -1 }).catch(() => {});
-    col.createIndex({ country: 1, publishedAt: -1 }).catch(() => {});
-    col.createIndex({ companyName: 1 }).catch(() => {});
-    col.createIndex({ marketImpact: 1, publishedAt: -1 }).catch(() => {});
-    col.createIndex({ publishedAt: 1 }, { expireAfterSeconds: 180 * 24 * 3600 }).catch(() => {});
+    newsCol.createIndex({ publishedAt: -1 }).catch(() => {});
+    newsCol.createIndex({ titleHash: 1 }, { unique: true }).catch(() => {});
+    newsCol.createIndex({ newsType: 1, publishedAt: -1 }).catch(() => {});
+    newsCol.createIndex({ category: 1, publishedAt: -1 }).catch(() => {});
+    newsCol.createIndex({ companyName: 1 }).catch(() => {});
+    newsCol.createIndex({ domain: 1, publishedAt: -1 }).catch(() => {});
+    newsCol.createIndex({ publishedAt: 1 }, { expireAfterSeconds: 180 * 24 * 3600 }).catch(() => {});
   }
+
+  // ── Step 1: Get D2C brands from DB ──────────────────────────────────────
+  let brandQuery;
+  if (SINGLE_DOMAIN) {
+    brandQuery = { normalizedDomain: SINGLE_DOMAIN };
+  } else {
+    brandQuery = {
+      category: { $nin: [null, '', 'Unknown', 'Not Required'] },
+    };
+    if (MIN_SCORE > 0) brandQuery.harvinScore = { $gte: MIN_SCORE };
+  }
+
+  let brands = await metaCol.find(brandQuery)
+    .sort({ harvinScore: -1 })
+    .project({ normalizedDomain: 1, brandName: 1, category: 1, harvinScore: 1 })
+    .limit(LIMIT)
+    .toArray();
+
+  console.log(`[market-scan] ${brands.length} D2C brands to scan (sorted by Harvin Score)\n`);
 
   // Load existing title hashes for dedup
   const seenTitles = new Set();
   if (!DRY_RUN) {
     try {
-      const existing = await col.find({}).sort({ publishedAt: -1 }).limit(15000)
+      const existing = await newsCol.find({}).sort({ publishedAt: -1 }).limit(20000)
         .project({ titleHash: 1 }).toArray();
       for (const e of existing) seenTitles.add(e.titleHash);
-      console.log(`[market-scan] ${seenTitles.size} existing articles in DB (dedup)\n`);
+      console.log(`[market-scan] ${seenTitles.size} existing articles (dedup)\n`);
     } catch {}
   }
 
-  // Build query list
-  const clusters = ONLY_CLUSTER !== null
-    ? [CATEGORY_CLUSTERS[ONLY_CLUSTER]].filter(Boolean)
-    : CATEGORY_CLUSTERS;
+  // ── Step 2: Fetch news for each brand ───────────────────────────────────
+  let totalFetched = 0;
+  let totalExtracted = 0;
+  let totalWritten = 0;
+  let totalSkipped = 0;
+  const typeCounts = {};
+  const brandHits = {};
 
-  const newsTypes = ONLY_TYPE
-    ? NEWS_TYPES.filter(t => t.type === ONLY_TYPE)
-    : NEWS_TYPES;
+  for (let bi = 0; bi < brands.length; bi++) {
+    const brand = brands[bi];
+    const domain = brand.normalizedDomain;
+    const brandName = brand.brandName && !brand.brandName.startsWith('http')
+      ? brand.brandName
+      : domainToBrand(domain);
+    const category = brand.category;
+    const score = brand.harvinScore || 0;
 
-  // Build queries: each cluster term × each news type
-  const queries = [];
-  for (const cluster of clusters) {
-    for (const nt of newsTypes) {
-      // Use up to 2 terms per query to keep results focused
-      for (let ti = 0; ti < cluster.queryTerms.length; ti += 2) {
-        const terms = cluster.queryTerms.slice(ti, ti + 2).join(' OR ');
-        queries.push({
-          query: `(${terms}) ${nt.suffix}`,
-          clusterName: cluster.name,
-          newsType: nt.type,
-        });
-      }
-    }
-  }
+    const pct = ((bi / brands.length) * 100).toFixed(0);
+    process.stdout.write(`\r  [${pct}%] ${bi + 1}/${brands.length} — ${brandName.padEnd(25)} (score:${score})`);
 
-  console.log(`[market-scan] ${queries.length} queries to fetch\n`);
+    // Search news for this brand with different query types
+    const brandArticles = [];
 
-  // ── Step 1: Fetch all articles from RSS ─────────────────────────────────
-  const allArticles = [];
-  const fetchedTitles = new Set();
+    for (const tmpl of QUERY_TEMPLATES) {
+      const query = `"${brandName}" ${tmpl.suffix}`;
 
-  for (let i = 0; i < queries.length; i++) {
-    const { query, clusterName, newsType } = queries[i];
-    const pct = ((i / queries.length) * 100).toFixed(0);
-    process.stdout.write(`\r  [${pct}%] Fetching: ${clusterName} / ${newsType}...                         `);
-
-    // Google News RSS
-    try {
-      const articles = await fetchGoogleNewsRSS(query);
-      for (const a of articles) {
-        const norm = normalizeTitle(a.title);
-        if (!fetchedTitles.has(norm) && !seenTitles.has(norm)) {
-          fetchedTitles.add(norm);
-          allArticles.push(a);
-        }
-      }
-    } catch {}
-
-    // Bing News RSS (for high-priority types)
-    if (['funding', 'hiring', 'acquisition', 'shutdown'].includes(newsType)) {
+      // Google News RSS
       try {
-        const articles = await fetchBingNewsRSS(query);
+        const articles = await fetchGoogleNewsRSS(query);
         for (const a of articles) {
           const norm = normalizeTitle(a.title);
-          if (!fetchedTitles.has(norm) && !seenTitles.has(norm)) {
-            fetchedTitles.add(norm);
-            allArticles.push(a);
+          if (!seenTitles.has(norm)) {
+            seenTitles.add(norm);
+            brandArticles.push(a);
           }
         }
       } catch {}
+
+      // Bing RSS (only for funding, hiring, acquisition — highest value)
+      if (['funding', 'hiring', 'acquisition'].includes(tmpl.type)) {
+        try {
+          const articles = await fetchBingNewsRSS(query);
+          for (const a of articles) {
+            const norm = normalizeTitle(a.title);
+            if (!seenTitles.has(norm)) {
+              seenTitles.add(norm);
+              brandArticles.push(a);
+            }
+          }
+        } catch {}
+      }
+
+      await sleep(200); // rate limit between queries
     }
 
-    // Small delay to avoid rate limiting from RSS feeds
-    await sleep(300);
-  }
+    totalFetched += brandArticles.length;
 
-  console.log(`\n\n[market-scan] Fetched ${allArticles.length} new unique articles`);
+    // Filter to last 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentArticles = brandArticles.filter(a => {
+      if (!a.pubDate) return true;
+      return new Date(a.pubDate) > thirtyDaysAgo;
+    });
 
-  // Filter old articles (> 30 days)
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  let articlesToProcess = allArticles.filter(a => {
-    if (!a.pubDate) return true;
-    return new Date(a.pubDate) > thirtyDaysAgo;
-  });
+    // ── Step 3: Extract data using regex ───────────────────────────────────
+    for (const article of recentArticles) {
+      const data = extractMarketNews(article);
+      if (!data) { totalSkipped++; continue; }
 
-  console.log(`[market-scan] ${articlesToProcess.length} from last 30 days`);
+      totalExtracted++;
+      typeCounts[data.newsType] = (typeCounts[data.newsType] || 0) + 1;
+      brandHits[domain] = (brandHits[domain] || 0) + 1;
 
-  if (LIMIT > 0 && articlesToProcess.length > LIMIT) {
-    articlesToProcess = articlesToProcess.slice(0, LIMIT);
-    console.log(`[market-scan] Limited to ${LIMIT}`);
-  }
+      // Use the brand's DB category instead of regex-guessed category
+      if (!data.category) data.category = category;
 
-  // ── Step 2: Extract data using regex (INSTANT — no API calls) ───────────
-  console.log(`\n[market-scan] Extracting data (regex — no API calls)...\n`);
+      if (VERBOSE || DRY_RUN) {
+        console.log(`\n    ${data.newsType.toUpperCase().padEnd(12)} ${data.headline?.slice(0, 80)}`);
+        if (data.details.amount) console.log(`${''.padEnd(16)}Amount: ${data.details.amount}`);
+        if (data.details.person) console.log(`${''.padEnd(16)}Person: ${data.details.person} — ${data.details.role || '?'}`);
+      }
 
-  let extracted = 0;
-  let skipped = 0;
-  let written = 0;
-  const typeCounts = {};
+      if (!DRY_RUN) {
+        const doc = {
+          titleHash: normalizeTitle(article.title),
+          title: article.title,
+          snippet: article.snippet,
+          url: article.url,
+          source: article.source,
+          sourceName: '',
+          imageUrl: '',
+          publishedAt: article.pubDate ? new Date(article.pubDate) : new Date(),
+          newsType: data.newsType,
+          companyName: data.companyName || brandName,
+          category: data.category || category,
+          headline: data.headline,
+          summary: data.summary,
+          country: data.country,
+          marketImpact: data.marketImpact,
+          confidence: data.confidence,
+          details: data.details,
+          // Link to DB account
+          domain: domain,
+          harvinScore: score,
+          fetchedAt: new Date(),
+        };
 
-  for (let i = 0; i < articlesToProcess.length; i++) {
-    const article = articlesToProcess[i];
-
-    // Run regex extraction — instant, no network call
-    const data = extractMarketNews(article);
-
-    if (!data) {
-      skipped++;
-      continue;
-    }
-
-    extracted++;
-    typeCounts[data.newsType] = (typeCounts[data.newsType] || 0) + 1;
-
-    if (VERBOSE || DRY_RUN) {
-      console.log(`  ${data.newsType.toUpperCase().padEnd(12)} | ${(data.companyName || '?').padEnd(20)} | ${(data.category || '?').padEnd(20)} | ${data.headline?.slice(0, 70)}`);
-      if (data.details.amount) console.log(`${''.padEnd(16)}Amount: ${data.details.amount} (${data.details.round || '?'})`);
-      if (data.details.person) console.log(`${''.padEnd(16)}Person: ${data.details.person} — ${data.details.role || '?'}`);
-      if (data.details.investors?.length) console.log(`${''.padEnd(16)}Investors: ${data.details.investors.join(', ')}`);
-    }
-
-    if (!DRY_RUN) {
-      const doc = {
-        titleHash: normalizeTitle(article.title),
-        title: article.title,
-        snippet: article.snippet,
-        url: article.url,
-        source: article.source,
-        sourceName: '',
-        imageUrl: '',
-        publishedAt: article.pubDate ? new Date(article.pubDate) : new Date(),
-        newsType: data.newsType,
-        companyName: data.companyName,
-        category: data.category,
-        headline: data.headline,
-        summary: data.summary,
-        country: data.country,
-        marketImpact: data.marketImpact,
-        confidence: data.confidence,
-        details: data.details,
-        fetchedAt: new Date(),
-      };
-
-      try {
-        await col.updateOne(
-          { titleHash: doc.titleHash },
-          { $set: doc, $setOnInsert: { createdAt: new Date() } },
-          { upsert: true }
-        );
-        written++;
-      } catch (err) {
-        if (err.code !== 11000) console.warn(`  Write error: ${err.message}`);
+        try {
+          await newsCol.updateOne(
+            { titleHash: doc.titleHash },
+            { $set: doc, $setOnInsert: { createdAt: new Date() } },
+            { upsert: true }
+          );
+          totalWritten++;
+        } catch (err) {
+          if (err.code !== 11000) console.warn(`\n  Write error: ${err.message}`);
+        }
       }
     }
+
+    // Save progress every 50 brands
+    if (bi % 50 === 0 && bi > 0) {
+      fs.writeFileSync(PROGRESS_FILE, JSON.stringify({
+        status: 'running', brandsProcessed: bi + 1, totalBrands: brands.length,
+        totalFetched, totalExtracted, totalWritten, totalSkipped, typeCounts,
+      }, null, 2));
+    }
+
+    await sleep(300); // rate limit between brands
   }
 
+  // ── Summary ─────────────────────────────────────────────────────────────
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(`\n[market-scan] Done in ${elapsed}s`);
-  console.log(`  Total fetched:  ${allArticles.length}`);
-  console.log(`  Processed:      ${articlesToProcess.length}`);
-  console.log(`  Extracted:      ${extracted}`);
-  console.log(`  Not relevant:   ${skipped}`);
-  console.log(`  Written to DB:  ${written}`);
-  console.log(`  By type:`, typeCounts);
-  console.log(`\n  No API keys used. Zero cost.\n`);
+  const brandsWithNews = Object.keys(brandHits).length;
+
+  console.log(`\n\n${'═'.repeat(60)}`);
+  console.log(`  D2C BRAND NEWS SCAN REPORT${DRY_RUN ? ' (DRY RUN)' : ''}`);
+  console.log(`${'═'.repeat(60)}`);
+  console.log(`\n  Brands scanned:      ${brands.length}`);
+  console.log(`  Brands with news:    ${brandsWithNews}`);
+  console.log(`  Articles fetched:    ${totalFetched}`);
+  console.log(`  News extracted:      ${totalExtracted}`);
+  console.log(`  Not relevant:        ${totalSkipped}`);
+  console.log(`  Written to DB:       ${totalWritten}`);
+  console.log(`  Time:                ${elapsed}s`);
+  console.log(`\n  By news type:`);
+  for (const [t, c] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
+    console.log(`    ${String(c).padStart(5)}  ${t}`);
+  }
+  if (brandsWithNews > 0) {
+    console.log(`\n  Top brands with most news:`);
+    const topBrands = Object.entries(brandHits).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    for (const [d, c] of topBrands) {
+      console.log(`    ${String(c).padStart(5)}  ${d}`);
+    }
+  }
+  console.log(`\n  Zero API keys. Zero cost.`);
+  console.log(`${'═'.repeat(60)}\n`);
 
   fs.writeFileSync(PROGRESS_FILE, JSON.stringify({
-    status: 'completed',
-    lastRunDate: new Date().toISOString(),
-    totalFetched: allArticles.length,
-    processed: articlesToProcess.length,
-    extracted, skipped, written, typeCounts,
-    elapsedSeconds: parseFloat(elapsed),
-    mode: 'zero-api',
+    status: 'completed', lastRunDate: new Date().toISOString(),
+    brandsScanned: brands.length, brandsWithNews,
+    totalFetched, totalExtracted, totalWritten, totalSkipped, typeCounts,
+    elapsedSeconds: parseFloat(elapsed), mode: 'brand-specific',
   }, null, 2));
 
   process.exit(0);

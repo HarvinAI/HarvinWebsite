@@ -61,6 +61,7 @@ interface AccountData {
   iosAppUrl: string | null;
   androidAppUrl: string | null;
   score: number;
+  harvinScore: number;
   similar: { normalizedDomain: string; name: string; category: string; subCategory: string }[];
   found: boolean;
 }
@@ -350,9 +351,7 @@ export default function AccountDetailPage() {
     signOut({ callbackUrl: '/' });
   };
 
-  const score = account
-    ? Math.min((account.score || 40) + Math.min(techCount * 2, 20), 99)
-    : 0;
+  const score = account?.harvinScore || account?.score || 0;
   const confidence = computeConfidenceLabel(
     account?.found ? (score > 70 ? 94 : score > 50 ? 72 : 45) : 30
   );
@@ -517,16 +516,20 @@ export default function AccountDetailPage() {
                           {account.name}
                         </h1>
                         <div className="flex flex-wrap items-center gap-2 mb-4">
-                          {account.category !== 'Unknown' && (
+                          {account.category === 'Not Required' ? (
+                            <Badge icon={<ShoppingCart size={12} />} text="Non D2C Brand" bg="bg-red-50 dark:bg-red-500/10" textCol="text-red-700 dark:text-red-400" border="border-red-200 dark:border-red-500/20" />
+                          ) : account.category !== 'Unknown' ? (
                             <Badge icon={<ShoppingCart size={12} />} text={account.category} bg="bg-slate-100 dark:bg-white/[0.05]" textCol="text-slate-600 dark:text-neutral-300" />
-                          )}
-                          {account.subCategory !== 'General' && account.subCategory !== account.category && (
+                          ) : null}
+                          {account.category !== 'Not Required' && account.subCategory !== 'General' && account.subCategory !== account.category && (
                             <Badge text={account.subCategory} bg="bg-slate-100 dark:bg-white/[0.05]" textCol="text-slate-600 dark:text-neutral-300" />
                           )}
                           {account.region !== 'Global' && (
                             <Badge icon={<MapPin size={12} />} text={account.region} bg="bg-blue-50 dark:bg-blue-500/10" textCol="text-blue-700 dark:text-blue-400" border="border-blue-200 dark:border-blue-500/20" />
                           )}
-                          <Badge icon={<Store size={12} />} text={account.businessModel || 'Pure D2C'} bg="bg-violet-50 dark:bg-violet-500/10" textCol="text-violet-700 dark:text-violet-400" border="border-violet-200 dark:border-violet-500/20" />
+                          {account.category !== 'Not Required' && (
+                            <Badge icon={<Store size={12} />} text={account.businessModel || 'Pure D2C'} bg="bg-violet-50 dark:bg-violet-500/10" textCol="text-violet-700 dark:text-violet-400" border="border-violet-200 dark:border-violet-500/20" />
+                          )}
                           {!techLoading && platform !== 'Custom' && (
                             <Badge icon={<Code size={12} />} text={platform} bg="bg-orange-50 dark:bg-[#C94C1E]/10" textCol="text-orange-700 dark:text-[#E86335]" border="border-orange-200 dark:border-[#C94C1E]/20" />
                           )}

@@ -239,9 +239,9 @@ export async function GET(req: NextRequest) {
     const db = await getDb();
     const col = db.collection('company_meta');
 
-    // Build query — all accounts with complete data (exclude admin-hidden)
+    // Build query — all D2C accounts with complete data (exclude admin-hidden + Non-D2C)
     const query: Record<string, unknown> = {
-      category: { $exists: true, $nin: [null, ''] },
+      category: { $exists: true, $nin: [null, '', 'Not Required', 'Unknown'] },
       region: { $exists: true, $nin: [null, ''] },
       normalizedDomain: { $nin: ['harvin.ai'] },
       adminHidden: { $ne: true },
@@ -381,7 +381,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Sort mapping
+    // Sort mapping — all server-side via MongoDB indexes
     const sortMap: Record<string, string> = {
       domain: 'normalizedDomain',
       category: 'category',
@@ -389,6 +389,8 @@ export async function GET(req: NextRequest) {
       offlineStores: 'aiStoreCount',
       techCount: 'techCount',
       updatedAt: 'updatedAt',
+      monthlyVisits: 'monthlyVisits',
+      harvinScore: 'harvinScore',
     };
     const sortField = sortMap[sortBy] || 'updatedAt';
 
@@ -427,6 +429,8 @@ export async function GET(req: NextRequest) {
           updatedAt: 1,
           overrides: 1,
           brandName: 1,
+          categoryConfidence: 1,
+          harvinScore: 1,
         });
 
     if (dbSkip > 0) findCursor = findCursor.skip(dbSkip);
@@ -494,6 +498,13 @@ export async function GET(req: NextRequest) {
         region: loc.region, state: loc.state, city: normCity, offlineStores,
       }) as { displayLocation: string; locationLevel: string };
 
+      const techCountFinal = (a.techCount as number) || (a.techStack as string[] || []).length || techCacheMap[domain]?.count || 0;
+      const app = (a.appPresence as string) || 'No App';
+      const bm = (a.businessModel as string) || inferBusinessModel(domain);
+
+      // Use DB-stored harvinScore for consistency across all pages
+      const harvinScore = (a as Record<string, unknown>).harvinScore as number || 0;
+
       return {
         normalizedDomain: domain,
         category: knownBrand?.category || overrides.category || a.category,
@@ -506,17 +517,18 @@ export async function GET(req: NextRequest) {
         offlineStores,
         storeRawCount: rawCount,
         aiStoreCount: a.aiStoreCount,
-        techCount: a.techCount || (a.techStack as string[] || []).length || techCacheMap[domain]?.count || 0,
+        techCount: techCountFinal,
         techStack: (a.techStack as string[] || []).length > 0 ? a.techStack : (techCacheMap[domain]?.names || []),
-        businessModel: a.businessModel || inferBusinessModel(domain),
+        businessModel: bm,
         monthlyVisits: hasTrafficData ? (a.monthlyVisits as number) : null,
         monthlyVisitsFormatted: hasTrafficData ? (a.monthlyVisitsFormatted as string) : null,
         scaleBand: hasTrafficData ? toScaleBand(a.monthlyVisits as number) : null,
-        appPresence: a.appPresence || 'No App',
+        appPresence: app,
         activeSignals: realSignalMap[domain] || ((dbSignals && dbSignals.length > 0) ? dbSignals : []),
         fundingStage: realFundingMap[domain] || a.fundingStage || null,
         brandName: a.brandName || null,
         updatedAt: a.updatedAt,
+        harvinScore,
       };
     });
 
@@ -544,7 +556,7 @@ export async function GET(req: NextRequest) {
 
     // Get distinct values for filter options
     const [allCategories, allRegions, allTechNames] = await Promise.all([
-      col.distinct('category', { category: { $exists: true, $nin: [null, ''] } }),
+      col.distinct('category', { category: { $exists: true, $nin: [null, '', 'Not Required', 'Unknown'] } }),
       col.distinct('region', { region: { $exists: true, $nin: [null, ''] } }),
       col.distinct('techStack', { techStack: { $exists: true, $not: { $size: 0 } } }),
     ]);

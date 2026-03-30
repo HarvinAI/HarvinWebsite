@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
   const country = sp.get('country') || 'all';
   const impact = sp.get('impact') || 'all'; // high, medium, low
   const search = sp.get('search') || '';
+  const domain = sp.get('domain') || ''; // filter by specific brand domain
   const page = Math.max(1, parseInt(sp.get('page') || '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(sp.get('limit') || '30', 10)));
   const skip = (page - 1) * limit;
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
     if (category !== 'all') query.category = category;
     if (country !== 'all') query.country = country;
     if (impact !== 'all') query.marketImpact = impact;
+    if (domain) query.domain = domain;
     if (search) {
       query.$or = [
         { companyName: { $regex: search, $options: 'i' } },

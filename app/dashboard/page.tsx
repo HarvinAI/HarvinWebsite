@@ -51,9 +51,10 @@ type Account = {
   fundingStage: string | null;
   brandName: string | null;
   updatedAt: string;
+  harvinScore: number;
 };
 type Filters = { category: string[]; region: string[]; state: string[]; city: string[]; businessModel: string[]; scale: string[]; offlinePresence: string[]; appPresence: string[]; techStack: string[]; activeSignals: string[]; funding: string[] };
-type SortKey = 'domain' | 'category' | 'region' | 'offlineStores' | 'updatedAt' | 'techCount';
+type SortKey = 'domain' | 'category' | 'region' | 'offlineStores' | 'updatedAt' | 'techCount' | 'monthlyVisits' | 'harvinScore';
 type FilterOptions = { categories: string[]; regions: string[]; states: string[]; cities: string[]; offlineStores: string[]; techStackOptions: Record<string, string[]> };
 type Watchlist = { _id: string; name: string; domains: string[]; createdAt: string; updatedAt: string };
 type WatchlistAccount = Account & { normalizedDomain: string };
@@ -993,12 +994,21 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
     return () => document.removeEventListener('mousedown', handler);
   }, [showBulkWlDropdown]);
 
-  // Close sort menu on outside click
+  // Close sort menu on outside click (use 'click' not 'mousedown' to avoid
+  // race condition where menu unmounts before button onClick fires)
   useEffect(() => {
     if (!showSortMenu) return;
-    const handler = () => setShowSortMenu(false);
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const handler = (e: MouseEvent) => {
+      // Don't close if click is inside the sort menu
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-sort-menu]')) return;
+      setShowSortMenu(false);
+    };
+    // Use setTimeout to avoid closing immediately from the same click that opened it
+    const timer = setTimeout(() => {
+      document.addEventListener('click', handler);
+    }, 0);
+    return () => { clearTimeout(timer); document.removeEventListener('click', handler); };
   }, [showSortMenu]);
 
   // Clear selection when page/filters change
@@ -1359,19 +1369,43 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                   Sort
                 </button>
                 {showSortMenu && (
-                  <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] py-1 w-[200px] z-50" onMouseDown={e => e.stopPropagation()}>
+                  <div data-sort-menu className="absolute right-0 top-full mt-1 bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] py-1 w-[220px] z-50">
+                    {/* Recommended */}
+                    <div className="px-3 pt-1.5 pb-1 text-[9px] font-black text-slate-400 dark:text-neutral-500 uppercase tracking-widest">Recommended</div>
+                    {([
+                      { key: 'harvinScore', label: 'Harvin Score (High → Low)', asc: false },
+                      { key: 'monthlyVisits', label: 'Traffic (High → Low)', asc: false },
+                      { key: 'techCount', label: 'Tech Stack (Most → Least)', asc: false },
+                      { key: 'offlineStores', label: 'Stores (Most → Least)', asc: false },
+                    ] as { key: SortKey; label: string; asc: boolean }[]).map(opt => (
+                      <button key={opt.label} onClick={() => { setSortKey(opt.key); setSortAsc(opt.asc); setPage(1); setShowSortMenu(false); }}
+                        className={`w-full text-left px-3 py-1.5 text-[12px] transition-colors ${sortKey === opt.key && sortAsc === opt.asc ? 'text-[#C94C1E] font-semibold bg-orange-50 dark:bg-[#C94C1E]/10' : 'text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04]'}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                    {/* Alphabetical */}
+                    <div className="px-3 pt-2.5 pb-1 text-[9px] font-black text-slate-400 dark:text-neutral-500 uppercase tracking-widest border-t border-slate-100 dark:border-white/[0.06] mt-1">Alphabetical</div>
+                    {([
+                      { key: 'domain', label: 'Name (A → Z)', asc: true },
+                      { key: 'domain', label: 'Name (Z → A)', asc: false },
+                      { key: 'category', label: 'Category (A → Z)', asc: true },
+                      { key: 'region', label: 'Region (A → Z)', asc: true },
+                    ] as { key: SortKey; label: string; asc: boolean }[]).map(opt => (
+                      <button key={opt.label} onClick={() => { setSortKey(opt.key); setSortAsc(opt.asc); setPage(1); setShowSortMenu(false); }}
+                        className={`w-full text-left px-3 py-1.5 text-[12px] transition-colors ${sortKey === opt.key && sortAsc === opt.asc ? 'text-[#C94C1E] font-semibold bg-orange-50 dark:bg-[#C94C1E]/10' : 'text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04]'}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                    {/* Other */}
+                    <div className="px-3 pt-2.5 pb-1 text-[9px] font-black text-slate-400 dark:text-neutral-500 uppercase tracking-widest border-t border-slate-100 dark:border-white/[0.06] mt-1">Other</div>
                     {([
                       { key: 'updatedAt', label: 'Last Updated', asc: false },
-                      { key: 'domain', label: 'Name (A-Z)', asc: true },
-                      { key: 'domain', label: 'Name (Z-A)', asc: false },
-                      { key: 'offlineStores', label: 'Most Stores', asc: false },
-                      { key: 'offlineStores', label: 'Fewest Stores', asc: true },
-                      { key: 'techCount', label: 'Most Techs', asc: false },
-                      { key: 'techCount', label: 'Fewest Techs', asc: true },
-                      { key: 'category', label: 'Category (A-Z)', asc: true },
-                      { key: 'region', label: 'Region (A-Z)', asc: true },
+                      { key: 'monthlyVisits', label: 'Traffic (Low → High)', asc: true },
+                      { key: 'techCount', label: 'Tech Stack (Least → Most)', asc: true },
+                      { key: 'offlineStores', label: 'Stores (Least → Most)', asc: true },
+                      { key: 'harvinScore', label: 'Harvin Score (Low → High)', asc: true },
                     ] as { key: SortKey; label: string; asc: boolean }[]).map(opt => (
-                      <button key={opt.label} onClick={() => { setSortKey(opt.key); setSortAsc(opt.asc); setShowSortMenu(false); }}
+                      <button key={opt.label} onClick={() => { setSortKey(opt.key); setSortAsc(opt.asc); setPage(1); setShowSortMenu(false); }}
                         className={`w-full text-left px-3 py-1.5 text-[12px] transition-colors ${sortKey === opt.key && sortAsc === opt.asc ? 'text-[#C94C1E] font-semibold bg-orange-50 dark:bg-[#C94C1E]/10' : 'text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04]'}`}>
                         {opt.label}
                       </button>
@@ -1820,7 +1854,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                     {/* Table */}
                     <div className="bg-white dark:bg-[#141414]/60 border border-slate-200/80 dark:border-white/[0.06] rounded-xl overflow-hidden">
                       {/* Table header */}
-                      <div className="hidden lg:grid grid-cols-[minmax(0,1fr)_minmax(200px,280px)_90px_140px_68px] items-center px-4 py-3 border-b border-slate-100 dark:border-white/[0.05] bg-slate-50/60 dark:bg-white/[0.02] text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
+                      <div className="hidden lg:grid grid-cols-[minmax(0,1fr)_minmax(200px,280px)_70px_90px_140px_68px] items-center px-4 py-3 border-b border-slate-100 dark:border-white/[0.05] bg-slate-50/60 dark:bg-white/[0.02] text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-neutral-500">
                         <div className="flex items-center gap-3">
                           <button onClick={() => {
                             if (universeSelected.size === filtered.length) setUniverseSelected(new Set());
@@ -1835,6 +1869,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                           <span>Company</span>
                         </div>
                         <span>Tech Stack</span>
+                        <span className="text-center">Score</span>
                         <span className="text-right">Traffic</span>
                         <span className="text-center">Status</span>
                         <span></span>
@@ -1851,7 +1886,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                           const isSelected = universeSelected.has(a.normalizedDomain);
                           return (
                             <div key={a.normalizedDomain}
-                              className={`grid grid-cols-1 lg:grid-cols-[44px_minmax(0,1fr)_minmax(200px,280px)_90px_140px_68px] items-center transition-colors group cursor-pointer ${
+                              className={`grid grid-cols-1 lg:grid-cols-[44px_minmax(0,1fr)_minmax(200px,280px)_70px_90px_140px_68px] items-center transition-colors group cursor-pointer ${
                                 isSelected ? 'bg-[#C94C1E]/[0.03] dark:bg-[#C94C1E]/[0.06]' : 'hover:bg-slate-50/60 dark:hover:bg-white/[0.02]'
                               }`}
                               onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
@@ -1914,6 +1949,22 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                 {(a.techStack || []).length > 3 && (
                                   <span className="text-[10px] text-slate-400 dark:text-neutral-500 font-medium whitespace-nowrap">+{(a.techStack || []).length - 3}</span>
                                 )}
+                              </div>
+
+                              {/* Harvin Score */}
+                              <div className="hidden lg:flex items-center justify-center px-2">
+                                {(() => {
+                                  const s = a.harvinScore || 0;
+                                  const color = s >= 70 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30'
+                                    : s >= 45 ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/30'
+                                    : s >= 25 ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30'
+                                    : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-white/[0.04] dark:text-neutral-400 dark:border-white/[0.08]';
+                                  return (
+                                    <span className={`inline-flex items-center justify-center w-[38px] h-[24px] rounded-lg border text-[11px] font-bold ${color}`}>
+                                      {s}
+                                    </span>
+                                  );
+                                })()}
                               </div>
 
                               {/* Traffic */}
@@ -2124,30 +2175,56 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                             </div>
                           </div>
 
-                          {/* Row 2: Category · Location · Business Model */}
-                          <div className="px-4 pb-2 flex items-center gap-3 text-[12px] text-slate-600 dark:text-neutral-300 font-semibold">
-                            {a.category && <span className="font-bold">{a.category}</span>}
-                            {a.displayLocation && <><span className="text-slate-300 dark:text-neutral-600">·</span><span>{a.displayLocation}</span></>}
-                            {a.businessModel && <><span className="text-slate-300 dark:text-neutral-600">·</span><span>{a.businessModel}</span></>}
-                          </div>
+                          {/* Row 2-4 wrapper: left content + Harvin Score on right */}
+                          <div className="flex items-stretch">
+                            {/* Left: Category, pills, signals */}
+                            <div className="flex-1 min-w-0">
+                              {/* Row 2: Category · Location · Business Model */}
+                              <div className="px-4 pb-2 flex items-center gap-3 text-[12px] text-slate-600 dark:text-neutral-300 font-semibold">
+                                {a.category && <span className="font-bold">{a.category}</span>}
+                                {a.displayLocation && <><span className="text-slate-300 dark:text-neutral-600">·</span><span>{a.displayLocation}</span></>}
+                                {a.businessModel && <><span className="text-slate-300 dark:text-neutral-600">·</span><span>{a.businessModel}</span></>}
+                              </div>
 
-                          {/* Row 3: Detail pills */}
-                          <div className="px-4 pb-2.5 flex items-center gap-2 flex-wrap">
-                            {a.scaleBand && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
-                                <TrendingUp size={10} className="text-blue-400" />{a.scaleBand}{a.monthlyVisitsFormatted ? ` (${a.monthlyVisitsFormatted})` : ''}
-                              </span>
-                            )}
-                            {a.appPresence && a.appPresence !== 'No App' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
-                                <Smartphone size={10} className="text-violet-400" />{a.appPresence}
-                              </span>
-                            )}
-                            {a.offlineStores && a.offlineStores !== 'Online' && a.offlineStores !== 'Unknown' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
-                                <Store size={10} className="text-emerald-400" />{a.offlineStores} stores
-                              </span>
-                            )}
+                              {/* Row 3: Detail pills */}
+                              <div className="px-4 pb-2.5 flex items-center gap-2 flex-wrap">
+                                {a.scaleBand && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
+                                    <TrendingUp size={10} className="text-blue-400" />{a.scaleBand}{a.monthlyVisitsFormatted ? ` (${a.monthlyVisitsFormatted})` : ''}
+                                  </span>
+                                )}
+                                {a.appPresence && a.appPresence !== 'No App' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
+                                    <Smartphone size={10} className="text-violet-400" />{a.appPresence}
+                                  </span>
+                                )}
+                                {a.offlineStores && a.offlineStores !== 'Online' && a.offlineStores !== 'Unknown' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
+                                    <Store size={10} className="text-emerald-400" />{a.offlineStores} stores
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right: Harvin Score */}
+                            <div className="flex items-center justify-center px-5 flex-shrink-0">
+                              {(() => {
+                                const s = a.harvinScore || 0;
+                                const scoreColor = s >= 70
+                                  ? 'border-[#C94C1E] text-[#C94C1E] bg-[#C94C1E]/5'
+                                  : s >= 45
+                                  ? 'border-blue-400 text-blue-600 bg-blue-50 dark:border-blue-500/40 dark:text-blue-400 dark:bg-blue-500/10'
+                                  : s >= 25
+                                  ? 'border-amber-400 text-amber-600 bg-amber-50 dark:border-amber-500/40 dark:text-amber-400 dark:bg-amber-500/10'
+                                  : 'border-slate-300 text-slate-400 bg-slate-50 dark:border-white/[0.1] dark:text-neutral-500 dark:bg-white/[0.04]';
+                                return (
+                                  <div className={`flex flex-col items-center justify-center w-[58px] h-[58px] rounded-xl border-2 ${scoreColor}`} title={`Harvin Score: ${s}/100`}>
+                                    <span className="text-[20px] font-black leading-none">{s}</span>
+                                    <span className="text-[8px] font-bold uppercase tracking-wider opacity-60 mt-0.5">Score</span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           </div>
 
                           {/* Row 4: Funding & active signals */}
@@ -4048,10 +4125,12 @@ function guessTechDomain(name: string): string {
 /* TechPill: renders a single technology with its favicon icon */
 function TechPill({ tech }: { tech: ScanTech }) {
   const [imgFailed, setImgFailed] = useState(false);
-  const logoDomain = TECH_LOGO_MAP[tech.name];
-  const fallbackDomain = !logoDomain ? guessTechDomain(tech.name) : null;
-  const iconUrl = logoDomain
-    ? `https://www.google.com/s2/favicons?domain=${logoDomain}&sz=32`
+  const logoVal = TECH_LOGO_MAP[tech.name];
+  const fallbackDomain = !logoVal ? guessTechDomain(tech.name) : null;
+  // If the map value starts with http, use it as a direct icon URL;
+  // otherwise, treat it as a domain for Google's favicon API.
+  const iconUrl = logoVal
+    ? (logoVal.startsWith('http') ? logoVal : `https://www.google.com/s2/favicons?domain=${logoVal}&sz=32`)
     : `https://www.google.com/s2/favicons?domain=${fallbackDomain}&sz=32`;
 
   return (
@@ -4080,7 +4159,8 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Squarespace': 'squarespace.com', 'PrestaShop': 'prestashop.com', 'OpenCart': 'opencart.com',
   'Shopware': 'shopware.com', 'Ecwid': 'ecwid.com', 'Volusion': 'volusion.com',
   'Shopline': 'shoplineapp.com', 'Dukaan': 'mydukaan.io', 'Nuvemshop': 'nuvemshop.com',
-  'Shift4Shop': 'shift4shop.com', 'Salesforce Commerce Cloud': 'salesforce.com',
+  'Shift4Shop': 'shift4shop.com',
+  'Salesforce Commerce Cloud': 'https://cdn.simpleicons.org/salesforce/00A1E0',
   'SAP Commerce Cloud': 'sap.com', 'Commercetools': 'commercetools.com',
   // CMS
   'WordPress': 'wordpress.org', 'Drupal': 'drupal.org', 'Joomla': 'joomla.org',
@@ -4088,7 +4168,8 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Webflow': 'webflow.com', 'Gatsby': 'gatsbyjs.com', 'Hugo': 'gohugo.io',
   'Sanity': 'sanity.io', 'Prismic': 'prismic.io', 'Storyblok': 'storyblok.com',
   'DatoCMS': 'datocms.com', 'Sitecore': 'sitecore.com', 'Kentico': 'kentico.com',
-  'Adobe Experience Manager': 'adobe.com', 'HubSpot CMS Hub': 'hubspot.com',
+  'Adobe Experience Manager': 'https://cdn.simpleicons.org/adobeexperiencecloud/EB1000',
+  'HubSpot CMS Hub': 'hubspot.com',
   // JS Frameworks
   'React': 'react.dev', 'Next.js': 'nextjs.org', 'Vue.js': 'vuejs.org',
   'Angular': 'angular.io', 'Svelte': 'svelte.dev', 'Nuxt.js': 'nuxt.com',
@@ -4105,7 +4186,8 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'GSAP': 'gsap.com', 'Axios': 'axios-http.com', 'Chart.js': 'chartjs.org',
   'Moment.js': 'momentjs.com', 'Three.js': 'threejs.org', 'Socket.io': 'socket.io',
   // Analytics
-  'Google Analytics': 'analytics.google.com', 'Google Tag Manager': 'tagmanager.google.com',
+  'Google Analytics': 'https://cdn.simpleicons.org/googleanalytics/E37400',
+  'Google Tag Manager': 'https://cdn.simpleicons.org/googletagmanager/246FDB',
   'Mixpanel': 'mixpanel.com', 'Amplitude': 'amplitude.com', 'Heap': 'heap.io',
   'Hotjar': 'hotjar.com', 'Microsoft Clarity': 'clarity.microsoft.com',
   'Segment': 'segment.com', 'PostHog': 'posthog.com', 'Plausible': 'plausible.io',
@@ -4118,7 +4200,9 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Stripe': 'stripe.com', 'Razorpay': 'razorpay.com', 'PayPal': 'paypal.com',
   'Adyen': 'adyen.com', 'Braintree': 'braintreepayments.com', 'Square': 'squareup.com',
   'Cashfree': 'cashfree.com', 'Paytm': 'paytm.com', 'PhonePe': 'phonepe.com',
-  'Google Pay': 'pay.google.com', 'Apple Pay': 'apple.com', 'Amazon Pay': 'pay.amazon.com',
+  'Google Pay': 'https://cdn.simpleicons.org/googlepay/4285F4',
+  'Apple Pay': 'https://cdn.simpleicons.org/applepay/000000',
+  'Amazon Pay': 'pay.amazon.com',
   'Mollie': 'mollie.com', 'CCAvenue': 'ccavenue.com', 'PayU': 'payu.in',
   'Juspay': 'juspay.in', 'Instamojo': 'instamojo.com', 'BillDesk': 'billdesk.com',
   'Checkout.com': 'checkout.com', 'Shop Pay': 'shop.app', 'Shopify Payments': 'shopify.com',
@@ -4136,19 +4220,22 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Yellow.ai': 'yellow.ai', 'Haptik': 'haptik.ai', 'Verloop': 'verloop.io',
   // Customer Engagement & CRM
   'CleverTap': 'clevertap.com', 'MoEngage': 'moengage.com', 'WebEngage': 'webengage.com',
-  'HubSpot': 'hubspot.com', 'Salesforce': 'salesforce.com', 'Braze': 'braze.com',
+  'HubSpot': 'https://cdn.simpleicons.org/hubspot/FF7A59',
+  'Salesforce': 'https://cdn.simpleicons.org/salesforce/00A1E0', 'Braze': 'braze.com',
   'Insider': 'useinsider.com', 'Iterable': 'iterable.com', 'Customer.io': 'customer.io',
   'Drip': 'drip.com', 'ActiveCampaign': 'activecampaign.com',
-  'Zoho CRM': 'zoho.com', 'Pipedrive': 'pipedrive.com',
+  'Zoho CRM': 'https://cdn.simpleicons.org/zoho/C8202B', 'Pipedrive': 'pipedrive.com',
   // CDN
   'Cloudflare': 'cloudflare.com', 'Fastly': 'fastly.com', 'Akamai': 'akamai.com',
-  'AWS CloudFront': 'aws.amazon.com', 'Bunny CDN': 'bunny.net',
+  'AWS CloudFront': 'https://cdn.simpleicons.org/amazoncloudwatch/FF4F8B',
+  'Bunny CDN': 'bunny.net',
   'KeyCDN': 'keycdn.com', 'StackPath': 'stackpath.com', 'Imgix': 'imgix.com',
   // SEO
   'Yoast SEO': 'yoast.com', 'Rank Math': 'rankmath.com',
   'All in One SEO': 'aioseo.com', 'SEOPress': 'seopress.org',
   // Tag Managers
-  'Adobe Launch': 'adobe.com', 'Tealium': 'tealium.com', 'Ensighten': 'ensighten.com',
+  'Adobe Launch': 'https://cdn.simpleicons.org/adobeexperiencecloud/EB1000',
+  'Tealium': 'tealium.com', 'Ensighten': 'ensighten.com',
   // Marketing Automation
   'Klaviyo': 'klaviyo.com', 'Mailchimp': 'mailchimp.com', 'Marketo': 'marketo.com',
   'Pardot': 'pardot.com', 'Brevo': 'brevo.com', 'SendGrid': 'sendgrid.com',
@@ -4158,7 +4245,9 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Campaign Monitor': 'campaignmonitor.com', 'Postscript': 'postscript.io',
   'Attentive': 'attentive.com', 'Dotdigital': 'dotdigital.com',
   // Advertising
-  'Google Ads': 'ads.google.com', 'Meta Pixel': 'facebook.com', 'Facebook Pixel': 'facebook.com',
+  'Google Ads': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'Meta Pixel': 'https://cdn.simpleicons.org/meta/0081FB',
+  'Facebook Pixel': 'https://cdn.simpleicons.org/facebook/1877F2',
   'TikTok Pixel': 'tiktok.com', 'Snapchat Pixel': 'snapchat.com',
   'Pinterest Tag': 'pinterest.com', 'Twitter Pixel': 'twitter.com',
   'LinkedIn Insight Tag': 'linkedin.com', 'Criteo': 'criteo.com',
@@ -4167,7 +4256,8 @@ const TECH_LOGO_MAP: Record<string, string> = {
   // A/B Testing
   'Optimizely': 'optimizely.com', 'VWO': 'vwo.com', 'LaunchDarkly': 'launchdarkly.com',
   'AB Tasty': 'abtasty.com', 'Convert Experiences': 'convert.com',
-  'Google Optimize': 'optimize.google.com', 'Dynamic Yield': 'dynamicyield.com',
+  'Google Optimize': 'https://cdn.simpleicons.org/googleoptimize/B366F6',
+  'Dynamic Yield': 'dynamicyield.com',
   // Reviews
   'Yotpo': 'yotpo.com', 'Judge.me': 'judge.me', 'Loox': 'loox.app',
   'Trustpilot': 'trustpilot.com', 'Bazaarvoice': 'bazaarvoice.com',
@@ -4182,7 +4272,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'PushEngage': 'pushengage.com', 'Pushwoosh': 'pushwoosh.com',
   'iZooto': 'izooto.com',
   // Security
-  'reCAPTCHA': 'google.com', 'hCaptcha': 'hcaptcha.com',
+  'reCAPTCHA': 'https://www.gstatic.com/recaptcha/api2/logo_48.png', 'hCaptcha': 'hcaptcha.com',
   'Sucuri': 'sucuri.net', 'Wordfence': 'wordfence.com',
   'Imperva': 'imperva.com', 'Turnstile': 'cloudflare.com',
   // Performance & Monitoring
@@ -4207,7 +4297,8 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Monetate': 'monetate.com', 'Fresh Relevance': 'freshrelevance.com',
   // Hosting & Infrastructure
   'Vercel': 'vercel.com', 'Netlify': 'netlify.com', 'Heroku': 'heroku.com',
-  'DigitalOcean': 'digitalocean.com', 'AWS': 'aws.amazon.com',
+  'DigitalOcean': 'digitalocean.com',
+  'AWS': 'https://cdn.simpleicons.org/amazonaws/232F3E',
   'Google Cloud': 'cloud.google.com', 'Fly.io': 'fly.io',
   'Railway': 'railway.app', 'Render': 'render.com',
   // Servers
@@ -4227,16 +4318,20 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Calendly': 'calendly.com', 'Acuity Scheduling': 'acuityscheduling.com',
   'SimplyBook.me': 'simplybook.me',
   // Auth
-  'Auth0': 'auth0.com', 'Okta': 'okta.com', 'Firebase': 'firebase.google.com',
-  'Google Sign-In': 'google.com', 'Facebook Login': 'facebook.com',
+  'Auth0': 'auth0.com', 'Okta': 'okta.com',
+  'Firebase': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'Google Sign-In': 'https://cdn.simpleicons.org/google/4285F4',
+  'Facebook Login': 'https://cdn.simpleicons.org/facebook/1877F2',
   // Video
   'Vimeo': 'vimeo.com', 'Wistia': 'wistia.com', 'Brightcove': 'brightcove.com',
   'JW Player': 'jwplayer.com', 'Vidyard': 'vidyard.com',
   // Maps
-  'Google Maps': 'maps.google.com', 'Mapbox': 'mapbox.com',
+  'Google Maps': 'https://cdn.simpleicons.org/googlemaps/4285F4',
+  'Mapbox': 'mapbox.com',
   'Leaflet': 'leafletjs.com', 'HERE Maps': 'here.com',
   // Fonts
-  'Google Fonts': 'fonts.google.com', 'Adobe Fonts': 'fonts.adobe.com',
+  'Google Fonts': 'https://cdn.simpleicons.org/googlefonts/4285F4',
+  'Adobe Fonts': 'https://cdn.simpleicons.org/adobefonts/000B1D',
   'Font Awesome': 'fontawesome.com',
   // Surveys
   'Typeform': 'typeform.com', 'SurveyMonkey': 'surveymonkey.com',
@@ -4261,13 +4356,15 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Snapmint': 'snapmint.com', 'FlexiPay': 'flexipay.com',
   // Alternate spellings / variants
   'Clevertap': 'clevertap.com', 'Moengage': 'moengage.com',
-  'Facebook Ads': 'facebook.com',
-  'Facebook Retargeting': 'facebook.com',
-  'Google Remarketing': 'google.com', 'Google Search Console': 'search.google.com',
-  'Google AdSense': 'adsense.google.com', 'Google Ad Manager': 'admanager.google.com',
-  'Google Cloud CDN': 'cloud.google.com',
-  'Google Sites': 'sites.google.com',
-  'Shopify Checkout': 'shopify.com',
+  'Facebook Ads': 'https://cdn.simpleicons.org/facebook/1877F2',
+  'Facebook Retargeting': 'https://cdn.simpleicons.org/facebook/1877F2',
+  'Google Remarketing': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'Google Search Console': 'https://cdn.simpleicons.org/googlesearchconsole/458CF5',
+  'Google AdSense': 'https://cdn.simpleicons.org/googleadsense/4285F4',
+  'Google Ad Manager': 'https://cdn.simpleicons.org/googleadmob/EA4335',
+  'Google Cloud CDN': 'https://cdn.simpleicons.org/googlecloud/4285F4',
+  'Google Sites': 'https://cdn.simpleicons.org/google/4285F4',
+  'Shopify Checkout': 'cdn.shopify.com',
   'Criteo Retargeting': 'criteo.com', 'Barilliance Recommendations': 'barilliance.com',
   'Barilliance': 'barilliance.com',
   'Datadog': 'datadoghq.com',
@@ -4280,21 +4377,28 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'AOS': 'michalsnik.github.io', 'Anime.js': 'animejs.com',
   'Highlight.js': 'highlightjs.org', 'KaTeX': 'katex.org', 'MathJax': 'mathjax.org',
   'Prism': 'prismjs.com', 'PDF.js': 'mozilla.github.io',
-  'WP Rocket': 'wp-rocket.me', 'WP Super Cache': 'wordpress.org',
-  'W3 Total Cache': 'wordpress.org', 'LiteSpeed Cache': 'litespeedtech.com',
+  'WP Rocket': 'wp-rocket.me',
+  'WP Super Cache': 'https://cdn.simpleicons.org/wordpress/21759B',
+  'W3 Total Cache': 'https://cdn.simpleicons.org/wordpress/21759B',
+  'LiteSpeed Cache': 'litespeedtech.com',
   'Jetpack': 'jetpack.com', 'Elementor': 'elementor.com',
   'WPBakery': 'wpbakery.com', 'Divi Builder': 'elegantthemes.com',
   'Advanced Custom Fields': 'advancedcustomfields.com',
   'Contact Form 7': 'contactform7.com', 'WPForms': 'wpforms.com',
   'Gravity Forms': 'gravityforms.com',
-  'Akamai CDN': 'akamai.com', 'Akamai Bot Manager': 'akamai.com',
+  'Akamai CDN': 'https://cdn.simpleicons.org/akamai/0096D6',
+  'Akamai Bot Manager': 'https://cdn.simpleicons.org/akamai/0096D6',
   'Azure CDN': 'azure.microsoft.com', 'PerimeterX': 'perimeterx.com',
   'VWO Engage': 'vwo.com', 'Yotpo SMSBump': 'yotpo.com',
-  'Salesforce Live Agent': 'salesforce.com', 'Salesforce Marketing Cloud': 'salesforce.com',
-  'Zendesk Chat': 'zendesk.com', 'Zoho SalesIQ': 'zoho.com',
-  'Zoho Desk': 'zoho.com', 'Zoho Campaigns': 'zoho.com',
-  'Freshmarketer': 'freshworks.com', 'Freshsales': 'freshworks.com',
-  'Freshservice': 'freshworks.com',
+  'Salesforce Live Agent': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'Salesforce Marketing Cloud': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'Zendesk Chat': 'https://cdn.simpleicons.org/zendesk/03363D',
+  'Zoho SalesIQ': 'https://cdn.simpleicons.org/zoho/C8202B',
+  'Zoho Desk': 'https://cdn.simpleicons.org/zoho/C8202B',
+  'Zoho Campaigns': 'https://cdn.simpleicons.org/zoho/C8202B',
+  'Freshmarketer': 'https://cdn.simpleicons.org/freshworks/F36C00',
+  'Freshsales': 'https://cdn.simpleicons.org/freshworks/F36C00',
+  'Freshservice': 'https://cdn.simpleicons.org/freshworks/F36C00',
   'Supabase': 'supabase.com', 'Medusa': 'medusajs.com',
   'three.js': 'threejs.org', 'PixiJS': 'pixijs.com',
   'Swiper': 'swiperjs.com', 'Slick': 'kenwheeler.github.io',
@@ -4322,6 +4426,223 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Rebuy': 'rebuy.com', 'ReConvert': 'reconvert.io',
   'GemPages': 'gempages.net', 'PageFly': 'pagefly.io', 'Shogun': 'getshogun.com',
   'Vitals': 'vitals.co',
+  // ── Missing techs (previously relying on guessTechDomain fallback) ──
+  // Payments & Financial
+  '2Checkout (Verifone)': 'verifone.com', 'Airpay': 'airpay.co.in', 'Alma': 'getalma.eu',
+  'American Express': 'americanexpress.com', 'Atome': 'atome.sg', 'Authorize.Net': 'authorize.net',
+  'Axis Bank Payment Gateway': 'axisbank.com', 'BlueSnap': 'bluesnap.com', 'Clearpay': 'clearpay.com',
+  'Decentro': 'decentro.tech', 'DirecPay': 'direcpay.com', 'Flutterwave': 'flutterwave.com',
+  'HDFC Payment Gateway': 'hdfcbank.com', 'ICICI Eazypay': 'icicibank.com',
+  'Kredivo': 'kredivo.com', 'Laybuy': 'laybuy.com', 'Mangopay': 'mangopay.com',
+  'Mastercard': 'mastercard.com', 'Paddle': 'paddle.com', 'PayFast': 'payfast.co.za',
+  'PayKun': 'paykun.com', 'Paynimo': 'paynimo.com', 'Payoneer': 'payoneer.com',
+  'Paystack': 'paystack.com', 'Paytm PG': 'paytm.com', 'PhonePe PG': 'phonepe.com',
+  'PhonePe Switch': 'phonepe.com', 'Pine Labs': 'pinelabs.com', 'PostPe': 'postpe.com',
+  'Scalapay': 'scalapay.com', 'Tamara': 'tamara.co', 'UPI': 'npci.org.in',
+  'Uni Cards': 'uni.cards', 'Visa': 'visa.com', 'WePay': 'wepay.com',
+  'Worldpay': 'worldpay.com', 'Zaakpay': 'zaakpay.com', 'Zip': 'zip.co',
+  'ePayLater': 'epaylater.in', 'Kiwi Checkout': 'kiwi.com',
+  // Analytics & Data
+  'Adobe Analytics': 'https://cdn.simpleicons.org/adobeanalytics/EB1000',
+  'Adobe Experience Cloud': 'https://cdn.simpleicons.org/adobeexperiencecloud/EB1000',
+  'Adobe Target': 'https://cdn.simpleicons.org/adobe/FF0000',
+  'Akamai mPulse': 'akamai.com',
+  'Amazon Advertising': 'https://cdn.simpleicons.org/amazon/FF9900',
+  'Bing UET': 'https://cdn.simpleicons.org/microsoftbing/258FFA',
+  'Bing Webmaster': 'https://cdn.simpleicons.org/microsoftbing/258FFA', 'Blue Triangle': 'bluetriangle.com',
+  'Chartbeat': 'chartbeat.com', 'Clicky': 'clicky.com', 'Comscore': 'comscore.com',
+  'comScore': 'comscore.com', 'ContentSquare': 'contentsquare.com',
+  'Countly': 'count.ly', 'Decibel Insight': 'decibelinsight.com',
+  'DoubleClick': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'DoubleClick Floodlight': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'Fathom Analytics': 'usefathom.com',
+  'Firebase Analytics': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'Flurry': 'flurry.com', 'GoSquared': 'gosquared.com',
+  'Google Publisher Tag': 'https://cdn.simpleicons.org/googleads/4285F4', 'Hightouch': 'hightouch.com',
+  'Indicative': 'indicative.com', 'Inspectlet': 'inspectlet.com',
+  'Kochava': 'kochava.com', 'Localytics': 'localytics.com',
+  'Lytics': 'lytics.com', 'MediaMath': 'mediamath.com', 'mParticle': 'mparticle.com',
+  'Microsoft Advertising': 'https://cdn.simpleicons.org/microsoftadvertising/0078D4', 'MonsterInsights': 'monsterinsights.com',
+  'Nextdoor Ads': 'nextdoor.com', 'Oribi': 'oribi.io',
+  'Parse.ly': 'parsely.com', 'Pirsch': 'pirsch.io',
+  'Piwik Tag Manager': 'matomo.org', 'PixelYourSite': 'pixelyoursite.com',
+  'Plausible Analytics': 'plausible.io', 'Quantum Metric': 'quantummetric.com',
+  'RudderStack': 'rudderstack.com', 'Sailthru': 'sailthru.com',
+  'SessionCam': 'glassbox.com', 'Simple Analytics': 'simpleanalytics.com',
+  'Singular': 'singular.net', 'SiteSpect': 'sitespect.com',
+  'Snowplow': 'snowplow.io', 'StatCounter': 'statcounter.com',
+  'Statsig': 'statsig.com', 'The Trade Desk': 'thetradedesk.com',
+  'Treasure Data': 'treasuredata.com', 'Umami': 'umami.is',
+  'UXCam': 'uxcam.com', 'Woopra': 'woopra.com',
+  // Marketing & Engagement
+  'Acoustic': 'acoustic.com', 'Agile CRM': 'agilecrm.com', 'Airship': 'airship.com',
+  'Annex Cloud': 'annexcloud.com', 'Apollo.io': 'apollo.io', 'Appier': 'appier.com',
+  'Attio': 'attio.com', 'Autopilot': 'autopilothq.com', 'Birdeye': 'birdeye.com',
+  'Bloomreach': 'bloomreach.com', 'Bloomreach Engagement': 'bloomreach.com',
+  'BlueConic': 'blueconic.com', 'Bluecore': 'bluecore.com',
+  'BON Loyalty': 'bonloyalty.com', 'Census': 'getcensus.com',
+  'Clerk': 'clerk.io', 'Clerk.io': 'clerk.io', 'Close CRM': 'close.com',
+  'Copper': 'copper.com', 'Cordial': 'cordial.com',
+  'Elastic Email': 'elasticemail.com',
+  'Eloqua': 'https://cdn.simpleicons.org/oracle/F80000',
+  'Emarsys': 'emarsys.com', 'Engage360': 'engage360.com',
+  'Evergage': 'https://cdn.simpleicons.org/salesforce/00A1E0', 'Folk CRM': 'folk.app',
+  'Glood.AI': 'glood.ai', 'Intercom Marketing': 'intercom.com',
+  'Insightly': 'insightly.com', 'Joy Loyalty': 'joy.so',
+  'Kangaroo Rewards': 'kangaroorewards.com', 'Keap': 'keap.com',
+  'Leanplum': 'leanplum.com', 'Leadsquared': 'leadsquared.com',
+  'LimeSpot': 'limespot.com', 'Listrak': 'listrak.com',
+  'Loyalty Gator': 'loyaltygator.com', 'Mailgun': 'mailgun.com',
+  'Mailjet': 'mailjet.com', 'Mailmodo': 'mailmodo.com',
+  'Marsello': 'marsello.com', 'Medallia': 'medallia.com',
+  'Monday CRM': 'monday.com', 'Moosend': 'moosend.com',
+  'NETCORE': 'netcorecloud.com', 'Nimble': 'nimble.com', 'Nutshell': 'nutshell.com',
+  'Ometria': 'ometria.com', 'Open Loyalty': 'openloyalty.io',
+  'Ortto': 'ortto.com', 'Responsys': 'https://cdn.simpleicons.org/oracle/F80000',
+  'Retention.com': 'retention.com', 'RevLifter': 'revlifter.com',
+  'Rise.ai': 'rise.ai', 'SaleCycle': 'salecycle.com',
+  'Salesforce DMP (Krux)': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'Salesforce Einstein': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'SendPulse': 'sendpulse.com', 'Sendinblue': 'brevo.com',
+  'SharpSpring': 'sharpspring.com', 'Simon Data': 'simondata.com',
+  'Sprig': 'sprig.com', 'Streak': 'streak.com',
+  'Subscribers': 'subscribers.com', 'SugarCRM': 'sugarcrm.com',
+  'Talon.One': 'talon.one', 'Taplytics': 'taplytics.com',
+  'Trengo': 'trengo.com', 'Usabilla': 'usabilla.com',
+  'UserTesting': 'usertesting.com', 'UserVoice': 'uservoice.com',
+  'Userlike': 'userlike.com', 'Wunderkind': 'wunderkind.co',
+  'Yalo': 'yalo.com', 'Yext': 'yext.com',
+  // CRM & Chat
+  'Bitrix24': 'bitrix24.com', 'Chatra': 'chatra.com', 'Customerly': 'customerly.io',
+  'Dixa': 'dixa.com', 'Genesys Cloud': 'genesys.com', 'GetButton': 'getbutton.io',
+  'HelpCrunch': 'helpcrunch.com', 'Kayako': 'kayako.com',
+  'Kommunicate': 'kommunicate.io',
+  'Microsoft Dynamics 365': 'https://cdn.simpleicons.org/dynamics365/002050',
+  'Pipedrive': 'pipedrive.com', 'SnapEngage': 'snapengage.com',
+  // Reviews & Social Proof
+  'Baremetrics': 'baremetrics.com', 'Fera.ai': 'fera.ai',
+  'Reviews.io': 'reviews.io', 'Shopper Approved': 'shopperapproved.com',
+  'Trusted Shops': 'trustedshops.com', 'WPLoyalty': 'wployalty.net',
+  // A/B Testing & Feature Flags
+  'Flagsmith': 'flagsmith.com', 'GrowthBook': 'growthbook.io',
+  'Kameleoon': 'kameleoon.com', 'Quantcast Choice': 'quantcast.com',
+  'Split.io': 'split.io', 'Unleash': 'getunleash.io',
+  // Ecommerce & Store tools
+  'Bagisto': 'bagisto.com', 'Bold Commerce': 'boldcommerce.com',
+  'CartStack': 'cartstack.com', 'CS-Cart': 'cs-cart.com',
+  'Duda': 'duda.co', 'Fynd': 'fynd.com',
+  'Gift Reggie': 'giftreggie.com', 'Jimdo': 'jimdo.com',
+  'nopCommerce': 'nopcommerce.com', 'Odoo': 'odoo.com',
+  'Ordergroove': 'ordergroove.com', 'Recharge': 'rechargepayments.com',
+  'Shiprocket Checkout': 'shiprocket.in', 'Signifyd': 'signifyd.com',
+  'Strikingly': 'strikingly.com', 'Weebly': 'weebly.com', 'Zen Cart': 'zen-cart.com',
+  'Progus Commerce Locator': 'progus.io', 'Secomapp Store Locator': 'secomapp.com',
+  'Store Locator Plus': 'storelocatorplus.com', 'Storemapper': 'storemapper.com',
+  'Wishlist King': 'wishlistking.com', 'Wishlist Plus': 'swymcorp.com',
+  // JS Frameworks & Libraries
+  'Apollo Client': 'apollographql.com', 'Apollo GraphQL': 'apollographql.com',
+  'Aurelia': 'aurelia.io', 'Babel': 'babeljs.io', 'Bun': 'bun.sh',
+  'Deno': 'deno.land', 'Ext JS': 'sencha.com', 'Framer Motion': 'framer.com',
+  'GraphQL': 'graphql.org', 'Handlebars': 'handlebarsjs.com',
+  'Hotwire': 'hotwired.dev', 'Lit': 'lit.dev', 'Marko': 'markojs.com',
+  'Meteor': 'meteor.com', 'Mithril': 'mithril.js.org', 'MobX': 'mobx.js.org',
+  'Petite Vue': 'vuejs.org', 'Pinia': 'pinia.vuejs.org', 'Polymer': 'polymer-project.org',
+  'Redux': 'redux.js.org', 'Relay': 'relay.dev', 'RxJS': 'rxjs.dev',
+  'Stimulus': 'stimulus.hotwired.dev', 'Stencil': 'stenciljs.com',
+  'Turbo': 'turbo.hotwired.dev', 'Turbolinks': 'github.com',
+  'TypeScript': 'typescriptlang.org', 'Zustand': 'zustand-demo.pmnd.rs',
+  'tRPC': 'trpc.io', 'Loadable-Components': 'loadable-components.com',
+  // UI Frameworks & CSS
+  'Carbon Design System': 'carbondesignsystem.com', 'Element UI': 'element-plus.org',
+  'Fluent UI': 'https://cdn.simpleicons.org/microsoft/5E5E5E', 'Headless UI': 'headlessui.com',
+  'Materialize': 'materializecss.com', 'PrimeNG': 'primeng.org',
+  'PrimeReact': 'primereact.org', 'PrimeVue': 'primevue.org',
+  'Primer CSS': 'primer.style', 'Quasar': 'quasar.dev', 'Radix UI': 'radix-ui.com',
+  'Semantic UI': 'semantic-ui.com', 'Tachyons': 'tachyons.io',
+  'UIkit': 'getuikit.com', 'Vuetify': 'vuetifyjs.com',
+  'shadcn/ui': 'ui.shadcn.com', 'styled-components': 'styled-components.com',
+  'DataTables': 'datatables.net', 'Vuex': 'vuex.vuejs.org',
+  // CMS & Static Site Generators
+  'Blogger': 'blogger.com', 'Concrete CMS': 'concretecms.com',
+  'Contao': 'contao.org', 'Craft CMS': 'craftcms.com', 'Directus': 'directus.io',
+  'Docusaurus': 'docusaurus.io', 'Eleventy': '11ty.dev', 'Grav': 'getgrav.org',
+  'Hexo': 'hexo.io', 'Hygraph': 'hygraph.com', 'Jekyll': 'jekyllrb.com',
+  'KeystoneJS': 'keystonejs.com', 'Liferay': 'liferay.com', 'Magnolia': 'magnolia-cms.com',
+  'Medium': 'medium.com', 'Notion': 'notion.so', 'October CMS': 'octobercms.com',
+  'Pimcore': 'pimcore.com', 'Plone': 'plone.org', 'ProcessWire': 'processwire.com',
+  'SilverStripe': 'silverstripe.org', 'Statamic': 'statamic.com',
+  'TYPO3': 'typo3.org', 'Tilda': 'tilda.cc', 'Tumblr': 'tumblr.com',
+  'Umbraco': 'umbraco.com', 'Wagtail': 'wagtail.org',
+  // Hosting & Infrastructure
+  'Azure': 'azure.microsoft.com', 'Azure CDN': 'azure.microsoft.com',
+  'BunnyCDN': 'bunny.net', 'Caddy': 'caddyserver.com',
+  'Cloudinary': 'cloudinary.com', 'Envoy': 'envoyproxy.io',
+  'IIS': 'iis.net', 'ImageKit': 'imagekit.io', 'Neon': 'neon.tech',
+  'PlanetScale': 'planetscale.com', 'Supabase Auth': 'supabase.com',
+  'Uploadcare': 'uploadcare.com', 'Upstash': 'upstash.com',
+  'Vercel AI SDK': 'vercel.com',
+  // CDN & Performance
+  'jsDelivr CDN': 'jsdelivr.com', 'unpkg': 'unpkg.com',
+  'Autoptimize': 'autoptimize.com', 'Boomerang': 'akamai.com',
+  'Polyfill.io': 'polyfill.io', 'Smush': 'wpmudev.com',
+  // Security & Compliance
+  'Cloudflare Turnstile': 'cloudflare.com', 'Didomi': 'didomi.io',
+  'OneTrust CookiePro': 'onetrust.com', 'PerimeterX': 'perimeterx.com',
+  'Usercentrics': 'usercentrics.com',
+  // Auth & Identity
+  'Firebase Auth': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'Keycloak': 'keycloak.org',
+  // Push & Messaging
+  'Amazon SES': 'https://cdn.simpleicons.org/amazonsimpleemailservice/DD344C',
+  'Firebase Cloud Messaging': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'MessageBird': 'messagebird.com', 'Postmark': 'postmarkapp.com',
+  'Pusher': 'pusher.com', 'cm.com': 'cm.com',
+  // Video & Media
+  'Firework': 'firework.com', 'YouTube': 'youtube.com', 'YouTube Embed': 'youtube.com',
+  // Maps & Geo
+  'OpenStreetMap': 'openstreetmap.org',
+  // Surveys & Forms
+  'Cal.com': 'cal.com', 'JotForm': 'jotform.com', 'Tally': 'tally.so',
+  // Accessibility
+  'Localize': 'localizejs.com', 'Polylang': 'polylang.pro',
+  'Transifex': 'transifex.com', 'Weglot': 'weglot.com', 'WPML': 'wpml.org',
+  // Subscription & Commerce
+  'Growave': 'growave.io', 'ProfitWell': 'profitwell.com',
+  // Monitoring & Error Tracking
+  'AppDynamics': 'appdynamics.com', 'Bugsnag': 'bugsnag.com',
+  'Rollbar': 'rollbar.com', 'SpeedCurve': 'speedcurve.com',
+  // Advertising & Retargeting
+  'Carbon Ads': 'carbonads.net', 'Ezoic': 'ezoic.com',
+  'iGoDigital': 'https://cdn.simpleicons.org/salesforce/00A1E0', 'Inmobi': 'inmobi.com',
+  'LiveIntent': 'liveintent.com', 'Mediavine': 'mediavine.com',
+  'RTB House': 'rtbhouse.com', 'Visenze': 'visenze.com',
+  // Search
+  'Algolia AI': 'algolia.com', 'Algolia Recommend': 'algolia.com',
+  'MeiliSearch': 'meilisearch.com', 'Searchanise': 'searchanise.com',
+  'SearchSpring': 'searchspring.com',
+  // Personalization & Recommendations
+  'Builder.io': 'builder.io', 'Monetate': 'monetate.com',
+  // Shipping & Logistics
+  'Route': 'route.com',
+  // Misc tools & meta
+  'ChatBot (AI)': 'chatbot.com', 'Chatbot (AI)': 'chatbot.com',
+  'Discord Widget': 'discord.com', 'Fresh': 'fresh.deno.dev',
+  'Glassbox': 'glassbox.com', 'Grprogram': 'grprogram.com',
+  'HSTS': 'hstspreload.org', 'IndexNow': 'indexnow.org',
+  'Java': 'java.com', 'JSON-LD Schema': 'schema.org',
+  'Open Graph': 'ogp.me', 'Priority Hints': 'web.dev',
+  'Schema Pro': 'wpschema.com', 'SuperAGI': 'superagi.com',
+  'Twitter Cards': 'twitter.com', 'Rapchat': 'rapchat.com',
+  'Mesoka': 'mesoka.com', 'Pinnacle': 'pinnacle.com',
+  'generator': 'https://cdn.simpleicons.org/wordpress/21759B',
+  'google-site-verification': 'https://cdn.simpleicons.org/googlesearchconsole/458CF5',
+  'msvalidate.01': 'https://cdn.simpleicons.org/microsoftbing/258FFA', 'Impact': 'impact.com',
+  'Popupsmart': 'popupsmart.com', 'Lander': 'landerapp.com',
+  'Landingi': 'landingi.com', 'TagCommander': 'commandersact.com',
+  'Beaver Builder': 'wpbeaverbuilder.com', 'Alma': 'getalma.eu',
+  'Engage360': 'netcorecloud.com',
+  'Adobe Fonts (Typekit)': 'fonts.adobe.com', 'Fonts.com': 'fonts.com',
+  'Juspay Express Checkout': 'juspay.in', 'OptinMonster': 'optinmonster.com',
 };
 
 function scanSortCategories(grouped: Record<string, ScanTech[]>): string[] {

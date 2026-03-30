@@ -1,0 +1,18 @@
+{
+  "status": "completed",
+  "lastRunDate": "2026-03-27T13:53:56.419Z",
+  "totalChecked": 51340,
+  "d2c": 35382,
+  "nonD2C": 15958,
+  "alreadyNonD2C": 0,
+  "reasonCounts": {
+    "known_non_d2c": 33,
+    "non_d2c_category": 9345,
+    "domain_tld": 3520,
+    "unknown_category": 2998,
+    "b2b_tech_stack": 41,
+    "domain_name_pattern": 21
+  },
+  "elapsedSeconds": 473.6,
+  "dryRun": false
+}

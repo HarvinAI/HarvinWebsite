@@ -1,21 +1,22 @@
 {
   "status": "completed",
-  "lastRunDate": "2026-03-27T04:06:58.894Z",
-  "totalFetched": 24712,
-  "processed": 1095,
-  "extracted": 365,
-  "skipped": 730,
-  "written": 365,
+  "lastRunDate": "2026-03-27T20:56:03.642Z",
+  "brandsScanned": 500,
+  "brandsWithNews": 97,
+  "totalFetched": 33434,
+  "totalExtracted": 271,
+  "totalWritten": 271,
+  "totalSkipped": 1047,
   "typeCounts": {
-    "funding": 103,
-    "hiring": 7,
-    "acquisition": 128,
-    "launch": 10,
-    "shutdown": 57,
-    "partnership": 33,
-    "expansion": 23,
-    "regulatory": 4
+    "partnership": 57,
+    "acquisition": 79,
+    "expansion": 12,
+    "shutdown": 24,
+    "launch": 15,
+    "funding": 58,
+    "hiring": 19,
+    "regulatory": 7
   },
-  "elapsedSeconds": 632.3,
-  "mode": "zero-api"
+  "elapsedSeconds": 6833.3,
+  "mode": "brand-specific"
 }
