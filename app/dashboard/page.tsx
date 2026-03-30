@@ -68,7 +68,7 @@ const CAT_SHOW = 5;
 
 
 type ScanTech = { name: string; category: string; color: string };
-type ScanCompanyMeta = { category: string; subCategory: string; region: string; offlineStores: string };
+type ScanCompanyMeta = { category: string; subCategory: string; region: string; offlineStores: string; businessModel?: string; appPresence?: string; monthlyVisitsFormatted?: string; isNonD2C?: boolean; nonD2CReason?: string };
 type ScanResult = { url: string; technologies: ScanTech[]; count: number; companyMeta?: ScanCompanyMeta };
 
 const TAB_TITLES: Record<SidebarTab, string> = {
@@ -120,20 +120,26 @@ function domainToName(domain: string): string {
   if (prefixMatch && base.length > prefixMatch[1].length + 2) {
     base = base.slice(prefixMatch[1].length);
   }
-  const W = new Set(['shop','store','mart','hub','club','box','lab','labs','studio','house','home','world','zone','tech','digital','online','global','india','express','market','fashion','style','wear','clothing','couture','beauty','skin','care','hair','health','wellness','fitness','food','foods','kitchen','cafe','coffee','organic','fresh','farm','baby','kids','pet','life','lifestyle','living','decor','gold','silver','jewel','diamond','auto','car','bike','travel','pay','money','capital','bank','learn','academy','game','play','sport','media','news','smart','fast','easy','quick','super','big','new','first','best','top','pro','blue','green','red','black','white','star','sun','urban','city','royal','king','queen','company','brand','basket','cart','bag','trunk','earth','nature','eco','pure','sugar','honey','pepper','kart','shoes','campus','cosmetics','stone','clue','biryan','tale','eye','face','body','flower','bloom','garden','snap','click','grow','edge','core','ware','goods','and','the','of','my','our','forty','winks']);
-  const NO = new Set(['nykaa','myntra','meesho','zepto','swiggy','zomato','flipkart','snapdeal','paytm','razorpay','phonepe','groww','cred','pepperfry','lenskart','bewakoof','ajio','mamaearth','mokobara','caratlane','healthandglow','shopclues','getepic','thegoatlife']);
+  // Right-side suffixes that can be split off (generic descriptors, not brand names)
+  const SUFFIXES = new Set(['shop','store','mart','hub','club','box','lab','labs','studio','house','home','world','zone','tech','digital','online','global','india','express','market','fashion','style','wear','clothing','couture','beauty','skin','care','hair','health','wellness','fitness','food','foods','kitchen','cafe','coffee','organic','fresh','farm','baby','kids','pet','life','lifestyle','living','decor','gold','silver','jewel','diamond','auto','car','bike','travel','pay','money','capital','bank','learn','academy','game','play','sport','media','news','basket','cart','bag','trunk','earth','nature','eco','kart','shoes','campus','cosmetics','goods','ware','garden','water','tools','objects','beans','baker','works','craft','crafts','bazar','bazaar','direct','brand','brands','point','centre','center','space','place','lane','street','corner','wagon','tales','tales','way','base','desk','nest','den','pad','room','yard','land','field','creek','deal','deals','finds','picks','select','choice','spot','stop','dock','dock','fleet','bites','eats','sips','glow','vine','leaf','root','bloom','berry','mint','sage','luxe','loom','thread','stitch','weave','fiber','fibre','print','prints','wrap','pack','packs']);
+  // Left-side prefixes that can be split off (generic adjectives)
+  const PREFIXES = new Set(['smart','fast','easy','quick','super','big','new','first','best','top','pro','blue','green','red','black','white','star','sun','urban','city','royal','king','queen','daily','fresh','happy','little','tiny','mini','mega','pure','true','real','open','free','clean','clear','fine','flat','cool','wild','bold','brave','ever','lucky','golden','silver','country','native','modern','classic','vintage','pocket','simple']);
+  // Known brand names that should NEVER be split (exact domain match only)
+  const NO = new Set(['nykaa','myntra','meesho','zepto','swiggy','zomato','flipkart','snapdeal','paytm','razorpay','phonepe','groww','cred','pepperfry','lenskart','bewakoof','ajio','mamaearth','mokobara','caratlane','healthandglow','shopclues','getepic','thegoatlife','pureit','oneplus','realme','urbanclap','urbancompany','makemytrip','policybazaar','ixigo','rapido','dunzo','bigbasket','blinkit','instamart','jiomart','jiocinema','jiosaavn','hotstar','unacademy','vedantu','byjus','whitehat','curefit','cultfit','milkbasket','dailyhunt','sharechat','practo','pharmeasy','netmeds','tatacliq','faasos','eatfit','sleepycat','wakefit','atomberg','boatlifestyle','noisefit','fireboltt','portronics','ambrane','zebronics','furlenco','bluestone','caratlane','pepperflow','sugarbox','honeywell','minimalist','supersmelly','probase','fineshine','topgear','boldfit']);
   const l = base.toLowerCase();
   if (base.includes('-') || base.includes('_')) return base.split(/[-_]/).filter(Boolean).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   if (NO.has(l) || base.length <= 6) return base.charAt(0).toUpperCase() + base.slice(1);
-  // Find best split — prefer longest right-side known word
+  // Find best split — only split on suffix (right side) or prefix (left side), not arbitrary words
   let bestSplit: [string, string] | null = null;
   let bestScore = 0;
   for (let i = 3; i < l.length - 2; i++) {
-    const a = l.slice(0, i), b = l.slice(i);
-    const aKnown = W.has(a), bKnown = W.has(b);
-    if (!aKnown && !bKnown) continue;
-    const score = (aKnown ? a.length : 0) + (bKnown ? b.length * 2 : 0); // prefer right-side matches
-    if (score > bestScore) { bestScore = score; bestSplit = [a, b]; }
+    const left = l.slice(0, i), right = l.slice(i);
+    const rightIsSuffix = SUFFIXES.has(right);
+    const leftIsPrefix = PREFIXES.has(left);
+    if (!rightIsSuffix && !leftIsPrefix) continue;
+    // Score: prefer longer right-side suffix matches, then left-side prefix matches
+    const score = (rightIsSuffix ? right.length * 3 : 0) + (leftIsPrefix ? left.length : 0);
+    if (score > bestScore) { bestScore = score; bestSplit = [left, right]; }
   }
   if (bestSplit) return bestSplit.map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   return base.charAt(0).toUpperCase() + base.slice(1);
@@ -232,10 +238,10 @@ const countFilters = (f: Filters) => Object.values(f).reduce((s, a) => s + a.len
 const FilterItem = ({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) => (
   <button onClick={onClick}
     className={`flex items-center gap-2.5 px-3 py-1.5 rounded-md transition-all text-left w-full group ${on ? 'bg-orange-50 dark:bg-[#C94C1E]/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'}`}>
-    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${on ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.12] group-hover:border-slate-400'}`}>
-      {on && <Check size={10} className="text-white stroke-[3]" />}
+    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${on ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.12] group-hover:border-slate-400'}`}>
+      {on && <Check size={9} className="text-white stroke-[3]" />}
     </div>
-    <span className={`text-[13px] transition-colors ${on ? 'text-[#C94C1E] font-medium' : 'text-slate-600 dark:text-neutral-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>{label}</span>
+    <span className={`text-[11.5px] transition-colors ${on ? 'text-[#C94C1E] font-medium' : 'text-slate-500 dark:text-neutral-400 group-hover:text-slate-800 dark:group-hover:text-white'}`}>{label}</span>
   </button>
 );
 
@@ -244,39 +250,136 @@ const FilterSection = ({ title, count, children, defaultOpen = true }: {
 }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="mb-2">
+    <div className="mb-1">
       <button onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between py-2 px-3 rounded-md hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] font-extrabold text-slate-600 dark:text-neutral-300 uppercase tracking-widest">{title}</span>
-          {count !== undefined && count > 0 && <span className="text-[10px] bg-orange-100 dark:bg-[#C94C1E]/10 text-[#C94C1E] px-1.5 rounded-full font-bold">{count}</span>}
+        className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors group">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[12px] text-[#C94C1E] uppercase tracking-[0.08em]" style={{ fontWeight: 900, WebkitTextStroke: '0.3px' }}>{title}</span>
+          {count !== undefined && count > 0 && <span className="text-[10px] bg-[#C94C1E]/10 text-[#C94C1E] px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center">{count}</span>}
         </div>
-        {open ? <ChevronUp size={14} className="text-slate-300 dark:text-neutral-600" /> : <ChevronDown size={14} className="text-slate-300 dark:text-neutral-600" />}
+        {open ? <ChevronUp size={14} className="text-slate-400 dark:text-neutral-500 group-hover:text-slate-600 dark:group-hover:text-neutral-300 transition-colors" /> : <ChevronDown size={14} className="text-slate-400 dark:text-neutral-500 group-hover:text-slate-600 dark:group-hover:text-neutral-300 transition-colors" />}
       </button>
-      {open && <div className="mt-1 flex flex-col gap-0.5">{children}</div>}
+      {open && (
+        <div className="mt-0.5 flex flex-col gap-0.5">
+          {children}
+        </div>
+      )}
     </div>
   );
 };
 
-/* ── Tech category group — collapsible, shows first 5 techs by default */
-const TECH_CAT_INITIAL = 5;
+/* ── Tech category group — dropdown with search, like LocationSubFilter */
 const TechCategoryGroup = ({ category, techs, filters, toggle }: {
   category: string; techs: string[]; filters: Filters; toggle: (key: keyof Filters, value: string) => void;
 }) => {
-  const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? techs : techs.slice(0, TECH_CAT_INITIAL);
-  const hasMore = techs.length > TECH_CAT_INITIAL;
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectedInCat = techs.filter(t => filters.techStack.includes(t));
+
+  const visible = q.trim()
+    ? techs.filter(t => t.toLowerCase().includes(q.toLowerCase()))
+    : techs;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [open]);
+
+  if (techs.length === 0) return null;
+
   return (
-    <div>
-      <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">{category}</p>
-      {visible.map(v => (
-        <FilterItem key={v} label={v} on={filters.techStack.includes(v)} onClick={() => toggle('techStack', v)} />
-      ))}
-      {hasMore && (
-        <button onClick={() => setExpanded(!expanded)}
-          className="px-3 py-1 text-[11px] font-medium text-[#C94C1E] hover:text-[#b5431a] transition-colors">
-          {expanded ? 'Show less' : `+${techs.length - TECH_CAT_INITIAL} more`}
-        </button>
+    <div className="mt-2.5 mb-1 px-3 relative" ref={containerRef}>
+      <p className="text-[12.5px] font-extrabold text-slate-700 dark:text-neutral-200 tracking-[0.02em] mb-1.5">{category}</p>
+
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`w-full flex items-center justify-between px-3 py-[8px] rounded-lg border text-[12px] transition-all ${
+          open
+            ? 'border-[#C94C1E]/50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)] bg-white dark:bg-[#1a1a1a]'
+            : selectedInCat.length > 0
+              ? 'border-[#C94C1E]/40 bg-orange-50/50 dark:bg-[#C94C1E]/15 dark:border-[#C94C1E]/50'
+              : 'border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#141414] hover:border-slate-300 dark:hover:border-white/[0.15]'
+        }`}
+      >
+        <span className={`truncate ${selectedInCat.length > 0 ? 'text-[#C94C1E] dark:text-[#f0a070] font-medium' : 'text-slate-400 dark:text-neutral-500'}`}>
+          {selectedInCat.length > 0 ? `${selectedInCat.length} selected` : `Select ${category.toLowerCase()}...`}
+        </span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[10px] font-medium text-slate-400 dark:text-neutral-500">{techs.length}</span>
+          <svg className={`w-3.5 h-3.5 text-slate-400 dark:text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 14 14" fill="none">
+            <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      </button>
+
+      {/* Selected chips */}
+      {selectedInCat.length > 0 && !open && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {selectedInCat.map(v => (
+            <span key={v} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#C94C1E]/10 dark:bg-[#C94C1E]/20 text-[10px] font-medium text-[#C94C1E] dark:text-[#f0a070]">
+              {v}
+              <button type="button" onClick={(e) => { e.stopPropagation(); toggle('techStack', v); }} className="hover:text-[#b5431a] dark:hover:text-white">
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/[0.1] rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b border-slate-100 dark:border-white/[0.06]">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" size={12} />
+              <input
+                ref={inputRef}
+                type="text" value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder={`Search ${category.toLowerCase()}...`}
+                className="w-full pl-8 pr-3 py-[7px] bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] rounded-lg text-[12px] outline-none focus:border-[#C94C1E]/50 transition-all placeholder:text-slate-400 dark:placeholder:text-neutral-500 dark:text-white"
+              />
+            </div>
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-[220px] overflow-y-auto custom-scrollbar py-1">
+            {visible.length === 0 && <p className="px-3 py-3 text-[11px] text-slate-400 dark:text-neutral-500 text-center">No matches</p>}
+            {visible.map(v => {
+              const isOn = filters.techStack.includes(v);
+              return (
+                <button key={v} onClick={() => toggle('techStack', v)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-[7px] text-left transition-colors ${
+                    isOn ? 'bg-orange-50/70 dark:bg-[#C94C1E]/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                  }`}>
+                  <div className={`w-4 h-4 rounded flex-shrink-0 border-[1.5px] flex items-center justify-center transition-colors ${
+                    isOn ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-neutral-600'
+                  }`}>
+                    {isOn && (
+                      <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none">
+                        <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <span className={`text-[12px] ${isOn ? 'text-slate-900 dark:text-white font-medium' : 'text-slate-600 dark:text-neutral-300'}`}>{v}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -314,7 +417,7 @@ const LocationSubFilter = ({ label, options, selected, onToggle }: {
 
   return (
     <div className="mt-2.5 mb-1 px-3 relative" ref={containerRef}>
-      <p className="text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mb-1.5">{label}</p>
+      <p className="text-[12.5px] font-extrabold text-slate-700 dark:text-neutral-200 tracking-[0.02em] mb-1.5">{label}</p>
 
       {/* Trigger button */}
       <button
@@ -322,13 +425,13 @@ const LocationSubFilter = ({ label, options, selected, onToggle }: {
         onClick={() => setOpen(!open)}
         className={`w-full flex items-center justify-between px-3 py-[8px] rounded-lg border text-[12px] transition-all ${
           open
-            ? 'border-[#C94C1E]/50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)] bg-white dark:bg-[#141414]'
+            ? 'border-[#C94C1E]/50 shadow-[0_0_0_2px_rgba(201,76,30,0.08)] bg-white dark:bg-[#1a1a1a]'
             : selected.length > 0
-              ? 'border-[#C94C1E]/30 bg-orange-50/50 dark:bg-[#C94C1E]/10'
+              ? 'border-[#C94C1E]/40 bg-orange-50/50 dark:bg-[#C94C1E]/15 dark:border-[#C94C1E]/50'
               : 'border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#141414] hover:border-slate-300 dark:hover:border-white/[0.15]'
         }`}
       >
-        <span className={`truncate ${selected.length > 0 ? 'text-[#C94C1E] font-medium' : 'text-slate-400 dark:text-neutral-500'}`}>
+        <span className={`truncate ${selected.length > 0 ? 'text-[#C94C1E] dark:text-[#f0a070] font-medium' : 'text-slate-400 dark:text-neutral-500'}`}>
           {selected.length > 0 ? `${selected.length} selected` : `Select ${label.toLowerCase()}...`}
         </span>
         <svg className={`w-3.5 h-3.5 flex-shrink-0 text-slate-400 dark:text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 14 14" fill="none">
@@ -340,9 +443,9 @@ const LocationSubFilter = ({ label, options, selected, onToggle }: {
       {selected.length > 0 && !open && (
         <div className="flex flex-wrap gap-1 mt-1.5">
           {selected.map(v => (
-            <span key={v} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#C94C1E]/10 text-[10px] font-medium text-[#C94C1E]">
+            <span key={v} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#C94C1E]/10 dark:bg-[#C94C1E]/20 text-[10px] font-medium text-[#C94C1E] dark:text-[#f0a070]">
               {v}
-              <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(v); }} className="hover:text-[#b5431a]">
+              <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(v); }} className="hover:text-[#b5431a] dark:hover:text-white">
                 <X size={10} />
               </button>
             </span>
@@ -504,7 +607,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const [activeTab, setActiveTab] = useState<SidebarTab>(paramTab && paramTab in TAB_TITLES ? paramTab : 'account-explorer');
   const [initialScanDomain] = useState(paramScan || '');
   const [initialLookalikeDomain] = useState(paramDomain || '');
-  const { isDark, toggle: onToggleTheme } = useTheme();
+  const { mode: themeMode, toggle: onToggleTheme } = useTheme();
 
   // Filter panel collapse + resize
   const [filterCollapsed, setFilterCollapsed] = useState(false);
@@ -516,7 +619,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({ categories: [], regions: [], states: [], cities: [], offlineStores: [], techStackOptions: {} });
-  const [techSearch, setTechSearch] = useState('');
+  // techSearch removed — each TechCategoryGroup now has its own search
   // Reverse lookup: tech name → category (for pill priority)
   const techCategoryLookup = useMemo(() => {
     const map: Record<string, string> = {};
@@ -1123,26 +1226,31 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
           </div>
         </div>
 
-        {/* Theme toggle */}
+        {/* Theme toggle — cycles: Light → Dark → System */}
         <div className="px-3 pb-2 mt-auto flex-shrink-0">
           <button
             onClick={onToggleTheme}
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={`Switch theme (current: ${themeMode})`}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
           >
-            {isDark ? (
+            {themeMode === 'light' ? (
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none">
                 <circle cx="10" cy="10" r="4" stroke="currentColor" strokeWidth="1.5" />
                 <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42"
                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
-            ) : (
+            ) : themeMode === 'dark' ? (
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none">
                 <path d="M17.5 11.5A7.5 7.5 0 1 1 8.5 2.5a5.5 5.5 0 0 0 9 9z"
                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
+            ) : (
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none">
+                <rect x="2" y="3" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M6 18h8M10 15v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             )}
-            {isDark ? 'Light mode' : 'Dark mode'}
+            {themeMode === 'light' ? 'Light mode' : themeMode === 'dark' ? 'Dark mode' : 'System'}
           </button>
         </div>
 
@@ -1209,7 +1317,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
           <div className="flex-1 overflow-y-auto p-4 pt-2 custom-scrollbar">
             <FilterSection title="Basics" count={filters.category.length + filters.region.length + filters.state.length + filters.city.length}>
               {/* Category — compact display + picker button */}
-              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-1 mb-1">Category</p>
+              <p className="px-3 text-[12.5px] font-extrabold text-slate-700 dark:text-neutral-200 tracking-[0.02em] mt-1 mb-1.5">Category</p>
               <button onClick={() => setShowCatPicker(true)}
                 className="mx-3 mb-2 w-[calc(100%-24px)] flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[11px] font-medium text-slate-500 dark:text-neutral-400 hover:border-[#C94C1E] hover:text-[#C94C1E] hover:bg-orange-50/50 dark:hover:bg-[#C94C1E]/10 transition-all">
                 {filters.category.length === 0 ? (
@@ -1231,79 +1339,50 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             </FilterSection>
 
             <FilterSection title="D2C Profile" count={filters.businessModel.length + filters.scale.length + filters.offlinePresence.length + filters.appPresence.length} defaultOpen={false}>
-              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-1 mb-1">Business Model</p>
+              <p className="px-3 text-[12.5px] font-extrabold text-slate-700 dark:text-neutral-200 tracking-[0.02em] mt-1 mb-1.5">Business Model</p>
               {['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'].map(v => (
                 <FilterItem key={v} label={v} on={filters.businessModel.includes(v)} onClick={() => toggle('businessModel', v)} />
               ))}
 
-              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">Scale (Est. Traffic)</p>
+              <p className="px-3 text-[12.5px] font-extrabold text-slate-700 dark:text-neutral-200 tracking-[0.02em] mt-3 mb-1.5">Scale (Est. Traffic)</p>
               {['<50K', '50K-200K', '200K-500K', '500K-1M', '1M-5M', '5M-20M', '20M+'].map(v => (
                 <FilterItem key={v} label={v} on={filters.scale.includes(v)} onClick={() => toggle('scale', v)} />
               ))}
 
-              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">Offline Presence</p>
+              <p className="px-3 text-[12.5px] font-extrabold text-slate-700 dark:text-neutral-200 tracking-[0.02em] mt-3 mb-1.5">Offline Presence</p>
               {['Online Only', '1-10 stores', '11-20 stores', '21-50 stores', '51-100 stores', '100+ stores'].map(v => (
                 <FilterItem key={v} label={v} on={filters.offlinePresence.includes(v)} onClick={() => toggle('offlinePresence', v)} />
               ))}
 
-              <p className="px-3 text-[11px] font-black text-slate-700 dark:text-neutral-300 uppercase tracking-wide mt-3 mb-1">App Presence</p>
+              <p className="px-3 text-[12.5px] font-extrabold text-slate-700 dark:text-neutral-200 tracking-[0.02em] mt-3 mb-1.5">App Presence</p>
               {['No App', 'iOS Only', 'Android Only', 'Both iOS & Android'].map(v => (
                 <FilterItem key={v} label={v} on={filters.appPresence.includes(v)} onClick={() => toggle('appPresence', v)} />
               ))}
             </FilterSection>
 
             <FilterSection title="Tech Stack" count={filters.techStack.length} defaultOpen={false}>
-              {/* Search within tech stack options */}
-              {Object.keys(filterOptions.techStackOptions).length > 0 && (
-                <div className="px-3 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Search technologies..."
-                    value={techSearch}
-                    onChange={(e) => setTechSearch(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[11px] text-slate-700 dark:text-neutral-300 placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none focus:border-[#C94C1E] focus:ring-1 focus:ring-[#C94C1E]/30"
-                  />
-                </div>
-              )}
               <FilterItem label="None detected" on={filters.techStack.includes('None detected')} onClick={() => toggle('techStack', 'None detected')} />
-              {/* Curated tech categories */}
+              {/* Tech categories — each with its own search + dropdown */}
               {(() => {
                 const TECH_FILTER_CATS: [string[], string][] = [
-                  [['Ecommerce', 'Ecommerce Platform'], 'Ecommerce Platform'],
+                  [['Ecommerce', 'Ecommerce Platform'], 'Ecommerce'],
                   [['Marketing automation'], 'Marketing Automation'],
                   [['Analytics', 'Analytics & Behavior', 'Analytics & Optimization Platform'], 'Analytics'],
-                  [['Buy now pay later', 'Buy Now Pay Later', 'Payments & Checkout - Checkout / BNPL'], 'BNPL'],
-                  [['CDN', 'CDN & Infrastructure', 'CDN & Security'], 'CDN'],
-                  [['CMS', 'Headless CMS'], 'CMS'],
-                  [['CRM', 'Customer Engagement / CRM'], 'CRM'],
-                  [['Hosting'], 'Hosting'],
                   [['Live chat', 'Customer Support'], 'Live Chat'],
+                  [['Buy now pay later', 'Buy Now Pay Later', 'Payments & Checkout - Checkout / BNPL'], 'BNPL'],
                   [['Payment processors', 'Payments & Checkout - Gateway', 'Payments & Checkout Platform'], 'Payment Processors'],
-                  [['SEO'], 'SEO'],
-                  [['Shopify apps', 'Shopify Apps'], 'Shopify Apps'],
+                  [['CRM', 'Customer Engagement / CRM'], 'CRM'],
+                  [['Advertising', 'Retargeting'], 'Advertising & Retargeting'],
+                  [['Shipping', 'Shipping & Logistics'], 'Shipping Carriers'],
+                  [['Loyalty & rewards', 'Loyalty & Rewards'], 'Loyalty & Rewards'],
                 ];
-                const searchLower = techSearch.toLowerCase();
-                const curatedKeys = new Set(TECH_FILTER_CATS.flatMap(([keys]) => keys));
-                const allCats = Object.keys(filterOptions.techStackOptions);
-                const extraCats = searchLower
-                  ? allCats.filter(c => !curatedKeys.has(c)).sort()
-                  : [];
                 return (
                   <>
                     {TECH_FILTER_CATS.map(([dbCats, displayName]) => {
                       const techs = [...new Set(dbCats.flatMap(c => filterOptions.techStackOptions[c] || []))].sort();
-                      const filtered = searchLower ? techs.filter(t => t.toLowerCase().includes(searchLower)) : techs;
-                      if (filtered.length === 0) return null;
+                      if (techs.length === 0) return null;
                       return (
-                        <TechCategoryGroup key={displayName} category={displayName} techs={filtered} filters={filters} toggle={toggle} />
-                      );
-                    })}
-                    {extraCats.map(cat => {
-                      const techs = filterOptions.techStackOptions[cat] || [];
-                      const filtered = techs.filter(t => t.toLowerCase().includes(searchLower));
-                      if (filtered.length === 0) return null;
-                      return (
-                        <TechCategoryGroup key={cat} category={cat} techs={filtered} filters={filters} toggle={toggle} />
+                        <TechCategoryGroup key={displayName} category={displayName} techs={techs} filters={filters} toggle={toggle} />
                       );
                     })}
                   </>
@@ -1928,6 +2007,15 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                         {STATUS_LABELS[status]}
                                       </span>
                                     )}
+                                    {(!a.offlineStores || a.offlineStores === 'Online' || a.offlineStores === 'Online Only') ? (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-500/20 text-[9px] font-bold flex-shrink-0">
+                                        <Globe size={9} /> Online
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 text-[9px] font-bold flex-shrink-0">
+                                        {a.offlineStores} stores
+                                      </span>
+                                    )}
                                   </div>
                                   <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate">
                                     {[a.category !== 'Unknown' && a.category, a.region !== 'Global' && a.region, a.businessModel].filter(Boolean).join(' · ')}
@@ -2198,9 +2286,13 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                     <Smartphone size={10} className="text-violet-400" />{a.appPresence}
                                   </span>
                                 )}
-                                {a.offlineStores && a.offlineStores !== 'Online' && a.offlineStores !== 'Unknown' && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] text-[10px] font-bold text-slate-600 dark:text-neutral-300">
-                                    <Store size={10} className="text-emerald-400" />{a.offlineStores} stores
+                                {a.offlineStores && a.offlineStores !== 'Online' && a.offlineStores !== 'Online Only' && a.offlineStores !== 'Unknown' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                    <Store size={10} />{a.offlineStores} stores
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-500/20 bg-violet-50 dark:bg-violet-500/10 text-[10px] font-bold text-violet-600 dark:text-violet-400">
+                                    <Globe size={10} /> Online
                                   </span>
                                 )}
                               </div>
@@ -4723,6 +4815,9 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
             subCategory: metaJson.data.subCategory || '',
             region: metaJson.data.region || '',
             offlineStores: metaJson.data.offlineStores || '',
+            businessModel: metaJson.data.businessModel || '',
+            appPresence: metaJson.data.appPresence || '',
+            monthlyVisitsFormatted: metaJson.data.monthlyVisitsFormatted || '',
           },
         });
         setMetaLoading(true);
@@ -4859,6 +4954,27 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
                 </div>
               ))}
             </div>
+            {/* Extra meta: Business Model, App Presence, Traffic */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+              {scanResult.companyMeta!.businessModel && (
+                <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
+                  <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">Business Model</p>
+                  <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta!.businessModel}</p>
+                </div>
+              )}
+              {scanResult.companyMeta!.appPresence && (
+                <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
+                  <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">App Presence</p>
+                  <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta!.appPresence}</p>
+                </div>
+              )}
+              {scanResult.companyMeta!.monthlyVisitsFormatted && (
+                <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
+                  <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">Est. Traffic</p>
+                  <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta!.monthlyVisitsFormatted} <span className="text-[11px] text-slate-400 dark:text-neutral-500">visits/mo</span></p>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex flex-col items-center py-8">
             <div className="relative w-10 h-10 mb-3">
@@ -4910,19 +5026,51 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
 
             {/* Company meta */}
             {scanResult.companyMeta && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {([
-                  { key: 'category' as const, label: 'Category' },
-                  { key: 'subCategory' as const, label: 'Sub-Category' },
-                  { key: 'region' as const, label: 'Region' },
-                  { key: 'offlineStores' as const, label: 'Stores' },
-                ]).map(({ key, label }) => (
-                  <div key={key} className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
-                    <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">{label}</p>
-                    <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta![key] || '\u2014'}</p>
+              <>
+                {/* Non-D2C warning banner */}
+                {scanResult.companyMeta.isNonD2C && (
+                  <div className="mb-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                    <p className="text-[13px] font-semibold text-amber-700 dark:text-amber-400">Non D2C Brand</p>
+                    {scanResult.companyMeta.nonD2CReason && (
+                      <p className="text-[12px] text-amber-600 dark:text-amber-500/80 mt-0.5">{scanResult.companyMeta.nonD2CReason}</p>
+                    )}
                   </div>
-                ))}
-              </div>
+                )}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {([
+                    { key: 'category' as const, label: 'Category' },
+                    { key: 'subCategory' as const, label: 'Sub-Category' },
+                    { key: 'region' as const, label: 'Region' },
+                    { key: 'offlineStores' as const, label: 'Stores' },
+                  ]).map(({ key, label }) => (
+                    <div key={key} className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">{label}</p>
+                      <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta![key] || '\u2014'}</p>
+                    </div>
+                  ))}
+                </div>
+                {/* Extra meta: Business Model, App Presence, Traffic */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                  {scanResult.companyMeta.businessModel && (
+                    <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">Business Model</p>
+                      <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta.businessModel}</p>
+                    </div>
+                  )}
+                  {scanResult.companyMeta.appPresence && (
+                    <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">App Presence</p>
+                      <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta.appPresence}</p>
+                    </div>
+                  )}
+                  {scanResult.companyMeta.monthlyVisitsFormatted && (
+                    <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">Est. Traffic</p>
+                      <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta.monthlyVisitsFormatted} <span className="text-[11px] text-slate-400 dark:text-neutral-500">visits/mo</span></p>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
 

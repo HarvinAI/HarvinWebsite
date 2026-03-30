@@ -394,9 +394,16 @@ export async function GET(req: NextRequest) {
     };
     const sortField = sortMap[sortBy] || 'updatedAt';
 
+    // When sorting by stores, exclude online-only brands (they have no physical stores)
+    const sortByStores = sortBy === 'offlineStores';
+    if (sortByStores && !query.offlineStores) {
+      query.offlineStores = { $exists: true, $nin: ['Online', 'Online Only', '', null] };
+    }
+
     // When inferred-field filters are active, we need to fetch all matching docs
     // (since we can't filter by inferred values in MongoDB) and paginate in JS.
-    const hasInferredFilters = businessModel.length > 0 || scaleRanges.length > 0 ||
+    // Also force JS-side sort for stores (offlineStores is a string band, not numeric)
+    const hasInferredFilters = sortByStores || businessModel.length > 0 || scaleRanges.length > 0 ||
       appPresence.length > 0 || activeSignals.length > 0 || funding.length > 0;
 
     const dbLimit = hasInferredFilters ? 0 : limit; // 0 = no limit (fetch all)
@@ -436,10 +443,19 @@ export async function GET(req: NextRequest) {
     if (dbSkip > 0) findCursor = findCursor.skip(dbSkip);
     if (dbLimit > 0) findCursor = findCursor.limit(dbLimit);
 
-    const [accounts, dbTotal] = await Promise.all([
+    const [rawAccounts, dbTotal] = await Promise.all([
       findCursor.toArray(),
       col.countDocuments(query),
     ]);
+
+    // Deduplicate by normalizedDomain (keep first/most recent occurrence)
+    const seenDomains = new Set<string>();
+    const accounts = rawAccounts.filter((a: Record<string, unknown>) => {
+      const d = a.normalizedDomain as string;
+      if (seenDomains.has(d)) return false;
+      seenDomains.add(d);
+      return true;
+    });
 
     // Fetch real signals + tech cache for all domains in this batch
     const allDomains = accounts.map((a: Record<string, unknown>) => a.normalizedDomain as string);
@@ -471,20 +487,31 @@ export async function GET(req: NextRequest) {
         (a.state as string | null) || null,
         (a.city as string | null) || null,
       );
-      // Fix store count: if source was known_brand (global count), use aiStoreCount or storeRawCount
+      // Fix store count: KNOWN_BRANDS is authoritative; only use aiStoreCount if no KNOWN_BRANDS entry
       const storeConf = a.storeConfidence as Record<string, unknown> | null;
       const rawCount = (a.storeRawCount as number) || 0;
       const aiCount = (a.aiStoreCount as number) || 0;
-      let offlineStores = (knownBrand?.stores || overrides.offlineStores || a.offlineStores) as string;
-      if (storeConf?.source === 'known_brand' || storeConf?.source === 'known_brand_fallback') {
-        // The DB has global known_brand count — use actual detected count instead
-        const actualCount = aiCount || rawCount;
-        if (actualCount > 0) {
-          if (actualCount <= 10) offlineStores = '1-10';
-          else if (actualCount <= 20) offlineStores = '11-20';
-          else if (actualCount <= 50) offlineStores = '21-50';
-          else if (actualCount <= 100) offlineStores = '51-100';
-          else offlineStores = '100+';
+      let offlineStores: string;
+      if (knownBrand?.stores) {
+        // KNOWN_BRANDS has the correct store count — trust it
+        offlineStores = knownBrand.stores as string;
+      } else if (knownBrand?.onlineOnly) {
+        offlineStores = 'Online';
+      } else if (overrides.offlineStores) {
+        offlineStores = overrides.offlineStores as string;
+      } else {
+        offlineStores = (a.offlineStores as string) || 'Online';
+        // If DB store count came from known_brand source but brand is no longer in KNOWN_BRANDS,
+        // use the AI-detected count instead
+        if (storeConf?.source === 'known_brand' || storeConf?.source === 'known_brand_fallback') {
+          const actualCount = aiCount || rawCount;
+          if (actualCount > 0) {
+            if (actualCount <= 10) offlineStores = '1-10';
+            else if (actualCount <= 20) offlineStores = '11-20';
+            else if (actualCount <= 50) offlineStores = '21-50';
+            else if (actualCount <= 100) offlineStores = '51-100';
+            else offlineStores = '100+';
+          }
         }
       }
 
@@ -499,7 +526,7 @@ export async function GET(req: NextRequest) {
       }) as { displayLocation: string; locationLevel: string };
 
       const techCountFinal = (a.techCount as number) || (a.techStack as string[] || []).length || techCacheMap[domain]?.count || 0;
-      const app = (a.appPresence as string) || 'No App';
+      const app = (knownBrand?.appPresence as string) || (a.appPresence as string) || 'No App';
       const bm = (a.businessModel as string) || inferBusinessModel(domain);
 
       // Use DB-stored harvinScore for consistency across all pages
@@ -549,6 +576,26 @@ export async function GET(req: NextRequest) {
           return true;
         })
       : processed;
+
+    // When sorting by stores, remove online-only brands and sort by numeric store value
+    if (sortByStores) {
+      const STORE_ORDER: Record<string, number> = {
+        '100+': 6, '51-100': 5, '21-50': 4, '11-20': 3, '1-10': 2, '1': 1,
+      };
+      // Remove brands with no physical stores after processing
+      const onlineValues = new Set(['Online', 'Online Only', '', null, undefined]);
+      for (let i = allFiltered.length - 1; i >= 0; i--) {
+        const stores = allFiltered[i].offlineStores as string;
+        if (!stores || onlineValues.has(stores) || !STORE_ORDER[stores]) {
+          allFiltered.splice(i, 1);
+        }
+      }
+      allFiltered.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const aVal = STORE_ORDER[a.offlineStores as string] || 0;
+        const bVal = STORE_ORDER[b.offlineStores as string] || 0;
+        return sortDir === -1 ? bVal - aVal : aVal - bVal;
+      });
+    }
 
     // When post-filtering, apply pagination in JS
     const finalTotal = hasInferredFilters ? allFiltered.length : dbTotal;

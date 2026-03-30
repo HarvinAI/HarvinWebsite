@@ -125,7 +125,7 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
             { $set: { domain, technologies: techs, count: result.count, updatedAt: now } },
             { upsert: true },
           ),
-          // Tech names + count in company_meta (for account explorer pills + filters)
+          // Tech names + count + app presence in company_meta (for account explorer)
           // Uses upsert so it works even if domain isn't in company_meta yet
           db.collection('company_meta').updateOne(
             { normalizedDomain: domain },
@@ -135,6 +135,10 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
                 techCount: result.count,
                 lastTechScan: now,
                 updatedAt: now,
+                // Update app presence if scan detected it (don't overwrite with 'No App' if DB has a value)
+                ...(result.companyMeta?.appPresence && result.companyMeta.appPresence !== 'No App'
+                  ? { appPresence: result.companyMeta.appPresence }
+                  : {}),
               },
               $setOnInsert: { normalizedDomain: domain, createdAt: now },
             },
