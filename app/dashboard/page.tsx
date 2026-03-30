@@ -4518,7 +4518,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'HelpCrunch': 'helpcrunch.com', 'Kayako': 'kayako.com',
   'Kommunicate': 'kommunicate.io',
   'Microsoft Dynamics 365': 'https://cdn.simpleicons.org/dynamics365/002050',
-  'Pipedrive': 'pipedrive.com', 'SnapEngage': 'snapengage.com',
+  'SnapEngage': 'snapengage.com',
   // Reviews & Social Proof
   'Baremetrics': 'baremetrics.com', 'Fera.ai': 'fera.ai',
   'Reviews.io': 'reviews.io', 'Shopper Approved': 'shopperapproved.com',
@@ -4574,7 +4574,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'TYPO3': 'typo3.org', 'Tilda': 'tilda.cc', 'Tumblr': 'tumblr.com',
   'Umbraco': 'umbraco.com', 'Wagtail': 'wagtail.org',
   // Hosting & Infrastructure
-  'Azure': 'azure.microsoft.com', 'Azure CDN': 'azure.microsoft.com',
+  'Azure': 'azure.microsoft.com',
   'BunnyCDN': 'bunny.net', 'Caddy': 'caddyserver.com',
   'Cloudinary': 'cloudinary.com', 'Envoy': 'envoyproxy.io',
   'IIS': 'iis.net', 'ImageKit': 'imagekit.io', 'Neon': 'neon.tech',
@@ -4587,7 +4587,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Polyfill.io': 'polyfill.io', 'Smush': 'wpmudev.com',
   // Security & Compliance
   'Cloudflare Turnstile': 'cloudflare.com', 'Didomi': 'didomi.io',
-  'OneTrust CookiePro': 'onetrust.com', 'PerimeterX': 'perimeterx.com',
+  'OneTrust CookiePro': 'onetrust.com',
   'Usercentrics': 'usercentrics.com',
   // Auth & Identity
   'Firebase Auth': 'https://cdn.simpleicons.org/firebase/DD2C00',
@@ -4607,10 +4607,10 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Localize': 'localizejs.com', 'Polylang': 'polylang.pro',
   'Transifex': 'transifex.com', 'Weglot': 'weglot.com', 'WPML': 'wpml.org',
   // Subscription & Commerce
-  'Growave': 'growave.io', 'ProfitWell': 'profitwell.com',
+  'ProfitWell': 'profitwell.com',
   // Monitoring & Error Tracking
   'AppDynamics': 'appdynamics.com', 'Bugsnag': 'bugsnag.com',
-  'Rollbar': 'rollbar.com', 'SpeedCurve': 'speedcurve.com',
+  'Rollbar': 'rollbar.com',
   // Advertising & Retargeting
   'Carbon Ads': 'carbonads.net', 'Ezoic': 'ezoic.com',
   'iGoDigital': 'https://cdn.simpleicons.org/salesforce/00A1E0', 'Inmobi': 'inmobi.com',
@@ -4621,7 +4621,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'MeiliSearch': 'meilisearch.com', 'Searchanise': 'searchanise.com',
   'SearchSpring': 'searchspring.com',
   // Personalization & Recommendations
-  'Builder.io': 'builder.io', 'Monetate': 'monetate.com',
+  'Builder.io': 'builder.io',
   // Shipping & Logistics
   'Route': 'route.com',
   // Misc tools & meta
@@ -4639,8 +4639,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'msvalidate.01': 'https://cdn.simpleicons.org/microsoftbing/258FFA', 'Impact': 'impact.com',
   'Popupsmart': 'popupsmart.com', 'Lander': 'landerapp.com',
   'Landingi': 'landingi.com', 'TagCommander': 'commandersact.com',
-  'Beaver Builder': 'wpbeaverbuilder.com', 'Alma': 'getalma.eu',
-  'Engage360': 'netcorecloud.com',
+  'Beaver Builder': 'wpbeaverbuilder.com',
   'Adobe Fonts (Typekit)': 'fonts.adobe.com', 'Fonts.com': 'fonts.com',
   'Juspay Express Checkout': 'juspay.in', 'OptinMonster': 'optinmonster.com',
 };
