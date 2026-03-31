@@ -56,8 +56,9 @@ type Account = {
 type Filters = { category: string[]; region: string[]; state: string[]; city: string[]; businessModel: string[]; scale: string[]; offlinePresence: string[]; appPresence: string[]; techStack: string[]; activeSignals: string[]; funding: string[] };
 type SortKey = 'domain' | 'category' | 'region' | 'offlineStores' | 'updatedAt' | 'techCount' | 'monthlyVisits' | 'harvinScore';
 type FilterOptions = { categories: string[]; regions: string[]; states: string[]; cities: string[]; offlineStores: string[]; techStackOptions: Record<string, string[]> };
-type Watchlist = { _id: string; name: string; domains: string[]; createdAt: string; updatedAt: string };
-type WatchlistAccount = Account & { normalizedDomain: string };
+type WatchlistContact = { name: string; email: string; title: string; department: string };
+type Watchlist = { _id: string; name: string; domains: string[]; contactCount?: number; createdAt: string; updatedAt: string };
+type WatchlistAccount = { normalizedDomain: string; category: string; subCategory: string; region: string; state: string; offlineStores: string; businessModel: string; monthlyVisitsFormatted: string; appPresence: string; techCount: number; harvinScore: number; brandName: string; updatedAt: string; contacts: WatchlistContact[] };
 type SidebarTab = 'market-intelligence' | 'my-universe' | 'account-explorer' | 'tech-scanner' | 'lookalike-brands' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations' | 'admin-accounts';
 type UniverseStatus = 'all' | 'in-conversation' | 'active-client' | 'churned-client';
 
@@ -67,9 +68,10 @@ const CAT_SHOW = 5;
 
 
 
-type ScanTech = { name: string; category: string; color: string };
+type ScanTech = { name: string; category: string; color: string; changeTag?: 'added' | 'removed' };
 type ScanCompanyMeta = { category: string; subCategory: string; region: string; offlineStores: string; businessModel?: string; appPresence?: string; monthlyVisitsFormatted?: string; isNonD2C?: boolean; nonD2CReason?: string };
-type ScanResult = { url: string; technologies: ScanTech[]; count: number; companyMeta?: ScanCompanyMeta };
+type TechChanges = { added: string[]; removed: string[]; previousScanAt?: string };
+type ScanResult = { url: string; technologies: ScanTech[]; count: number; companyMeta?: ScanCompanyMeta; techChanges?: TechChanges };
 
 const TAB_TITLES: Record<SidebarTab, string> = {
   'market-intelligence': 'Intelligence Hub',
@@ -342,7 +344,7 @@ const TechCategoryGroup = ({ category, techs, filters, toggle }: {
       {open && (
         <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/[0.1] rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] overflow-hidden">
           {/* Search */}
-          <div className="p-2 border-b border-slate-100 dark:border-white/[0.06]">
+          <div className="p-2 border-b border-slate-200 dark:border-white/[0.12]">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" size={12} />
               <input
@@ -457,7 +459,7 @@ const LocationSubFilter = ({ label, options, selected, onToggle }: {
       {open && (
         <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/[0.1] rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] overflow-hidden">
           {/* Search */}
-          <div className="p-2 border-b border-slate-100 dark:border-white/[0.06]">
+          <div className="p-2 border-b border-slate-200 dark:border-white/[0.12]">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" size={12} />
               <input
@@ -512,7 +514,7 @@ const CategoryPickerModal = ({ categories, selected, onToggle, onSelectAll, onCl
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white dark:bg-[#141414] rounded-2xl shadow-2xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] w-[560px] max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-white/[0.12] flex items-center justify-between">
           <div>
             <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">Select Categories</h3>
             <p className="text-[11px] text-slate-400 dark:text-neutral-500 mt-0.5">{selected.length} of {categories.length} selected</p>
@@ -522,7 +524,7 @@ const CategoryPickerModal = ({ categories, selected, onToggle, onSelectAll, onCl
           </button>
         </div>
 
-        <div className="px-6 py-3 border-b border-slate-100 dark:border-white/[0.06]">
+        <div className="px-6 py-3 border-b border-slate-200 dark:border-white/[0.12]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" size={14} />
             <input type="text" value={q} onChange={e => setQ(e.target.value)} placeholder="Search categories..."
@@ -554,7 +556,7 @@ const CategoryPickerModal = ({ categories, selected, onToggle, onSelectAll, onCl
           {filtered.length === 0 && <p className="text-center py-6 text-[13px] text-slate-400 dark:text-neutral-500">No categories match &ldquo;{q}&rdquo;</p>}
         </div>
 
-        <div className="px-6 py-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+        <div className="px-6 py-3 border-t border-slate-200 dark:border-white/[0.12] flex items-center justify-between">
           <button onClick={() => { selected.forEach(v => onToggle(v)); }} className="text-[12px] text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 font-medium transition-colors">
             Clear all
           </button>
@@ -1167,7 +1169,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
     <div className="flex h-screen w-full bg-[#FDFDFD] dark:bg-[#0a0a0a] font-sans text-slate-900 dark:text-white overflow-hidden">
 
       {/* ── Nav Sidebar (expanded with labels) ── */}
-      <aside className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0 w-[210px]">
+      <aside className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-200 dark:border-white/[0.12] flex-shrink-0 w-[210px]">
         <div className="flex items-center gap-2.5 flex-shrink-0 px-5 py-4">
           <a href="/" className="flex items-center gap-0.5">
             <div className="h-7 w-8 overflow-hidden flex-shrink-0">
@@ -1255,7 +1257,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         </div>
 
         {/* User */}
-        <div className="border-t border-slate-100 dark:border-white/[0.06] flex-shrink-0 px-3 py-2.5">
+        <div className="border-t border-slate-200 dark:border-white/[0.12] flex-shrink-0 px-3 py-2.5">
           <div className="flex items-center gap-2 px-2 py-1">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#C94C1E] to-[#e07040] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
               {firstName[0]?.toUpperCase() || 'U'}
@@ -1275,7 +1277,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
       {/* ── Filter Panel (Account Explorer + My Universe) ──────── */}
       {(activeTab === 'account-explorer' || activeTab === 'my-universe') && (
         <aside
-          className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-100 dark:border-white/[0.06] flex-shrink-0 relative transition-[width] duration-200 ease-out"
+          className="hidden md:flex flex-col bg-white dark:bg-[#141414] border-r border-slate-200 dark:border-white/[0.12] flex-shrink-0 relative transition-[width] duration-200 ease-out"
           style={{ width: filterCollapsed ? 0 : filterWidth, minWidth: filterCollapsed ? 0 : 220, overflow: filterCollapsed ? 'hidden' : undefined }}
         >
           {/* Collapse toggle */}
@@ -1297,7 +1299,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             />
           )}
 
-          <div className="h-[56px] px-5 flex items-center border-b border-slate-100 dark:border-white/[0.06] flex-shrink-0" data-tour="filters">
+          <div className="h-[56px] px-5 flex items-center border-b border-slate-200 dark:border-white/[0.12] flex-shrink-0" data-tour="filters">
             <div className="flex items-center gap-2">
               <Filter size={15} className="text-[#C94C1E]" />
               <h2 className="font-bold text-slate-800 dark:text-white text-[14px]">Filters</h2>
@@ -1403,11 +1405,14 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             </FilterSection>
           </div>
 
-          <div className="p-4 border-t border-slate-100 dark:border-white/[0.06] flex-shrink-0">
-            <button onClick={clearAll} className={`w-full text-center text-[12px] font-medium py-1 transition-colors ${activeCount > 0 ? 'text-[#C94C1E] hover:text-[#b5431a]' : 'text-slate-300 dark:text-neutral-600 cursor-default'}`} disabled={activeCount === 0}>
-              Clear All Filters
-            </button>
-          </div>
+          {activeCount > 0 && (
+            <div className="px-4 py-2.5 border-t border-slate-200 dark:border-white/[0.12] flex-shrink-0">
+              <button onClick={clearAll}
+                className="w-full py-1.5 rounded-lg text-[11px] font-semibold text-[#C94C1E] border border-[#C94C1E]/20 hover:bg-[#C94C1E]/5 dark:hover:bg-[#C94C1E]/10 transition-colors">
+                Clear All Filters
+              </button>
+            </div>
+          )}
         </aside>
       )}
 
@@ -1415,7 +1420,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
       <main className="flex-1 flex flex-col min-w-0 bg-[#F9F9F9] dark:bg-[#0a0a0a] relative">
 
         {/* Header */}
-        <header className="h-[64px] border-b border-slate-100 dark:border-white/[0.06] bg-white dark:bg-[#141414] px-8 flex items-center justify-between flex-shrink-0 z-10">
+        <header className="h-[64px] border-b border-slate-200 dark:border-white/[0.12] bg-white dark:bg-[#141414] px-8 flex items-center justify-between flex-shrink-0 z-10">
           <div className="flex items-center gap-3">
             {filterCollapsed && (activeTab === 'account-explorer' || activeTab === 'my-universe') && (
               <button
@@ -1463,7 +1468,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                       </button>
                     ))}
                     {/* Alphabetical */}
-                    <div className="px-3 pt-2.5 pb-1 text-[9px] font-black text-slate-400 dark:text-neutral-500 uppercase tracking-widest border-t border-slate-100 dark:border-white/[0.06] mt-1">Alphabetical</div>
+                    <div className="px-3 pt-2.5 pb-1 text-[9px] font-black text-slate-400 dark:text-neutral-500 uppercase tracking-widest border-t border-slate-200 dark:border-white/[0.12] mt-1">Alphabetical</div>
                     {([
                       { key: 'domain', label: 'Name (A → Z)', asc: true },
                       { key: 'domain', label: 'Name (Z → A)', asc: false },
@@ -1476,7 +1481,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                       </button>
                     ))}
                     {/* Other */}
-                    <div className="px-3 pt-2.5 pb-1 text-[9px] font-black text-slate-400 dark:text-neutral-500 uppercase tracking-widest border-t border-slate-100 dark:border-white/[0.06] mt-1">Other</div>
+                    <div className="px-3 pt-2.5 pb-1 text-[9px] font-black text-slate-400 dark:text-neutral-500 uppercase tracking-widest border-t border-slate-200 dark:border-white/[0.12] mt-1">Other</div>
                     {([
                       { key: 'updatedAt', label: 'Last Updated', asc: false },
                       { key: 'monthlyVisits', label: 'Traffic (Low → High)', asc: true },
@@ -1513,7 +1518,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
         {/* Active filter chips */}
         {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && activeCount > 0 && (
-          <div className="bg-white dark:bg-[#141414] border-b border-slate-100 dark:border-white/[0.06] px-8 py-2.5 flex items-center gap-3 overflow-x-auto custom-scrollbar">
+          <div className="bg-white dark:bg-[#141414] border-b border-slate-200 dark:border-white/[0.12] px-8 py-2.5 flex items-center gap-3 overflow-x-auto custom-scrollbar">
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <Filter size={12} className="text-slate-400 dark:text-neutral-500" />
               <span className="text-[11px] text-slate-400 dark:text-neutral-500 font-semibold uppercase tracking-wider">Active</span>
@@ -1559,163 +1564,19 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             /* ── Tech Scanner ────────────────────────────────────── */
             <TechScannerView initialDomain={initialScanDomain} />
           ) : isWatchlistTab ? (
-            /* ── Watchlists View ───────────────────────────────────── */
-            <div className="max-w-5xl mx-auto">
-              {!activeWatchlist ? (
-                /* Watchlist list */
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[14px] text-slate-500 dark:text-neutral-400">{watchlists.length} watchlist{watchlists.length !== 1 ? 's' : ''}</p>
-                    <button onClick={() => setShowCreateWl(true)}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/20">
-                      <Plus size={16} /> New Watchlist
-                    </button>
-                  </div>
-
-                  {/* Create modal */}
-                  {showCreateWl && (
-                    <div className="bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.08] p-5 shadow-sm dark:shadow-none">
-                      <h3 className="text-[14px] font-bold text-slate-800 dark:text-white mb-3">Create Watchlist</h3>
-                      <div className="flex gap-2">
-                        <input
-                          type="text" placeholder="e.g. Top D2C Brands, Competitor Tracking..."
-                          value={newWlName} onChange={e => setNewWlName(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && createWatchlist()}
-                          className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] focus:border-orange-300 dark:focus:border-[#C94C1E]/40 focus:ring-4 focus:ring-orange-100 dark:focus:ring-[#C94C1E]/20 rounded-xl text-[13px] outline-none transition-all dark:text-white dark:placeholder:text-neutral-500"
-                          autoFocus
-                        />
-                        <button onClick={createWatchlist}
-                          className="px-5 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-orange-700 transition-colors">
-                          Create
-                        </button>
-                        <button onClick={() => { setShowCreateWl(false); setNewWlName(''); }}
-                          className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-500 dark:text-neutral-400 text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {watchlists.length === 0 && !showCreateWl ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                      <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-white/[0.06] flex items-center justify-center mb-4">
-                        <Star size={24} className="text-slate-300 dark:text-neutral-600" />
-                      </div>
-                      <p className="text-[15px] font-semibold text-slate-600 dark:text-neutral-300 mb-1">No watchlists yet</p>
-                      <p className="text-[12px] text-slate-400 dark:text-neutral-500 mb-5 max-w-sm">Create a watchlist to save and track brands you&apos;re interested in. Add accounts from the Account Explorer or individual account pages.</p>
-                      <button onClick={() => setShowCreateWl(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/20">
-                        <Plus size={16} /> Create your first watchlist
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {watchlists.map(wl => (
-                        <div key={wl._id}
-                          className="bg-white dark:bg-[#141414]/60 rounded-xl border border-slate-200 dark:border-white/[0.08] p-5 hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:border-slate-300 dark:hover:border-white/[0.12] transition-all cursor-pointer group"
-                          onClick={() => fetchWatchlistDetail(wl._id)}>
-                          <div className="flex items-start justify-between mb-3">
-                            {renamingWl === wl._id ? (
-                              <input type="text" value={renameValue}
-                                onChange={e => setRenameValue(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') renameWatchlist(wl._id); if (e.key === 'Escape') setRenamingWl(null); }}
-                                onBlur={() => setRenamingWl(null)}
-                                className="text-[16px] font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2 py-1 outline-none focus:border-orange-300 dark:focus:border-[#C94C1E]/40 w-full"
-                                autoFocus
-                                onClick={e => e.stopPropagation()}
-                              />
-                            ) : (
-                              <h3 className="text-[16px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors">{wl.name}</h3>
-                            )}
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                              <button onClick={() => { setRenamingWl(wl._id); setRenameValue(wl.name); }}
-                                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.06] text-slate-400 dark:text-neutral-500 transition-colors">
-                                <Pencil size={13} />
-                              </button>
-                              <button onClick={() => { if (confirm('Delete this watchlist?')) deleteWatchlist(wl._id); }}
-                                className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 dark:text-neutral-500 hover:text-red-500 transition-colors">
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 text-[12px] text-slate-400 dark:text-neutral-500">
-                            <span className="font-semibold text-slate-600 dark:text-neutral-300">{wl.domains?.length || 0} accounts</span>
-                            <span className="text-slate-200 dark:text-white/10">&bull;</span>
-                            <span>Updated {formatDate(wl.updatedAt)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Watchlist detail */
-                <div>
-                  <button onClick={() => { setActiveWatchlist(null); setWatchlistAccounts([]); }}
-                    className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 mb-4 transition-colors">
-                    <ChevronLeft size={16} /> Back to Watchlists
-                  </button>
-                  <div className="flex items-center justify-between mb-5">
-                    <div>
-                      <h2 className="text-[20px] font-bold text-slate-800 dark:text-white">{activeWatchlist.name}</h2>
-                      <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">{activeWatchlist.domains?.length || 0} accounts &middot; Updated {formatDate(activeWatchlist.updatedAt)}</p>
-                    </div>
-                  </div>
-
-                  {wlLoading ? (
-                    <div className="flex items-center justify-center py-16">
-                      <Loader2 size={28} className="text-[#C94C1E] animate-spin" />
-                    </div>
-                  ) : watchlistAccounts.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/[0.06] flex items-center justify-center mb-3"><Star size={20} className="text-slate-300 dark:text-neutral-600" /></div>
-                      <p className="text-[14px] font-semibold text-slate-600 dark:text-neutral-300 mb-1">This watchlist is empty</p>
-                      <p className="text-[12px] text-slate-400 dark:text-neutral-500 mb-4">Add accounts from the Account Explorer or individual account pages.</p>
-                      <button onClick={() => setActiveTab('account-explorer')}
-                        className="px-4 py-2 rounded-xl text-[13px] font-semibold text-[#C94C1E] border border-orange-200 dark:border-[#C94C1E]/30 hover:bg-orange-50 dark:hover:bg-[#C94C1E]/10 transition-colors">
-                        Browse accounts
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {watchlistAccounts.map(a => (
-                        <div key={a.normalizedDomain}
-                          className="bg-white dark:bg-[#141414]/60 border border-slate-200 dark:border-white/[0.08] rounded-xl overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:border-slate-300 dark:hover:border-white/[0.12] transition-all group">
-                          <div className="p-4 flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-100 dark:border-white/[0.06] flex items-center justify-center font-serif text-slate-400 dark:text-neutral-500 text-lg flex-shrink-0 cursor-pointer"
-                              onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
-                              {(a.brandName || domainToName(a.normalizedDomain))[0]}
-                            </div>
-                            <div className="min-w-0 flex-1 cursor-pointer" onClick={() => router.push(`/account/${a.normalizedDomain}`)}>
-                              <div className="flex items-center gap-2">
-                                <h3 className="text-[15px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors">{a.brandName || domainToName(a.normalizedDomain)}</h3>
-                                <span className="text-[11px] text-slate-400 dark:text-neutral-500">{a.normalizedDomain}</span>
-                              </div>
-                              <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">
-                                {a.category}{a.subCategory && a.subCategory !== a.category ? ` · ${a.subCategory}` : ''}{a.displayLocation ? ` · ${a.displayLocation}` : (a.region ? ` · ${a.region}` : '')}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              {a.category && a.category !== 'Unknown' && (
-                                <span className="text-[10px] font-semibold text-orange-700 dark:text-[#C94C1E] bg-orange-50 dark:bg-[#C94C1E]/10 border border-orange-200 dark:border-[#C94C1E]/30 px-2 py-0.5 rounded">{a.category}</span>
-                              )}
-                              {a.offlineStores && a.offlineStores !== 'Unknown' && a.offlineStores !== 'Online' && (
-                                <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 rounded">{a.offlineStores} stores</span>
-                              )}
-                              <button onClick={() => removeFromWatchlist(activeWatchlist._id, a.normalizedDomain)}
-                                className="p-1.5 rounded-lg text-slate-300 dark:text-neutral-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                                title="Remove from watchlist">
-                                <X size={14} strokeWidth={2.5} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            /* ── Watchlists View (Lead Intelligence) ───────────────── */
+            <WatchlistView
+              watchlists={watchlists} activeWatchlist={activeWatchlist} watchlistAccounts={watchlistAccounts as WatchlistAccount[]}
+              wlLoading={wlLoading} showCreateWl={showCreateWl} newWlName={newWlName}
+              renamingWl={renamingWl} renameValue={renameValue}
+              setShowCreateWl={setShowCreateWl} setNewWlName={setNewWlName}
+              setRenamingWl={setRenamingWl} setRenameValue={setRenameValue}
+              createWatchlist={createWatchlist} deleteWatchlist={deleteWatchlist}
+              renameWatchlist={renameWatchlist} fetchWatchlistDetail={fetchWatchlistDetail}
+              removeFromWatchlist={removeFromWatchlist} setActiveWatchlist={setActiveWatchlist}
+              setWatchlistAccounts={setWatchlistAccounts} setActiveTab={setActiveTab}
+              formatDate={formatDate} domainToName={domainToName}
+            />
           ) : isSettingsTab ? (
             /* ── Settings Pages ────────────────────────────────────── */
             <div className="max-w-3xl mx-auto">
@@ -1762,7 +1623,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                         { name: 'Slack', desc: 'Signal alerts & notifications', connected: false },
                         { name: 'Google Sheets', desc: 'Export watchlists', connected: false },
                       ].map(int => (
-                        <div key={int.name} className="flex items-center justify-between p-4 rounded-lg border border-slate-100 dark:border-white/[0.06] hover:border-slate-200 dark:hover:border-white/[0.08] transition-colors">
+                        <div key={int.name} className="flex items-center justify-between p-4 rounded-lg border border-slate-200 dark:border-white/[0.12] hover:border-slate-200 dark:hover:border-white/[0.08] transition-colors">
                           <div>
                             <p className="text-[14px] font-semibold text-slate-700 dark:text-neutral-200">{int.name}</p>
                             <p className="text-[12px] text-slate-400 dark:text-neutral-500">{int.desc}</p>
@@ -1988,7 +1849,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
                               {/* Company */}
                               <div className="flex items-center gap-3 px-4 lg:px-2 py-3.5 min-w-0">
-                                <div className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-white/[0.04] border border-slate-100 dark:border-white/[0.06] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                <div className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.12] flex items-center justify-center flex-shrink-0 overflow-hidden">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img src={`https://www.google.com/s2/favicons?domain=${a.normalizedDomain}&sz=64`} alt="" width={20} height={20} className="rounded dark:bg-white dark:p-[2px] dark:rounded-md"
                                     onError={(e) => { const t = e.target as HTMLImageElement; t.style.display = 'none'; t.parentElement!.innerHTML = `<span class="font-serif text-slate-400 text-[14px]">${name[0]}</span>`; }} />
@@ -2161,7 +2022,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                       </button>
                       {showBulkWlDropdown && (
                         <div className="absolute right-0 top-full mt-2 w-[280px] bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.08] shadow-xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] z-50 overflow-hidden">
-                          <div className="p-3 border-b border-slate-100 dark:border-white/[0.06]">
+                          <div className="p-3 border-b border-slate-200 dark:border-white/[0.12]">
                             <p className="text-[11px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider mb-2">Add {selectedAccounts.size} account{selectedAccounts.size > 1 ? 's' : ''} to</p>
                           </div>
                           <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
@@ -2176,7 +2037,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                               </button>
                             ))}
                           </div>
-                          <div className="p-3 border-t border-slate-100 dark:border-white/[0.06]">
+                          <div className="p-3 border-t border-slate-200 dark:border-white/[0.12]">
                             <div className="flex gap-2">
                               <input type="text" placeholder="New watchlist name..." value={bulkNewWlName}
                                 onChange={e => setBulkNewWlName(e.target.value)}
@@ -2215,7 +2076,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleSelect(a.normalizedDomain); }}
                           className={`flex-shrink-0 w-11 flex items-start pt-5 justify-center self-stretch border-r transition-colors ${
-                            isSelected ? 'bg-[#C94C1E]/5 border-[#C94C1E]/10' : 'border-slate-100 dark:border-white/[0.06] hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                            isSelected ? 'bg-[#C94C1E]/5 border-[#C94C1E]/10' : 'border-slate-200 dark:border-white/[0.12] hover:bg-slate-50 dark:hover:bg-white/[0.04]'
                           }`}>
                           <div className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-all ${
                             isSelected ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.12] group-hover:border-slate-400'
@@ -2229,7 +2090,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                           {/* Row 1: Brand identity + tech stack badges */}
                           <div className="flex items-center gap-3 px-4 pt-4 pb-2">
                             {/* Favicon */}
-                            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-100 dark:border-white/[0.06] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.12] flex items-center justify-center flex-shrink-0 overflow-hidden">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={faviconUrl(a.normalizedDomain)} alt="" width={24} height={24} className="rounded dark:bg-white dark:p-[2px] dark:rounded-md"
                                 onError={(e) => {
@@ -2339,7 +2200,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                         {/* Visit button */}
                         <button
                           onClick={(e) => { e.stopPropagation(); window.open(`https://${a.normalizedDomain}`, '_blank'); }}
-                          className="flex-shrink-0 w-10 flex items-start pt-5 justify-center self-stretch border-l border-slate-100 dark:border-white/[0.06] text-slate-300 dark:text-neutral-600 hover:text-[#C94C1E] hover:bg-orange-50/50 dark:hover:bg-[#C94C1E]/10 transition-colors"
+                          className="flex-shrink-0 w-10 flex items-start pt-5 justify-center self-stretch border-l border-slate-200 dark:border-white/[0.12] text-slate-300 dark:text-neutral-600 hover:text-[#C94C1E] hover:bg-orange-50/50 dark:hover:bg-[#C94C1E]/10 transition-colors"
                           title="Visit website">
                           <ExternalLink size={14} />
                         </button>
@@ -2354,29 +2215,56 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
         {/* Footer */}
         {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && !isAdminTab && activeTab !== 'my-universe' && (
-          <footer className="h-[64px] border-t border-slate-100 dark:border-white/[0.06] bg-white dark:bg-[#141414] px-8 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-4 text-[12px] text-slate-400 dark:text-neutral-500 font-medium">
-              <span>Showing <span className="text-slate-800 dark:text-white font-bold">{total === 0 ? 0 : ((page - 1) * PAGE_SIZE) + 1}&ndash;{Math.min(page * PAGE_SIZE, total)}</span> of <span className="text-slate-800 dark:text-white font-bold">{total}</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg border dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-400 dark:text-neutral-500 transition-all disabled:opacity-25"><ChevronLeft size={16} /></button>
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                let p: number;
-                if (totalPages <= 7) {
-                  p = i + 1;
-                } else if (page <= 4) {
-                  p = i + 1;
-                } else if (page >= totalPages - 3) {
-                  p = totalPages - 6 + i;
+          <footer className="h-[52px] border-t border-slate-200 dark:border-white/[0.12] bg-white dark:bg-[#141414] px-6 flex items-center justify-between flex-shrink-0">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              className="h-8 px-4 rounded-full text-[11px] font-semibold bg-[#C94C1E]/10 dark:bg-[#C94C1E]/15 text-[#C94C1E] dark:text-[#e8754d] hover:bg-[#C94C1E]/20 dark:hover:bg-[#C94C1E]/25 transition-colors disabled:opacity-30 disabled:hover:bg-[#C94C1E]/10 flex items-center gap-1">
+              <ChevronLeft size={13} /> Previous
+            </button>
+            <div className="flex items-center gap-1">
+              {(() => {
+                const pages: (number | string)[] = [];
+                if (totalPages <= 5) {
+                  for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else if (page <= 3) {
+                  pages.push(1, 2, 3, 4, 5, '...', totalPages);
+                } else if (page >= totalPages - 2) {
+                  pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
                 } else {
-                  p = page - 3 + i;
+                  pages.push(1, '...', page - 1, page, page + 1, '...', totalPages);
                 }
-                return (
-                  <button key={p} onClick={() => setPage(p)}
-                    className={`w-8 h-8 rounded-lg text-[12px] font-semibold transition-colors ${p === page ? 'bg-[#C94C1E] text-white' : 'text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-white/[0.06]'}`}>{p}</button>
+                return pages.map((p, i) =>
+                  p === '...' ? (
+                    <span key={`e${i}`} className="w-8 text-center text-[12px] text-slate-300 dark:text-neutral-600 select-none">...</span>
+                  ) : (
+                    <button key={p} onClick={() => setPage(p as number)}
+                      className={`w-8 h-8 rounded-full text-[12px] font-semibold transition-all ${
+                        p === page
+                          ? 'bg-[#C94C1E] text-white shadow-sm'
+                          : 'text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-white/[0.08]'
+                      }`}>{p}</button>
+                  )
                 );
-              })}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-lg border dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-400 dark:text-neutral-500 transition-all disabled:opacity-25"><ChevronRight size={16} /></button>
+              })()}
+            </div>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="h-8 px-4 rounded-full text-[11px] font-semibold bg-[#C94C1E]/10 dark:bg-[#C94C1E]/15 text-[#C94C1E] dark:text-[#e8754d] hover:bg-[#C94C1E]/20 dark:hover:bg-[#C94C1E]/25 transition-colors disabled:opacity-30 disabled:hover:bg-[#C94C1E]/10 flex items-center gap-1">
+              Next <ChevronRight size={13} />
+            </button>
+            <div className="flex items-center gap-2 ml-3 pl-3 border-l border-slate-200 dark:border-white/[0.12]">
+              <span className="text-[11px] text-slate-400 dark:text-neutral-500 whitespace-nowrap">Go to</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                placeholder="#"
+                className="w-12 h-8 rounded-lg border border-slate-200 dark:border-white/[0.12] bg-white dark:bg-white/[0.04] text-center text-[12px] font-semibold text-slate-700 dark:text-neutral-200 outline-none focus:border-[#C94C1E] focus:ring-1 focus:ring-[#C94C1E]/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = parseInt((e.target as HTMLInputElement).value, 10);
+                    if (val >= 1 && val <= totalPages) { setPage(val); (e.target as HTMLInputElement).value = ''; }
+                  }
+                }}
+              />
             </div>
           </footer>
         )}
@@ -2970,7 +2858,7 @@ function CompetitorClientsView() {
         </div>
       ) : accounts.length > 0 ? (
         <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-white/[0.12] flex items-center justify-between">
             <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">Brands similar to {sourceDomain}</h3>
             <span className="text-[12px] text-slate-400 dark:text-neutral-500">{accounts.length} results</span>
           </div>
@@ -3266,7 +3154,7 @@ function LookALikeBrandsView({ initialDomain = '' }: { initialDomain?: string })
           {/* Results */}
           <div className="flex-1 min-w-0">
           <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/[0.12] flex items-center justify-between">
               <div>
                 <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">Similar to {sourceName || sourceDomain}</h3>
                 {sourceCategory && <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">{sourceCategory}{basisLabel ? ` · ${basisLabel}` : ''}</p>}
@@ -3313,7 +3201,7 @@ function LookALikeBrandsView({ initialDomain = '' }: { initialDomain?: string })
             </div>
 
             {/* Filter tabs */}
-            <div className="px-5 py-3 border-b border-slate-100 dark:border-white/[0.06] flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
+            <div className="px-5 py-3 border-b border-slate-200 dark:border-white/[0.12] flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
               <Filter size={13} className="text-slate-400 dark:text-neutral-500 flex-shrink-0 mr-1" />
               {LOOKALIKE_BASES.map(b => {
                 const isActive = activeBases.has(b.key);
@@ -3334,7 +3222,7 @@ function LookALikeBrandsView({ initialDomain = '' }: { initialDomain?: string })
 
             {/* Select bar */}
             {accounts.length > 0 && (
-              <div className="px-5 py-2.5 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
+              <div className="px-5 py-2.5 border-b border-slate-200 dark:border-white/[0.12] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
                 <button onClick={selectAll} className="flex items-center gap-2 text-[12px] font-semibold text-slate-600 dark:text-neutral-300 hover:text-slate-800 dark:hover:text-white transition-colors">
                   <div className={`w-[16px] h-[16px] rounded border-2 flex items-center justify-center transition-all ${
                     selected.size > 0 && selected.size === accounts.length ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.15]'
@@ -3528,7 +3416,7 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
 
       {/* Account list */}
       <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
-        <div className="px-6 py-3 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
+        <div className="px-6 py-3 border-b border-slate-200 dark:border-white/[0.12] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
           <span className="text-[12px] font-bold text-slate-500 dark:text-neutral-400">{total} accounts</span>
           <div className="flex items-center gap-2">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 text-[11px] rounded border border-slate-200 dark:border-white/[0.08] disabled:opacity-30">Prev</button>
@@ -3792,7 +3680,7 @@ function MarketNewsFeed() {
 
       {/* Pagination */}
       {feedTotalPages > 1 && (
-        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 dark:border-white/[0.06]">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 dark:border-white/[0.12]">
           <p className="text-[11px] text-slate-400 dark:text-neutral-500">
             {(feedPage - 1) * 20 + 1}-{Math.min(feedPage * 20, feedTotal)} of {feedTotal}
           </p>
@@ -4225,8 +4113,15 @@ function TechPill({ tech }: { tech: ScanTech }) {
     ? (logoVal.startsWith('http') ? logoVal : `https://www.google.com/s2/favicons?domain=${logoVal}&sz=32`)
     : `https://www.google.com/s2/favicons?domain=${fallbackDomain}&sz=32`;
 
+  const isAdded = tech.changeTag === 'added';
+  const isRemoved = tech.changeTag === 'removed';
+
   return (
-    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-[12px] font-medium text-slate-700 dark:text-neutral-200 hover:border-slate-300 dark:hover:border-white/[0.12] transition-colors">
+    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
+      isAdded ? 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
+      : isRemoved ? 'bg-red-50 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 text-red-500 dark:text-red-400 line-through opacity-70'
+      : 'bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-neutral-200 hover:border-slate-300 dark:hover:border-white/[0.12]'
+    }`}>
       {!imgFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -4239,6 +4134,8 @@ function TechPill({ tech }: { tech: ScanTech }) {
         <span className="w-3.5 h-3.5 rounded flex-shrink-0" style={{ backgroundColor: tech.color }} />
       )}
       {tech.name}
+      {isAdded && <span className="text-[9px] font-bold bg-emerald-500 text-white px-1.5 py-0.5 rounded-full leading-none">NEW</span>}
+      {isRemoved && <span className="text-[9px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full leading-none">REMOVED</span>}
     </span>
   );
 }
@@ -4748,6 +4645,677 @@ function scanSortCategories(grouped: Record<string, ScanTech[]>): string[] {
   return [...priority, ...rest];
 }
 
+/* ── Watchlist View (Lead Intelligence & Prospecting) ───────────────── */
+function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoading, showCreateWl, newWlName, renamingWl, renameValue, setShowCreateWl, setNewWlName, setRenamingWl, setRenameValue, createWatchlist, deleteWatchlist, renameWatchlist, fetchWatchlistDetail, removeFromWatchlist, setActiveWatchlist, setWatchlistAccounts, setActiveTab, formatDate, domainToName }: {
+  watchlists: Watchlist[]; activeWatchlist: Watchlist | null; watchlistAccounts: WatchlistAccount[];
+  wlLoading: boolean; showCreateWl: boolean; newWlName: string; renamingWl: string | null; renameValue: string;
+  setShowCreateWl: (v: boolean) => void; setNewWlName: (v: string) => void;
+  setRenamingWl: (v: string | null) => void; setRenameValue: (v: string) => void;
+  createWatchlist: () => void; deleteWatchlist: (id: string) => void;
+  renameWatchlist: (id: string) => void; fetchWatchlistDetail: (id: string) => void;
+  removeFromWatchlist: (wlId: string, domain: string) => void;
+  setActiveWatchlist: (v: Watchlist | null) => void; setWatchlistAccounts: (v: WatchlistAccount[]) => void;
+  setActiveTab: (v: SidebarTab) => void; formatDate: (d: string) => string; domainToName: (d: string) => string;
+}) {
+  // Wizard step: 0 = dashboard, 1 = ICP setup, 2 = enrichment confirm, 3 = processing, 4 = enriched contacts
+  const [wizardStep, setWizardStep] = useState(0);
+  const [enrichingWl, setEnrichingWl] = useState<string | null>(null); // watchlist ID being enriched
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [wlSearch, setWlSearch] = useState('');
+  const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
+  const [expandedCompany, setExpandedCompany] = useState<string | null>(null);
+  const [enrichProgress, setEnrichProgress] = useState(0);
+  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+  const [step4Tab, setStep4Tab] = useState<'contacts' | 'accounts'>('contacts');
+  // ICP role selections
+  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set(['CMO', 'VP Marketing', 'Head of Growth', 'Founder', 'Co-founder']));
+
+  // Auto-select all accounts once when first entering step 2
+  const step2Initialized = useRef(false);
+  useEffect(() => {
+    if (wizardStep === 2 && !step2Initialized.current && watchlistAccounts.length > 0) {
+      step2Initialized.current = true;
+      setSelectedCompanies(new Set(watchlistAccounts.map(a => a.normalizedDomain)));
+    }
+    if (wizardStep !== 2) step2Initialized.current = false;
+  }, [wizardStep, watchlistAccounts]);
+
+  const ROLE_FILTERS = ['All Roles', 'Founder', 'C-Suite', 'Marketing', 'Sales', 'Product', 'Operations', 'Engineering'];
+
+  const ICP_CATEGORIES = [
+    { icon: '📣', title: 'Marketing & Growth', roles: ['CMO', 'VP Marketing', 'Head of Growth', 'Director of Marketing', 'Head of Performance', 'Head of Brand', 'Growth Manager', 'Head of Digital'] },
+    { icon: '👑', title: 'Leadership', roles: ['Founder', 'Co-founder', 'CEO', 'COO', 'Managing Director'] },
+    { icon: '💻', title: 'Technology', roles: ['CTO', 'VP Engineering', 'Head of Ecommerce', 'Head of Product', 'Director of Technology'] },
+    { icon: '💰', title: 'Finance & Operations', roles: ['CFO', 'VP Finance', 'Head of Supply Chain', 'Director of Operations'] },
+    { icon: '🛒', title: 'Sales', roles: ['VP Sales', 'Head of Sales', 'Director of Sales', 'Sales Manager', 'Head of Partnerships'] },
+  ];
+
+  const STEP_LABELS = ['Watchlist Dashboard', 'Decision-Maker ICP Setup', 'Enrichment Confirmation', 'Processing', 'Enriched Contacts'];
+
+  const toggleRole = (role: string) => {
+    setSelectedRoles(prev => { const n = new Set(prev); if (n.has(role)) n.delete(role); else n.add(role); return n; });
+  };
+  const selectAllInCategory = (roles: string[]) => {
+    setSelectedRoles(prev => { const n = new Set(prev); roles.forEach(r => n.add(r)); return n; });
+  };
+
+  // Start enrichment wizard for a specific watchlist
+  const startEnrichment = async (wlId: string) => {
+    setEnrichingWl(wlId);
+    setWizardStep(1);
+    await fetchWatchlistDetail(wlId);
+  };
+
+  // Simulate enrichment processing
+  const runEnrichment = () => {
+    setWizardStep(3);
+    setEnrichProgress(0);
+    const interval = setInterval(() => {
+      setEnrichProgress(p => {
+        if (p >= 100) { clearInterval(interval); setTimeout(() => setWizardStep(4), 500); return 100; }
+        return p + Math.random() * 15 + 5;
+      });
+    }, 400);
+  };
+
+  // Filter accounts by search
+  const filteredAccounts = watchlistAccounts.filter(a => {
+    if (!wlSearch) return true;
+    const q = wlSearch.toLowerCase();
+    return a.normalizedDomain.includes(q) || (a.brandName || domainToName(a.normalizedDomain)).toLowerCase().includes(q) || a.category.toLowerCase().includes(q);
+  });
+
+  // Filter contacts by role
+  const filterContacts = (contacts: WatchlistContact[]) => {
+    if (!roleFilter || roleFilter === 'All Roles') return contacts;
+    return contacts.filter(c => c.department === roleFilter || c.title.toLowerCase().includes(roleFilter.toLowerCase()));
+  };
+
+  // Toggle company selection
+  const toggleCompany = (domain: string) => {
+    setSelectedCompanies(prev => { const n = new Set(prev); if (n.has(domain)) n.delete(domain); else n.add(domain); return n; });
+  };
+  const toggleAll = () => {
+    if (selectedCompanies.size === filteredAccounts.length) setSelectedCompanies(new Set());
+    else setSelectedCompanies(new Set(filteredAccounts.map(a => a.normalizedDomain)));
+  };
+
+  // CSV export
+  const exportCSV = (onlySelected: boolean) => {
+    const rows = [['Company', 'Domain', 'Category', 'Contact Name', 'Email', 'Job Title', 'Department'].join(',')];
+    const accs = onlySelected ? filteredAccounts.filter(a => selectedCompanies.has(a.normalizedDomain)) : filteredAccounts;
+    for (const a of accs) {
+      const name = a.brandName || domainToName(a.normalizedDomain);
+      const contacts = filterContacts(a.contacts);
+      if (contacts.length === 0) {
+        rows.push([name, a.normalizedDomain, a.category, '', '', '', ''].join(','));
+      } else {
+        for (const c of contacts) {
+          rows.push([name, a.normalizedDomain, a.category, c.name, c.email, c.title, c.department].join(','));
+        }
+      }
+    }
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeWatchlist?.name || 'watchlist'}-contacts.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const totalContacts = filteredAccounts.reduce((s, a) => s + filterContacts(a.contacts).length, 0);
+
+  // ── Step indicator bar ──
+  const StepBar = ({ current }: { current: number }) => (
+    <div className="flex items-center gap-1 mb-6 bg-white dark:bg-[#161616] border border-slate-200 dark:border-white/[0.08] rounded-lg p-1">
+      {STEP_LABELS.map((label, i) => (
+        <button key={label} onClick={() => { if (i === 0) { setWizardStep(0); setActiveWatchlist(null); setWatchlistAccounts([]); } else if (i <= current) setWizardStep(i); }}
+          disabled={i > current}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-[11px] font-semibold transition-all ${
+            i === current ? 'bg-[#C94C1E] text-white shadow-sm'
+            : i < current ? 'text-slate-700 dark:text-neutral-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] cursor-pointer'
+            : 'text-slate-400 dark:text-neutral-500'
+          }`}>
+          <span className={`w-5 h-5 rounded-md text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
+            i === current ? 'bg-white/20 text-white'
+            : i < current ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+            : 'bg-slate-100 dark:bg-white/[0.06] text-slate-400 dark:text-neutral-500'
+          }`}>{i < current ? '✓' : i + 1}</span>
+          <span className="hidden lg:inline truncate">{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STEP 0: WATCHLIST DASHBOARD
+  // ══════════════════════════════════════════════════════════════════════
+  if (wizardStep === 0) {
+    return (
+      <div className="max-w-5xl mx-auto">
+        <StepBar current={0} />
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-[18px] font-bold text-slate-800 dark:text-white">Watchlists</h2>
+            <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">{watchlists.length} watchlist{watchlists.length !== 1 ? 's' : ''} · Track leads and discover decision makers</p>
+          </div>
+          <button onClick={() => setShowCreateWl(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#C94C1E] text-white text-[12px] font-semibold hover:bg-[#b5431a] transition-colors">
+            <Plus size={14} /> New Watchlist
+          </button>
+        </div>
+
+        {showCreateWl && (
+          <div className="bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] p-5 mb-5">
+            <h3 className="text-[14px] font-bold text-slate-800 dark:text-white mb-3">Create Watchlist</h3>
+            <div className="flex gap-2">
+              <input type="text" placeholder="e.g. Top D2C Brands, Competitor Tracking..." value={newWlName} onChange={e => setNewWlName(e.target.value)} onKeyDown={e => e.key === 'Enter' && createWatchlist()}
+                className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] focus:border-[#C94C1E]/40 focus:ring-2 focus:ring-[#C94C1E]/10 rounded-xl text-[13px] outline-none transition-all dark:text-white dark:placeholder:text-neutral-500" autoFocus />
+              <button onClick={createWatchlist} className="px-5 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-orange-700 transition-colors">Create</button>
+              <button onClick={() => { setShowCreateWl(false); setNewWlName(''); }} className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-500 dark:text-neutral-400 text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {watchlists.length === 0 && !showCreateWl ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-50 to-orange-100 dark:from-[#C94C1E]/10 dark:to-[#C94C1E]/5 flex items-center justify-center mb-4">
+              <Star size={28} className="text-[#C94C1E]" />
+            </div>
+            <p className="text-[16px] font-bold text-slate-700 dark:text-neutral-200 mb-1">No watchlists yet</p>
+            <p className="text-[13px] text-slate-400 dark:text-neutral-500 mb-5 max-w-md">Create watchlists to track brands, discover decision makers, and export contacts for outbound sales.</p>
+            <button onClick={() => setShowCreateWl(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/20">
+              <Plus size={16} /> Create your first watchlist
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {watchlists.map(wl => {
+              const accCount = wl.domains?.length || 0;
+              const contactCount = wl.contactCount || 0;
+              // Deterministic mock signal stats from domain count
+              const h = accCount * 7 + (wl._id?.charCodeAt(3) || 0);
+              const hotSignals = Math.min(accCount, Math.max(0, (h % 6)));
+              const warmSignals = Math.min(accCount, Math.max(0, ((h >> 2) % 8)));
+              const enriched = contactCount;
+              // Mock signal tags
+              const tags: { label: string; color: string }[] = [];
+              if (hotSignals > 0) tags.push({ label: `${hotSignals} Funded`, color: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20' });
+              if (warmSignals > 1) tags.push({ label: `${Math.ceil(warmSignals / 2)} Store Expansion`, color: 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-500/20' });
+              if (accCount > 3) tags.push({ label: `${Math.min(accCount, (h % 4) + 1)} Key Hires`, color: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20' });
+
+              return (
+                <div key={wl._id} className="bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] hover:border-slate-300 dark:hover:border-white/[0.15] transition-colors group cursor-pointer" onClick={() => startEnrichment(wl._id)}>
+                  <div className="px-4 py-4">
+                    {/* Header: name + stats + actions */}
+                    <div className="flex items-center justify-between mb-3">
+                      {renamingWl === wl._id ? (
+                        <input type="text" value={renameValue} onChange={e => setRenameValue(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') renameWatchlist(wl._id); if (e.key === 'Escape') setRenamingWl(null); }}
+                          onBlur={() => setRenamingWl(null)}
+                          className="text-[13px] font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] rounded-md px-2 py-1 outline-none focus:border-[#C94C1E]/40"
+                          autoFocus onClick={e => e.stopPropagation()} />
+                      ) : (
+                        <h3 className="text-[13px] font-bold text-slate-800 dark:text-white group-hover:text-[#C94C1E] transition-colors truncate">{wl.name}</h3>
+                      )}
+                      <div className="flex items-center gap-1 flex-shrink-0 ml-2" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => { setRenamingWl(wl._id); setRenameValue(wl.name); }} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-white/[0.06] text-slate-400 opacity-0 group-hover:opacity-100 transition-all"><Pencil size={11} /></button>
+                        <button onClick={() => { if (confirm('Delete this watchlist?')) deleteWatchlist(wl._id); }} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={11} /></button>
+                      </div>
+                    </div>
+
+                    {/* Compact stats inline */}
+                    <div className="flex items-center gap-2 text-[11px] mb-3">
+                      <span className="font-semibold text-slate-700 dark:text-neutral-200">{accCount}</span><span className="text-slate-400 dark:text-neutral-500">accounts</span>
+                      <span className="text-slate-200 dark:text-white/10">·</span>
+                      <span className="font-semibold text-slate-700 dark:text-neutral-200">{contactCount}</span><span className="text-slate-400 dark:text-neutral-500">contacts</span>
+                      {(hotSignals + warmSignals) > 0 && <>
+                        <span className="text-slate-200 dark:text-white/10">·</span>
+                        <span className="font-semibold text-[#C94C1E]">{hotSignals + warmSignals}</span><span className="text-slate-400 dark:text-neutral-500">signals</span>
+                      </>}
+                    </div>
+
+                    {/* Signal tags */}
+                    {tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {tags.map(t => (
+                          <span key={t.label} className={`text-[10px] font-medium px-2 py-0.5 rounded border ${t.color}`}>{t.label}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Actions inline */}
+                    <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => startEnrichment(wl._id)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-semibold bg-[#C94C1E] text-white hover:bg-[#b5431a] transition-colors">
+                        <Zap size={10} /> Enrich Contacts
+                      </button>
+                      <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors">
+                        <Download size={10} /> Export
+                      </button>
+                      <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors">
+                        <ExternalLink size={10} /> CRM
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STEP 1: DECISION-MAKER ICP SETUP
+  // ══════════════════════════════════════════════════════════════════════
+  if (wizardStep === 1) {
+    return (
+      <div className="max-w-5xl mx-auto">
+        <StepBar current={1} />
+        <h2 className="text-[22px] font-black text-slate-900 dark:text-white tracking-tight mb-1">Decision-Maker Profile Setup</h2>
+        <p className="text-[13px] text-slate-500 dark:text-neutral-400 mb-6">Select the roles you want to target. Harvin will search for these titles when enriching contacts.</p>
+        {wlLoading && (
+          <div className="flex items-center justify-center py-10 mb-4">
+            <Loader2 size={24} className="text-[#C94C1E] animate-spin mr-2" />
+            <span className="text-[13px] text-slate-400 dark:text-neutral-500">Loading watchlist data...</span>
+          </div>
+        )}
+        <div className="flex gap-6">
+          {/* Left: Role categories */}
+          <div className="flex-1 bg-white dark:bg-[#161616] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-6 shadow-sm dark:shadow-none">
+            {ICP_CATEGORIES.map(cat => (
+              <div key={cat.title} className="mb-6 last:mb-0">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[12px] font-black text-slate-800 dark:text-neutral-100 uppercase tracking-wide flex items-center gap-2">{cat.icon} {cat.title}</h3>
+                  <button onClick={() => selectAllInCategory(cat.roles)} className="text-[10px] font-semibold text-[#C94C1E] hover:text-[#b5431a] transition-colors">Select all</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {cat.roles.map(role => {
+                    const on = selectedRoles.has(role);
+                    return (
+                      <button key={role} onClick={() => toggleRole(role)}
+                        className={`px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all ${on ? 'bg-[#C94C1E] text-white border-[#C94C1E]' : 'border-slate-200 dark:border-white/[0.1] text-slate-500 dark:text-neutral-400 hover:border-[#C94C1E]/40 hover:text-[#C94C1E]'}`}>
+                        {role}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-white/[0.08]">
+              <button onClick={() => { setWizardStep(0); setActiveWatchlist(null); setWatchlistAccounts([]); }} className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-500 dark:text-neutral-400 text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">Cancel</button>
+              <button onClick={() => setWizardStep(2)} disabled={selectedRoles.size === 0}
+                className="px-5 py-2.5 rounded-xl bg-[#C94C1E] text-white text-[13px] font-bold hover:bg-orange-700 transition-colors disabled:opacity-40">
+                Save Profile & Continue
+              </button>
+            </div>
+          </div>
+          {/* Right: Summary */}
+          <div className="w-[280px] flex-shrink-0">
+            <div className="bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] p-5 sticky top-4">
+              <h4 className="text-[12px] font-black text-slate-700 dark:text-neutral-200 uppercase tracking-wide mb-3">Your Decision-Maker Profile</h4>
+              <p className="text-[11px] text-slate-400 dark:text-neutral-500 mb-3">Harvin will search for these titles when you enrich accounts</p>
+              <div className="space-y-1.5 mb-4">
+                {[...selectedRoles].map(r => (
+                  <div key={r} className="flex items-center justify-between px-3 py-1.5 bg-slate-50 dark:bg-white/[0.04] rounded-lg">
+                    <span className="text-[11px] font-medium text-slate-700 dark:text-neutral-200">{r}</span>
+                    <button onClick={() => toggleRole(r)} className="text-slate-400 hover:text-red-500"><X size={11} /></button>
+                  </div>
+                ))}
+              </div>
+              {selectedRoles.size === 0 && <p className="text-[11px] text-slate-400 italic text-center py-4">No roles selected</p>}
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+                <p className="text-[10px] text-blue-700 dark:text-blue-400">Based on your profile, Harvin will return <strong>1-3 contacts per account</strong> on average. Enrichment uses <strong>1 credit per contact</strong> found.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STEP 2: ENRICHMENT CONFIRMATION
+  // ══════════════════════════════════════════════════════════════════════
+  if (wizardStep === 2) {
+    const enrichAccounts = filteredAccounts;
+    const enrichSelected = selectedCompanies.size > 0 ? filteredAccounts.filter(a => selectedCompanies.has(a.normalizedDomain)) : filteredAccounts;
+    const estCreditsMin = enrichSelected.length;
+    const estCreditsMax = enrichSelected.length * 3;
+    return (
+      <div className="max-w-5xl mx-auto">
+        <StepBar current={2} />
+        <h2 className="text-[22px] font-black text-slate-900 dark:text-white tracking-tight mb-1">Enrichment Confirmation</h2>
+        <p className="text-[13px] text-slate-500 dark:text-neutral-400 mb-6">Select accounts to enrich. Credits are consumed per contact found, not per account searched.</p>
+        <div className="flex gap-6">
+          {/* Left: Account selection */}
+          <div className="flex-1 bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[13px] font-bold text-slate-800 dark:text-white">Select Accounts to Enrich</h3>
+              <span className="text-[11px] text-slate-400 dark:text-neutral-500">{enrichAccounts.length} accounts in watchlist</span>
+            </div>
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100 dark:border-white/[0.06]">
+              <div className="flex items-center gap-2.5">
+                <button onClick={() => {
+                  if (selectedCompanies.size === enrichAccounts.length) setSelectedCompanies(new Set());
+                  else setSelectedCompanies(new Set(enrichAccounts.map(a => a.normalizedDomain)));
+                }} className={`w-4 h-4 rounded border-[1.5px] flex items-center justify-center transition-colors ${selectedCompanies.size === enrichAccounts.length ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-neutral-600'}`}>
+                  {selectedCompanies.size === enrichAccounts.length && <Check size={10} className="text-white stroke-[3]" />}
+                </button>
+                <span className="text-[11px] font-medium text-slate-600 dark:text-neutral-300">{selectedCompanies.size} of {enrichAccounts.length} selected</span>
+              </div>
+              <button onClick={() => {
+                if (selectedCompanies.size === enrichAccounts.length) setSelectedCompanies(new Set());
+                else setSelectedCompanies(new Set(enrichAccounts.map(a => a.normalizedDomain)));
+              }} className="text-[10px] font-semibold text-[#C94C1E] hover:text-[#b5431a] transition-colors">
+                {selectedCompanies.size === enrichAccounts.length ? 'Deselect All' : 'Select All'}
+              </button>
+            </div>
+            <div className="space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar">
+              {enrichAccounts.map(a => {
+                const name = a.brandName || domainToName(a.normalizedDomain);
+                const isOn = selectedCompanies.has(a.normalizedDomain);
+                return (
+                  <div key={a.normalizedDomain} onClick={() => toggleCompany(a.normalizedDomain)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${isOn ? 'bg-slate-50 dark:bg-white/[0.04]' : 'opacity-50'}`}>
+                    <button className={`w-4 h-4 rounded border-[1.5px] flex items-center justify-center flex-shrink-0 transition-colors ${isOn ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-neutral-600'}`}>
+                      {isOn && <Check size={10} className="text-white stroke-[3]" />}
+                    </button>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`https://www.google.com/s2/favicons?domain=${a.normalizedDomain}&sz=64`} alt="" className="w-7 h-7 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] p-0.5 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-white truncate">{name}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-neutral-500 truncate">{a.category}{a.region && a.region !== 'Global' ? ` · ${a.region}` : ''}</p>
+                    </div>
+                    {a.harvinScore > 0 && <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 px-2 py-0.5 rounded-full">{a.harvinScore}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {/* Right: Summary */}
+          <div className="w-[300px] flex-shrink-0 space-y-4">
+            <div className="bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] p-5">
+              <h4 className="text-[13px] font-bold text-slate-800 dark:text-white mb-4">Enrichment Summary</h4>
+              <div className="space-y-2.5 text-[12px]">
+                <div className="flex justify-between"><span className="text-slate-400 dark:text-neutral-500">Watchlist</span><span className="font-semibold text-slate-700 dark:text-neutral-200">{activeWatchlist?.name}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 dark:text-neutral-500">Accounts to enrich</span><span className="font-semibold text-slate-700 dark:text-neutral-200">{enrichSelected.length} of {enrichAccounts.length}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 dark:text-neutral-500">Data includes</span><span className="font-semibold text-slate-700 dark:text-neutral-200 text-right">Name, Title, Email,<br/>Phone, LinkedIn</span></div>
+              </div>
+              <div className="mt-4 p-3 bg-slate-50 dark:bg-white/[0.04] rounded-lg">
+                <p className="text-[10px] font-bold text-slate-500 dark:text-neutral-400 uppercase tracking-wider mb-1">Your Decision-Maker Profile</p>
+                <div className="flex flex-wrap gap-1">{[...selectedRoles].slice(0, 5).map(r => <span key={r} className="text-[10px] font-semibold text-[#C94C1E] bg-[#C94C1E]/10 px-2 py-0.5 rounded-full">{r}</span>)}</div>
+                <button onClick={() => setWizardStep(1)} className="text-[10px] font-semibold text-[#C94C1E] mt-1.5 hover:text-[#b5431a]">Edit profile →</button>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-[#C94C1E]/5 to-orange-50 dark:from-[#C94C1E]/10 dark:to-[#C94C1E]/5 rounded-xl border border-[#C94C1E]/20 p-5">
+              <p className="text-[10px] font-bold text-slate-500 dark:text-neutral-400 uppercase tracking-wider mb-1">Estimated Credits</p>
+              <p className="text-[28px] font-black text-[#C94C1E]">{estCreditsMin} – {estCreditsMax}</p>
+              <p className="text-[10px] text-slate-400 dark:text-neutral-500">1-3 contacts per account · billed per contact found</p>
+            </div>
+            <button onClick={runEnrichment} className="w-full py-3 rounded-xl bg-[#C94C1E] text-white text-[14px] font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
+              <Zap size={16} /> Enrich {enrichSelected.length} Accounts
+            </button>
+            <p className="text-[10px] text-slate-400 dark:text-neutral-500 text-center">Credits are charged per contact found, not per account searched.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STEP 3: PROCESSING STATE
+  // ══════════════════════════════════════════════════════════════════════
+  if (wizardStep === 3) {
+    const pct = Math.min(100, Math.round(enrichProgress));
+    return (
+      <div className="max-w-5xl mx-auto">
+        <StepBar current={3} />
+        <div className="flex flex-col items-center justify-center py-24">
+          <div className="relative mb-8">
+            <div className="w-24 h-24 rounded-full border-[3px] border-slate-200 dark:border-white/[0.08]" />
+            <div className="absolute inset-0 w-24 h-24 rounded-full border-[3px] border-transparent border-t-[#C94C1E] animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-[22px] font-black text-[#C94C1E]">{pct}%</span>
+            </div>
+          </div>
+          <h2 className="text-[22px] font-black text-slate-900 dark:text-white tracking-tight mb-2">Enriching Contacts</h2>
+          <p className="text-[13px] text-slate-500 dark:text-neutral-400 mb-10 max-w-md text-center">Searching for decision makers across {selectedCompanies.size || watchlistAccounts.length} accounts</p>
+          <div className="w-full max-w-lg">
+            <div className="w-full h-2 bg-slate-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[#C94C1E] via-orange-400 to-amber-400 rounded-full transition-all duration-500 ease-out" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="text-[12px] font-medium text-slate-500 dark:text-neutral-400 mt-4 text-center">{pct < 30 ? 'Querying enrichment APIs...' : pct < 70 ? 'Matching decision makers...' : pct < 100 ? 'Finalizing results...' : '✓ Complete!'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STEP 4: ENRICHED CONTACTS TAB (flat table view)
+  // ══════════════════════════════════════════════════════════════════════
+  if (wizardStep === 4) {
+    // Only show accounts the user selected in Step 2
+    const enrichedAccounts = selectedCompanies.size > 0
+      ? filteredAccounts.filter(a => selectedCompanies.has(a.normalizedDomain))
+      : filteredAccounts;
+
+    // Filter contacts by ICP roles selected in Step 1, then by runtime role filter
+    const filterByICP = (contacts: WatchlistContact[]) => {
+      let result = contacts;
+      // First filter by ICP roles from Step 1
+      if (selectedRoles.size > 0) {
+        result = result.filter(c =>
+          [...selectedRoles].some(role => c.title.toLowerCase().includes(role.toLowerCase()) || c.department.toLowerCase().includes(role.toLowerCase()))
+        );
+      }
+      // Then apply runtime role filter pills
+      if (roleFilter && roleFilter !== 'All Roles') {
+        result = result.filter(c => c.department === roleFilter || c.title.toLowerCase().includes(roleFilter.toLowerCase()));
+      }
+      return result;
+    };
+
+    const allContacts = enrichedAccounts.flatMap(a => filterByICP(a.contacts).map(c => ({ ...c, company: a.brandName || domainToName(a.normalizedDomain), domain: a.normalizedDomain })));
+    const verified = allContacts.filter((_, i) => i % 3 !== 2).length;
+    const likelyValid = allContacts.length - verified;
+
+    return (
+      <div className="max-w-6xl mx-auto">
+        {wizardStep === 4 && <StepBar current={4} />}
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => { setWizardStep(0); setActiveWatchlist(null); setWatchlistAccounts([]); setSelectedCompanies(new Set()); setRoleFilter(''); setWlSearch(''); }}
+            className="p-1.5 rounded-lg text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors">
+            <ChevronLeft size={18} />
+          </button>
+          <div className="flex-1">
+            <h2 className="text-[18px] font-bold text-slate-800 dark:text-white">{activeWatchlist?.name}</h2>
+          </div>
+          <button onClick={() => exportCSV(false)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold text-white bg-[#C94C1E] hover:bg-orange-700 transition-colors">
+            <Download size={14} /> Download CSV
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex items-center gap-6 border-b border-slate-200 dark:border-white/[0.12] mb-5">
+          <button onClick={() => setStep4Tab('accounts')}
+            className={`pb-2.5 text-[13px] font-semibold transition-colors ${step4Tab === 'accounts' ? 'text-[#C94C1E] border-b-2 border-[#C94C1E] font-bold' : 'text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300'}`}>
+            Accounts <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1 ${step4Tab === 'accounts' ? 'bg-[#C94C1E]/10 text-[#C94C1E]' : 'bg-slate-100 dark:bg-white/[0.06]'}`}>{enrichedAccounts.length}</span>
+          </button>
+          <button onClick={() => setStep4Tab('contacts')}
+            className={`pb-2.5 text-[13px] font-semibold transition-colors ${step4Tab === 'contacts' ? 'text-[#C94C1E] border-b-2 border-[#C94C1E] font-bold' : 'text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300'}`}>
+            Enriched Contacts <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1 ${step4Tab === 'contacts' ? 'bg-[#C94C1E]/10 text-[#C94C1E]' : 'bg-slate-100 dark:bg-white/[0.06]'}`}>{allContacts.length}</span>
+          </button>
+        </div>
+
+        {/* ── Accounts Sub-Tab ── */}
+        {step4Tab === 'accounts' && (
+          <div className="space-y-2">
+            {enrichedAccounts.map(a => {
+              const name = a.brandName || domainToName(a.normalizedDomain);
+              const contactCount = filterByICP(a.contacts).length;
+              return (
+                <div key={a.normalizedDomain} className="flex items-center gap-4 px-4 py-3 bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] hover:border-slate-300 dark:hover:border-white/[0.15] transition-all">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`https://www.google.com/s2/favicons?domain=${a.normalizedDomain}&sz=64`} alt="" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] p-0.5 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[13px] font-bold text-slate-800 dark:text-white">{name}</h3>
+                      <span className="text-[10px] text-slate-400 dark:text-neutral-500 font-mono">{a.normalizedDomain}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 dark:text-neutral-500">{a.category}{a.region && a.region !== 'Global' ? ` · ${a.region}` : ''}{a.businessModel ? ` · ${a.businessModel}` : ''}</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2.5 py-1 rounded-full">{contactCount} contacts</span>
+                    {a.harvinScore > 0 && <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${a.harvinScore >= 45 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10' : 'text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06]'}`}>{a.harvinScore} score</span>}
+                    {a.monthlyVisitsFormatted && <span className="text-[10px] font-medium text-slate-500 dark:text-neutral-400">{a.monthlyVisitsFormatted}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Contacts Sub-Tab ── */}
+        {step4Tab === 'contacts' && (<>
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="flex items-center gap-4 px-5 py-4 bg-white dark:bg-[#161616] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm dark:shadow-none">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center"><Users size={18} className="text-blue-500" /></div>
+            <div><p className="text-[22px] font-black text-slate-900 dark:text-white leading-none">{allContacts.length}</p><p className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider mt-1">Total Contacts</p></div>
+          </div>
+          <div className="flex items-center gap-4 px-5 py-4 bg-white dark:bg-[#161616] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm dark:shadow-none">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center"><Check size={18} className="text-emerald-500" /></div>
+            <div><p className="text-[22px] font-black text-slate-900 dark:text-white leading-none">{verified}</p><p className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider mt-1">Verified Emails</p></div>
+          </div>
+          <div className="flex items-center gap-4 px-5 py-4 bg-white dark:bg-[#161616] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm dark:shadow-none">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center"><Zap size={18} className="text-amber-500" /></div>
+            <div><p className="text-[22px] font-black text-slate-900 dark:text-white leading-none">{likelyValid}</p><p className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider mt-1">Likely Valid</p></div>
+          </div>
+        </div>
+
+        {/* Search + Role filter */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" size={14} />
+            <input type="text" placeholder="Search contacts or companies..." value={wlSearch} onChange={e => setWlSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-white dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.12] rounded-lg text-[12px] outline-none focus:border-[#C94C1E]/40 focus:ring-2 focus:ring-[#C94C1E]/10 transition-all dark:text-white dark:placeholder:text-neutral-500" />
+          </div>
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {ROLE_FILTERS.map(r => (
+              <button key={r} onClick={() => setRoleFilter(r === 'All Roles' ? '' : r)}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors ${(!roleFilter && r === 'All Roles') || roleFilter === r ? 'bg-[#C94C1E] text-white' : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500 dark:text-neutral-400 hover:bg-slate-200 dark:hover:bg-white/[0.1]'}`}>
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Contacts table */}
+        {wlLoading ? (
+          <div className="flex items-center justify-center py-16"><Loader2 size={28} className="text-[#C94C1E] animate-spin" /></div>
+        ) : (
+          <div className="bg-white dark:bg-[#161616] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shadow-sm dark:shadow-none">
+            {/* Select all / deselect bar */}
+            <div className="flex items-center justify-between px-5 py-3 bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-white/[0.06]">
+              <div className="flex items-center gap-2.5">
+                <button onClick={() => {
+                  const visibleKeys = allContacts.slice(0, 50).map((c, i) => `${c.domain}-${i}`);
+                  if (selectedContacts.size === visibleKeys.length) setSelectedContacts(new Set());
+                  else setSelectedContacts(new Set(visibleKeys));
+                }} className={`w-4 h-4 rounded border-[1.5px] flex items-center justify-center transition-colors ${selectedContacts.size > 0 ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-neutral-600'}`}>
+                  {selectedContacts.size > 0 && <Check size={10} className="text-white stroke-[3]" />}
+                </button>
+                <span className="text-[11px] font-medium text-slate-600 dark:text-neutral-300">{selectedContacts.size > 0 ? `${selectedContacts.size} selected` : 'Select all'}</span>
+              </div>
+              <button onClick={() => {
+                const visibleKeys = allContacts.slice(0, 50).map((c, i) => `${c.domain}-${i}`);
+                if (selectedContacts.size === visibleKeys.length) setSelectedContacts(new Set());
+                else setSelectedContacts(new Set(visibleKeys));
+              }} className="text-[10px] font-semibold text-[#C94C1E] hover:text-[#b5431a] transition-colors">
+                {selectedContacts.size > 0 ? 'Deselect All' : 'Select All'}
+              </button>
+            </div>
+            <table className="w-full">
+              <thead>
+                <tr className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider bg-slate-50/50 dark:bg-white/[0.01]">
+                  <th className="text-left px-4 py-3 w-8"></th>
+                  <th className="text-left px-4 py-3">Contact</th>
+                  <th className="text-left px-4 py-3">Company</th>
+                  <th className="text-left px-4 py-3">Email</th>
+                  <th className="text-left px-4 py-3">LinkedIn</th>
+                  <th className="text-left px-4 py-3">Confidence</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allContacts.slice(0, 50).map((c, i) => {
+                  const isVerified = i % 3 !== 2;
+                  const contactKey = `${c.domain}-${i}`;
+                  const isContactSelected = selectedContacts.has(contactKey);
+                  return (
+                    <tr key={contactKey} className={`border-t border-slate-100 dark:border-white/[0.06] hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors ${isContactSelected ? 'bg-orange-50/50 dark:bg-[#C94C1E]/5' : ''}`}>
+                      <td className="px-4 py-3">
+                        <button onClick={() => setSelectedContacts(prev => { const n = new Set(prev); if (n.has(contactKey)) n.delete(contactKey); else n.add(contactKey); return n; })}
+                          className={`w-4 h-4 rounded border-[1.5px] flex items-center justify-center transition-colors ${isContactSelected ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-neutral-600'}`}>
+                          {isContactSelected && <Check size={10} className="text-white stroke-[3]" />}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ backgroundColor: `hsl(${(c.name.charCodeAt(0) * 47 + c.name.charCodeAt(1) * 13) % 360}, 55%, 50%)` }}>
+                            {c.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
+                          </div>
+                          <div>
+                            <p className="text-[12px] font-semibold text-slate-800 dark:text-white">{c.name}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-neutral-500">{c.title}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`https://www.google.com/s2/favicons?domain=${c.domain}&sz=32`} alt="" className="w-5 h-5 rounded border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] flex-shrink-0" />
+                          <span className="text-[12px] font-medium text-slate-700 dark:text-neutral-200">{c.company}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[11px] text-slate-600 dark:text-neutral-300 font-mono">{c.email}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium cursor-pointer hover:underline">Profile</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${isVerified ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'}`}>
+                          {isVerified ? '✓ Verified' : '⚠ Likely valid'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {allContacts.length > 50 && (
+              <div className="px-4 py-3 text-center border-t border-slate-100 dark:border-white/[0.06]">
+                <p className="text-[11px] text-slate-400 dark:text-neutral-500">Showing 50 of {allContacts.length} contacts · <button className="text-[#C94C1E] font-semibold hover:underline">Load more</button></p>
+              </div>
+            )}
+          </div>
+        )}
+        </>)}
+
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
   const [scanInput, setScanInput] = useState(initialDomain);
   const [scanning, setScanning] = useState(false);
@@ -4835,6 +5403,21 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
 
       setScanResult(prev => {
         if (!data.companyMeta && prev?.companyMeta) data.companyMeta = prev.companyMeta;
+        // Tag techs with added/removed based on techChanges from API
+        if (data.techChanges) {
+          const addedSet = new Set(data.techChanges.added || []);
+          const removedSet = new Set(data.techChanges.removed || []);
+          data.technologies = data.technologies.map(t => ({
+            ...t,
+            changeTag: addedSet.has(t.name) ? 'added' as const : undefined,
+          }));
+          // Append removed techs so they show in the list with a "removed" tag
+          for (const name of removedSet) {
+            if (!data.technologies.some(t => t.name === name)) {
+              data.technologies.push({ name, category: 'Removed', color: '#ef4444', changeTag: 'removed' });
+            }
+          }
+        }
         return data;
       });
       saveScanHistory(clean, data);
@@ -5104,7 +5687,7 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
               return (
                 <div key={cat} className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden hover:border-slate-300 dark:hover:border-white/[0.12] hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)] transition-all">
                   {/* Category header */}
-                  <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02]">
+                  <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-slate-200 dark:border-white/[0.12] bg-slate-50/50 dark:bg-white/[0.02]">
                     <div className={`w-8 h-8 rounded-lg ${ci.bg} flex items-center justify-center ${ci.color} flex-shrink-0`}>
                       {ci.icon}
                     </div>

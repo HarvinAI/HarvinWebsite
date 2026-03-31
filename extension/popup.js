@@ -961,11 +961,28 @@ function renderDetails(data) {
 
 // ── Render: Tech Stack ──────────────────────────────────────────────────
 function renderTechStack(data) {
-  const { technologies } = data;
+  let { technologies } = data;
+  const techChanges = data.techChanges || null;
+
+  // Tag techs with added/removed and append removed techs
+  if (techChanges) {
+    const addedSet = new Set(techChanges.added || []);
+    const removedSet = new Set(techChanges.removed || []);
+    technologies = technologies.map(t => ({ ...t, changeTag: addedSet.has(t.name) ? 'added' : undefined }));
+    for (const name of removedSet) {
+      if (!technologies.some(t => t.name === name)) {
+        technologies.push({ name, category: 'Removed', color: '#ef4444', changeTag: 'removed' });
+      }
+    }
+  }
+
   const grouped = groupByCategory(technologies);
   const catCount = Object.keys(grouped).length;
 
-  techSummary.innerHTML = `<span class="count">${technologies.length}</span> technologies in <span class="count">${catCount}</span> categories`;
+  const changesSummary = techChanges && (techChanges.added.length > 0 || techChanges.removed.length > 0)
+    ? ` · <span style="color:#10b981;font-weight:700">+${techChanges.added.length}</span> <span style="color:#ef4444;font-weight:700">-${techChanges.removed.length}</span>`
+    : '';
+  techSummary.innerHTML = `<span class="count">${technologies.length}</span> technologies in <span class="count">${catCount}</span> categories${changesSummary}`;
 
   categoriesEl.innerHTML = '';
   const sortedCats = sortCategories(grouped);
@@ -983,18 +1000,26 @@ function renderTechStack(data) {
       const iconUrl = getIconUrl(t.name);
       const techColor = t.color || color;
       const versionHtml = t.version ? `<span class="tech-version">${esc(t.version)}</span>` : '';
+      const isAdded = t.changeTag === 'added';
+      const isRemoved = t.changeTag === 'removed';
+      const tagHtml = isAdded
+        ? '<span style="font-size:9px;font-weight:700;background:#10b981;color:#fff;padding:1px 5px;border-radius:9px;margin-left:4px">NEW</span>'
+        : isRemoved
+        ? '<span style="font-size:9px;font-weight:700;background:#ef4444;color:#fff;padding:1px 5px;border-radius:9px;margin-left:4px">REMOVED</span>'
+        : '';
+      const rowStyle = isRemoved ? ' style="opacity:0.5;text-decoration:line-through"' : isAdded ? ' style="background:rgba(16,185,129,0.08);border-radius:6px"' : '';
 
       if (iconUrl) {
         blockHtml += `
-          <div class="tech-row">
+          <div class="tech-row"${rowStyle}>
             <span class="tech-icon"><img src="${iconUrl}" alt="" onerror="this.parentElement.outerHTML='<span class=\\'tech-icon-letter\\' style=\\'background:${techColor}\\'>${t.name.charAt(0).toUpperCase()}</span>'" /></span>
-            <span class="tech-info"><span class="tech-name">${esc(t.name)}</span>${versionHtml}</span>
+            <span class="tech-info"><span class="tech-name">${esc(t.name)}</span>${versionHtml}${tagHtml}</span>
           </div>`;
       } else {
         blockHtml += `
-          <div class="tech-row">
+          <div class="tech-row"${rowStyle}>
             <span class="tech-icon-letter" style="background:${techColor}">${t.name.charAt(0).toUpperCase()}</span>
-            <span class="tech-info"><span class="tech-name">${esc(t.name)}</span>${versionHtml}</span>
+            <span class="tech-info"><span class="tech-name">${esc(t.name)}</span>${versionHtml}${tagHtml}</span>
           </div>`;
       }
     });

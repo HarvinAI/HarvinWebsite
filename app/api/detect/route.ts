@@ -112,21 +112,47 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
     logScan(req, domain, source, result, null);
 
     // Persist tech scan results to DB (tech_cache + company_meta)
+    // Also compute tech diff (added/removed) by comparing with previous scan
     if (result.count > 0) {
       try {
         const db = await getDb();
         const techs = result.technologies || [];
         const techNames = techs.map((t: { name: string }) => t.name);
         const now = new Date();
+
+        // Fetch previous scan to compute diff
+        const prevCache = await db.collection('tech_cache').findOne(
+          { domain },
+          { projection: { technologies: 1, updatedAt: 1 } },
+        );
+        const prevNamesList: string[] = (prevCache?.technologies || []).map((t: { name: string }) => t.name);
+        const prevNames = new Set(prevNamesList);
+        const currNames = new Set(techNames as string[]);
+        const addedTechs = (techNames as string[]).filter(n => !prevNames.has(n));
+        const removedTechs = prevNamesList.filter(n => !currNames.has(n));
+
+        // Attach diff to result so the frontend can display badges
+        if (prevCache && (addedTechs.length > 0 || removedTechs.length > 0)) {
+          (result as Record<string, unknown>).techChanges = {
+            added: addedTechs,
+            removed: removedTechs,
+            previousScanAt: prevCache.updatedAt || null,
+          };
+        }
+
         await Promise.all([
-          // Full tech objects in tech_cache (for detailed views)
+          // Full tech objects + diff in tech_cache
           db.collection('tech_cache').updateOne(
             { domain },
-            { $set: { domain, technologies: techs, count: result.count, updatedAt: now } },
+            {
+              $set: {
+                domain, technologies: techs, count: result.count, updatedAt: now,
+                ...(prevCache ? { techChanges: { added: addedTechs, removed: removedTechs, previousScanAt: prevCache.updatedAt } } : {}),
+              },
+            },
             { upsert: true },
           ),
-          // Tech names + count + app presence in company_meta (for account explorer)
-          // Uses upsert so it works even if domain isn't in company_meta yet
+          // Tech names + count + app presence in company_meta
           db.collection('company_meta').updateOne(
             { normalizedDomain: domain },
             {
@@ -135,7 +161,6 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
                 techCount: result.count,
                 lastTechScan: now,
                 updatedAt: now,
-                // Update app presence if scan detected it (don't overwrite with 'No App' if DB has a value)
                 ...(result.companyMeta?.appPresence && result.companyMeta.appPresence !== 'No App'
                   ? { appPresence: result.companyMeta.appPresence }
                   : {}),

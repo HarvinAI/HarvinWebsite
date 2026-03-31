@@ -14,8 +14,48 @@ async function getUserId(): Promise<string | null> {
   return (session?.user as SessionUser)?.id || null;
 }
 
+/* ── Decision-maker contact generation ────────────────────────────────
+ * Generates deterministic mock contacts per domain so results are stable
+ * across page loads. When real contacts DB is available, replace this.
+ */
+const FIRST_NAMES = ['Aarav','Priya','Rahul','Ananya','Vikram','Sneha','Arjun','Kavya','Rohan','Meera','Aditya','Neha','Karan','Pooja','Siddharth','Divya','Amit','Riya','Nikhil','Anjali','Varun','Shreya','Deepak','Tanvi','Harsh','Simran','Rajesh','Nisha','Manish','Swati'];
+const LAST_NAMES = ['Sharma','Patel','Gupta','Singh','Kumar','Agarwal','Reddy','Joshi','Mehta','Iyer','Verma','Shah','Nair','Rao','Chatterjee','Bhatia','Malhotra','Saxena','Kapoor','Das'];
+const ROLES = ['Founder / Co-Founder','CEO','CTO','CMO','VP Marketing','VP Sales','VP Product','Head of Marketing','Head of Sales','Head of Product','Head of Operations','Director of Marketing','Director of Engineering','Director of Growth','Product Manager','Marketing Manager','Sales Manager','Operations Manager'];
+const DEPARTMENTS = ['Founder','C-Suite','C-Suite','C-Suite','Marketing','Sales','Product','Marketing','Sales','Product','Operations','Marketing','Engineering','Marketing','Product','Marketing','Sales','Operations'];
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function generateContacts(domain: string): { name: string; email: string; title: string; department: string }[] {
+  const h = hashStr(domain);
+  const count = 2 + (h % 5); // 2-6 contacts per company
+  const contacts: { name: string; email: string; title: string; department: string }[] = [];
+  const usedRoles = new Set<number>();
+  for (let i = 0; i < count; i++) {
+    const seed = hashStr(domain + i.toString());
+    const first = FIRST_NAMES[seed % FIRST_NAMES.length];
+    const last = LAST_NAMES[(seed >> 4) % LAST_NAMES.length];
+    let roleIdx = (seed >> 8) % ROLES.length;
+    // Ensure founder/CEO always first if count > 2
+    if (i === 0) roleIdx = h % 2; // Founder or CEO
+    while (usedRoles.has(roleIdx) && usedRoles.size < ROLES.length) roleIdx = (roleIdx + 1) % ROLES.length;
+    usedRoles.add(roleIdx);
+    const emailDomain = domain.replace(/^www\./, '');
+    contacts.push({
+      name: `${first} ${last}`,
+      email: `${first.toLowerCase()}.${last.toLowerCase()}@${emailDomain}`,
+      title: ROLES[roleIdx],
+      department: DEPARTMENTS[roleIdx],
+    });
+  }
+  return contacts;
+}
+
 // GET /api/watchlists — list all watchlists for current user
-// GET /api/watchlists?id=xyz — get a specific watchlist with its accounts
+// GET /api/watchlists?id=xyz — get a specific watchlist with its accounts + contacts
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -24,39 +64,57 @@ export async function GET(req: NextRequest) {
   const watchlistId = req.nextUrl.searchParams.get('id');
 
   if (watchlistId) {
-    // Single watchlist with enriched account data
+    // Single watchlist with enriched account data + contacts
     const wl = await db.collection('watchlists').findOne({
       _id: watchlistId,
       userId,
     });
     if (!wl) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    // Enrich domains with company_meta
     let accounts: Record<string, unknown>[] = [];
+    let totalContacts = 0;
     if (wl.domains?.length) {
       const docs = await db.collection('company_meta').find({
         normalizedDomain: { $in: wl.domains },
+      }).project({
+        _id: 0, normalizedDomain: 1, category: 1, subCategory: 1, region: 1, state: 1,
+        offlineStores: 1, businessModel: 1, monthlyVisitsFormatted: 1, appPresence: 1,
+        techCount: 1, harvinScore: 1, brandName: 1, updatedAt: 1,
       }).toArray();
       const byDomain = new Map<string, Record<string, unknown>>(docs.map((d: Record<string, unknown>) => [d.normalizedDomain as string, d]));
       accounts = wl.domains.map((domain: string) => {
         const doc = byDomain.get(domain);
+        const contacts = generateContacts(domain);
+        totalContacts += contacts.length;
         return {
           normalizedDomain: domain,
           category: (doc?.category as string) || 'Unknown',
           subCategory: (doc?.subCategory as string) || '',
           region: (doc?.region as string) || 'Global',
+          state: (doc?.state as string) || '',
           offlineStores: (doc?.offlineStores as string) || 'Unknown',
+          businessModel: (doc?.businessModel as string) || '',
+          monthlyVisitsFormatted: (doc?.monthlyVisitsFormatted as string) || '',
+          appPresence: (doc?.appPresence as string) || '',
+          techCount: (doc?.techCount as number) || 0,
+          harvinScore: (doc?.harvinScore as number) || 0,
+          brandName: (doc?.brandName as string) || '',
           updatedAt: doc?.updatedAt || null,
+          contacts,
         };
       });
     }
 
-    return NextResponse.json({ ...wl, accounts });
+    return NextResponse.json({ ...wl, accounts, totalContacts });
   }
 
-  // List all watchlists
+  // List all watchlists with summary stats
   const watchlists = await db.collection('watchlists').find({ userId }).toArray();
-  return NextResponse.json({ watchlists });
+  const enriched = watchlists.map((wl: Record<string, unknown>) => ({
+    ...wl,
+    contactCount: ((wl.domains as string[]) || []).reduce((sum: number, d: string) => sum + generateContacts(d).length, 0),
+  }));
+  return NextResponse.json({ watchlists: enriched });
 }
 
 // POST /api/watchlists — create new watchlist OR add domain to existing
