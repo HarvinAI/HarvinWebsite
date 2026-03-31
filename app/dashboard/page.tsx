@@ -1080,8 +1080,11 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         body: JSON.stringify({ name: bulkNewWlName.trim() }),
       });
       if (res.ok) {
-        const wl = await res.json();
-        await addSelectedToWatchlist(wl._id);
+        const data = await res.json();
+        const newId = data.watchlist?._id || data._id;
+        if (newId) {
+          await addSelectedToWatchlist(newId);
+        }
         setBulkNewWlName('');
       }
     } catch {}
@@ -1443,7 +1446,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             {isWatchlistTab && activeWatchlist && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{activeWatchlist.domains?.length || 0} accounts</span>}
           </div>
 
-          {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && !isAdminTab && activeTab !== 'my-universe' && (
+          {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && !isAdminTab && !isWatchlistTab && activeTab !== 'my-universe' && (
             <div className="flex items-center gap-2" data-tour="sort-export">
               {/* Sort */}
               <div className="relative">
@@ -4658,6 +4661,7 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
   setActiveTab: (v: SidebarTab) => void; formatDate: (d: string) => string; domainToName: (d: string) => string;
 }) {
   // Wizard step: 0 = dashboard, 1 = ICP setup, 2 = enrichment confirm, 3 = processing, 4 = enriched contacts
+  // -1 = simple account list view (non-wizard)
   const [wizardStep, setWizardStep] = useState(0);
   const [enrichingWl, setEnrichingWl] = useState<string | null>(null); // watchlist ID being enriched
   const [roleFilter, setRoleFilter] = useState<string>('');
@@ -4789,6 +4793,85 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
   );
 
   // ══════════════════════════════════════════════════════════════════════
+  // SIMPLE ACCOUNT LIST VIEW (non-wizard, from "View Accounts")
+  // ══════════════════════════════════════════════════════════════════════
+  if (wizardStep === -1 && activeWatchlist) {
+    return (
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center gap-3 mb-5">
+          <button onClick={() => { setWizardStep(0); setActiveWatchlist(null); setWatchlistAccounts([]); }}
+            className="p-1.5 rounded-lg text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors">
+            <ChevronLeft size={18} />
+          </button>
+          <div className="flex-1">
+            <h2 className="text-[16px] font-bold text-slate-800 dark:text-white">{activeWatchlist.name}</h2>
+            <p className="text-[11px] text-slate-400 dark:text-neutral-500">{watchlistAccounts.length} accounts</p>
+          </div>
+          <button onClick={() => startEnrichment(activeWatchlist._id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold bg-[#C94C1E] text-white hover:bg-[#b5431a] transition-colors">
+            <Zap size={11} /> Enrich Contacts
+          </button>
+        </div>
+
+        {wlLoading ? (
+          <div className="flex items-center justify-center py-16"><Loader2 size={24} className="text-[#C94C1E] animate-spin" /></div>
+        ) : watchlistAccounts.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-[13px] text-slate-400 dark:text-neutral-500 mb-3">This watchlist is empty</p>
+            <button onClick={() => setActiveTab('account-explorer' as SidebarTab)} className="text-[12px] font-semibold text-[#C94C1E] hover:text-[#b5431a]">Browse accounts →</button>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider bg-slate-50 dark:bg-white/[0.02]">
+                  <th className="text-left px-4 py-2.5">Company</th>
+                  <th className="text-left px-4 py-2.5">Category</th>
+                  <th className="text-left px-4 py-2.5">Region</th>
+                  <th className="text-left px-4 py-2.5">Score</th>
+                  <th className="text-left px-4 py-2.5">Traffic</th>
+                  <th className="text-right px-4 py-2.5"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {watchlistAccounts.map(a => {
+                  const name = a.brandName || domainToName(a.normalizedDomain);
+                  return (
+                    <tr key={a.normalizedDomain} className="border-t border-slate-100 dark:border-white/[0.06] hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors group">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`https://www.google.com/s2/favicons?domain=${a.normalizedDomain}&sz=64`} alt="" className="w-7 h-7 rounded-md border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] p-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-[12px] font-semibold text-slate-800 dark:text-white">{name}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-neutral-500 font-mono">{a.normalizedDomain}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3"><span className="text-[11px] text-slate-600 dark:text-neutral-300">{a.category}</span></td>
+                      <td className="px-4 py-3"><span className="text-[11px] text-slate-500 dark:text-neutral-400">{a.region}</span></td>
+                      <td className="px-4 py-3">
+                        {a.harvinScore > 0 && <span className={`text-[11px] font-bold ${a.harvinScore >= 45 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-neutral-400'}`}>{a.harvinScore}</span>}
+                      </td>
+                      <td className="px-4 py-3"><span className="text-[11px] text-slate-500 dark:text-neutral-400">{a.monthlyVisitsFormatted || '—'}</span></td>
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={() => removeFromWatchlist(activeWatchlist._id, a.normalizedDomain)}
+                          className="p-1 rounded text-slate-300 dark:text-neutral-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100">
+                          <X size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
   // STEP 0: WATCHLIST DASHBOARD
   // ══════════════════════════════════════════════════════════════════════
   if (wizardStep === 0) {
@@ -4831,7 +4914,7 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {watchlists.map(wl => {
               const accCount = wl.domains?.length || 0;
               const contactCount = wl.contactCount || 0;
@@ -4847,10 +4930,10 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
               if (accCount > 3) tags.push({ label: `${Math.min(accCount, (h % 4) + 1)} Key Hires`, color: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20' });
 
               return (
-                <div key={wl._id} className="bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] hover:border-slate-300 dark:hover:border-white/[0.15] transition-colors group cursor-pointer" onClick={() => startEnrichment(wl._id)}>
-                  <div className="px-4 py-4">
-                    {/* Header: name + stats + actions */}
-                    <div className="flex items-center justify-between mb-3">
+                <div key={wl._id} className="bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] hover:border-slate-300 dark:hover:border-white/[0.15] transition-colors group cursor-pointer overflow-hidden" onClick={() => { fetchWatchlistDetail(wl._id); setWizardStep(-1); }}>
+                  {/* Top section */}
+                  <div className="px-4 pt-4 pb-3">
+                    <div className="flex items-center justify-between mb-2">
                       {renamingWl === wl._id ? (
                         <input type="text" value={renameValue} onChange={e => setRenameValue(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') renameWatchlist(wl._id); if (e.key === 'Escape') setRenamingWl(null); }}
@@ -4866,39 +4949,44 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
                       </div>
                     </div>
 
-                    {/* Compact stats inline */}
-                    <div className="flex items-center gap-2 text-[11px] mb-3">
-                      <span className="font-semibold text-slate-700 dark:text-neutral-200">{accCount}</span><span className="text-slate-400 dark:text-neutral-500">accounts</span>
-                      <span className="text-slate-200 dark:text-white/10">·</span>
-                      <span className="font-semibold text-slate-700 dark:text-neutral-200">{contactCount}</span><span className="text-slate-400 dark:text-neutral-500">contacts</span>
-                      {(hotSignals + warmSignals) > 0 && <>
-                        <span className="text-slate-200 dark:text-white/10">·</span>
-                        <span className="font-semibold text-[#C94C1E]">{hotSignals + warmSignals}</span><span className="text-slate-400 dark:text-neutral-500">signals</span>
-                      </>}
+                    {/* Stats as mini cards */}
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg px-2.5 py-2 text-center">
+                        <p className="text-[14px] font-bold text-slate-800 dark:text-white">{accCount}</p>
+                        <p className="text-[9px] text-slate-400 dark:text-neutral-500 uppercase tracking-wide">Accounts</p>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg px-2.5 py-2 text-center">
+                        <p className="text-[14px] font-bold text-slate-800 dark:text-white">{contactCount}</p>
+                        <p className="text-[9px] text-slate-400 dark:text-neutral-500 uppercase tracking-wide">Contacts</p>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg px-2.5 py-2 text-center">
+                        <p className="text-[14px] font-bold text-[#C94C1E]">{hotSignals + warmSignals}</p>
+                        <p className="text-[9px] text-slate-400 dark:text-neutral-500 uppercase tracking-wide">Signals</p>
+                      </div>
                     </div>
 
                     {/* Signal tags */}
                     {tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-3">
+                      <div className="flex flex-wrap gap-1.5">
                         {tags.map(t => (
                           <span key={t.label} className={`text-[10px] font-medium px-2 py-0.5 rounded border ${t.color}`}>{t.label}</span>
                         ))}
                       </div>
                     )}
+                  </div>
 
-                    {/* Actions inline */}
-                    <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => startEnrichment(wl._id)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-semibold bg-[#C94C1E] text-white hover:bg-[#b5431a] transition-colors">
-                        <Zap size={10} /> Enrich Contacts
-                      </button>
-                      <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors">
-                        <Download size={10} /> Export
-                      </button>
-                      <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors">
-                        <ExternalLink size={10} /> CRM
-                      </button>
-                    </div>
+                  {/* Bottom actions bar */}
+                  <div className="px-4 py-2.5 bg-slate-50/70 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/[0.06] flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => startEnrichment(wl._id)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-semibold bg-[#C94C1E] text-white hover:bg-[#b5431a] transition-colors">
+                      <Zap size={10} /> Enrich
+                    </button>
+                    <button className="flex items-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-white dark:hover:bg-white/[0.06] transition-colors">
+                      <Download size={10} /> Export
+                    </button>
+                    <button className="flex items-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-white dark:hover:bg-white/[0.06] transition-colors">
+                      <ExternalLink size={10} /> CRM
+                    </button>
                   </div>
                 </div>
               );
