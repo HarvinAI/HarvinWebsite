@@ -93,7 +93,10 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
     return NextResponse.json({ error: 'url query param required' }, { status: 400, headers: corsHeaders });
   }
 
-  const domain = url.replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').replace(/\/.*$/, '').toLowerCase();
+  const domain = url.replace(/^https?:\/\//i, '')
+    .replace(/^www\d*\./i, '')
+    .replace(/^(?:en|ar|fr|de|es|it|pt|ja|ko|zh|ru|hi|th|vi|m|mobile|shop|store|app|my|web|online|buy)[-_.]/i, '')
+    .replace(/\/.*$/, '').toLowerCase();
   const source = detectSource(req);
   const forceRefresh = req.nextUrl.searchParams.get('refresh') === '1';
 
@@ -123,7 +126,7 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
         // Fetch previous scan to compute diff
         const prevCache = await db.collection('tech_cache').findOne(
           { domain },
-          { projection: { technologies: 1, updatedAt: 1 } },
+          { projection: { technologies: 1, updatedAt: 1, techChanges: 1 } },
         );
         const prevNamesList: string[] = (prevCache?.technologies || []).map((t: { name: string }) => t.name);
         const prevNames = new Set(prevNamesList);
@@ -133,11 +136,15 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
 
         // Attach diff to result so the frontend can display badges
         if (prevCache && (addedTechs.length > 0 || removedTechs.length > 0)) {
+          // Fresh changes detected in this scan
           (result as Record<string, unknown>).techChanges = {
             added: addedTechs,
             removed: removedTechs,
             previousScanAt: prevCache.updatedAt || null,
           };
+        } else if (prevCache?.techChanges && ((prevCache.techChanges as Record<string, unknown[]>).added?.length > 0 || (prevCache.techChanges as Record<string, unknown[]>).removed?.length > 0)) {
+          // No new changes, but return the last known changes from DB
+          (result as Record<string, unknown>).techChanges = prevCache.techChanges;
         }
 
         await Promise.all([

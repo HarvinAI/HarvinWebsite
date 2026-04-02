@@ -81,6 +81,21 @@ export async function GET(req: NextRequest) {
     col.countDocuments(query),
   ]);
 
+  // Sanitize: some fields may be objects (e.g. from JSON-LD) instead of strings
+  const safeStr = (v: unknown): string | null => {
+    if (!v) return null;
+    if (typeof v === 'string') return v;
+    if (typeof v === 'object' && v !== null && 'name' in v) return String((v as Record<string, unknown>).name);
+    return String(v);
+  };
+  for (const a of accounts) {
+    const r = a as Record<string, unknown>;
+    r.category = safeStr(r.category) || 'Unknown';
+    r.subCategory = safeStr(r.subCategory) || '';
+    r.region = safeStr(r.region) || 'Global';
+    r.monthlyVisitsFormatted = safeStr(r.monthlyVisitsFormatted);
+  }
+
   const stats = {
     total: await col.countDocuments({}),
     approved: await col.countDocuments({ adminHidden: { $ne: true }, category: { $exists: true, $nin: [null, '', 'Unknown'] } }),

@@ -140,6 +140,19 @@ const Navbar = () => {
               {isDark ? <SunIcon /> : <MoonIcon />}
             </button>
 
+            {/* Chrome Extension */}
+            <a href="https://chromewebstore.google.com/detail/harvinai-tech-scanner/blmojockpggdpchlonagnhmgecbiapng" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-[13px] font-medium transition-all duration-150
+                         text-[#C94C1E] border border-[#C94C1E]/20
+                         hover:bg-[#C94C1E]/5 dark:hover:bg-[#C94C1E]/10">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Get Extension
+            </a>
+
             {isLoggedIn ? (
               /* ── Logged-in: Avatar dropdown ── */
               <div className="relative">

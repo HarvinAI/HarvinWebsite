@@ -553,7 +553,7 @@ export async function GET(req: NextRequest) {
         appPresence: app,
         activeSignals: realSignalMap[domain] || ((dbSignals && dbSignals.length > 0) ? dbSignals : []),
         fundingStage: realFundingMap[domain] || a.fundingStage || null,
-        brandName: a.brandName || null,
+        brandName: (typeof a.brandName === 'string' ? a.brandName : (a.brandName && typeof a.brandName === 'object' && 'name' in (a.brandName as Record<string, unknown>) ? String((a.brandName as Record<string, unknown>).name) : null)),
         updatedAt: a.updatedAt,
         harvinScore,
       };

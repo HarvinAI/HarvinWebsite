@@ -114,6 +114,13 @@ function pickPriorityTech(techStack: string[], categoryLookup: Record<string, st
   return picked;
 }
 
+function safeBrandName(raw: unknown): string | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'object' && raw !== null && 'name' in raw) return String((raw as Record<string, unknown>).name);
+  return null;
+}
+
 function domainToName(domain: string): string {
   let base = domain.replace(/^www\d*\./, '').split('.')[0];
   // Strip common domain prefixes that aren't part of brand name
@@ -1821,7 +1828,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                       {/* Table rows */}
                       <div className="divide-y divide-slate-100/80 dark:divide-white/[0.04]">
                         {filtered.map(a => {
-                          const name = a.brandName || domainToName(a.normalizedDomain);
+                          const name = safeBrandName(a.brandName) || domainToName(a.normalizedDomain);
                           const topTech = pickPriorityTech((a.techStack || []) as string[], techCategoryLookup);
                           const scanned = (a as Record<string, unknown>).scanned !== false;
                           const status = universeStatuses[a.normalizedDomain] || '';
@@ -2068,7 +2075,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                 {accounts.map(raw => {
                   const a = demoFill(raw);
                   const isSelected = selectedAccounts.has(a.normalizedDomain);
-                  const name = a.brandName || domainToName(a.normalizedDomain);
+                  const name = safeBrandName(a.brandName) || domainToName(a.normalizedDomain);
                   const signalCount = (a.activeSignals || []).length;
                   const topTech = [...new Set((a.techStack || []) as string[])].slice(0, 3);
                   return (
@@ -3451,7 +3458,7 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
                     {a.category === 'Unknown' && <span className="text-[9px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-1.5 py-0.5 rounded uppercase">Pending</span>}
                   </div>
                   <p className="text-[11px] text-slate-400 dark:text-neutral-500 truncate">
-                    {a.category || 'Unknown'} · {a.region || 'Global'}{a.monthlyVisitsFormatted ? ` · ${a.monthlyVisitsFormatted}` : ''}
+                    {typeof a.category === 'string' ? a.category : 'Unknown'} · {typeof a.region === 'string' ? a.region : 'Global'}{a.monthlyVisitsFormatted && typeof a.monthlyVisitsFormatted === 'string' ? ` · ${a.monthlyVisitsFormatted}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -4726,7 +4733,7 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
   const filteredAccounts = watchlistAccounts.filter(a => {
     if (!wlSearch) return true;
     const q = wlSearch.toLowerCase();
-    return a.normalizedDomain.includes(q) || (a.brandName || domainToName(a.normalizedDomain)).toLowerCase().includes(q) || a.category.toLowerCase().includes(q);
+    return a.normalizedDomain.includes(q) || (safeBrandName(a.brandName) || domainToName(a.normalizedDomain)).toLowerCase().includes(q) || a.category.toLowerCase().includes(q);
   });
 
   // Filter contacts by role
@@ -4749,7 +4756,7 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
     const rows = [['Company', 'Domain', 'Category', 'Contact Name', 'Email', 'Job Title', 'Department'].join(',')];
     const accs = onlySelected ? filteredAccounts.filter(a => selectedCompanies.has(a.normalizedDomain)) : filteredAccounts;
     for (const a of accs) {
-      const name = a.brandName || domainToName(a.normalizedDomain);
+      const name = safeBrandName(a.brandName) || domainToName(a.normalizedDomain);
       const contacts = filterContacts(a.contacts);
       if (contacts.length === 0) {
         rows.push([name, a.normalizedDomain, a.category, '', '', '', ''].join(','));
@@ -4835,7 +4842,7 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
               </thead>
               <tbody>
                 {watchlistAccounts.map(a => {
-                  const name = a.brandName || domainToName(a.normalizedDomain);
+                  const name = safeBrandName(a.brandName) || domainToName(a.normalizedDomain);
                   return (
                     <tr key={a.normalizedDomain} className="border-t border-slate-100 dark:border-white/[0.06] hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors group">
                       <td className="px-4 py-3">
@@ -5105,7 +5112,7 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
             </div>
             <div className="space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar">
               {enrichAccounts.map(a => {
-                const name = a.brandName || domainToName(a.normalizedDomain);
+                const name = safeBrandName(a.brandName) || domainToName(a.normalizedDomain);
                 const isOn = selectedCompanies.has(a.normalizedDomain);
                 return (
                   <div key={a.normalizedDomain} onClick={() => toggleCompany(a.normalizedDomain)}
@@ -5209,7 +5216,7 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
       return result;
     };
 
-    const allContacts = enrichedAccounts.flatMap(a => filterByICP(a.contacts).map(c => ({ ...c, company: a.brandName || domainToName(a.normalizedDomain), domain: a.normalizedDomain })));
+    const allContacts = enrichedAccounts.flatMap(a => filterByICP(a.contacts).map(c => ({ ...c, company: safeBrandName(a.brandName) || domainToName(a.normalizedDomain), domain: a.normalizedDomain })));
     const verified = allContacts.filter((_, i) => i % 3 !== 2).length;
     const likelyValid = allContacts.length - verified;
 
@@ -5246,7 +5253,7 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
         {step4Tab === 'accounts' && (
           <div className="space-y-2">
             {enrichedAccounts.map(a => {
-              const name = a.brandName || domainToName(a.normalizedDomain);
+              const name = safeBrandName(a.brandName) || domainToName(a.normalizedDomain);
               const contactCount = filterByICP(a.contacts).length;
               return (
                 <div key={a.normalizedDomain} className="flex items-center gap-4 px-4 py-3 bg-white dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-white/[0.12] hover:border-slate-300 dark:hover:border-white/[0.15] transition-all">
