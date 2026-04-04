@@ -166,11 +166,17 @@ export async function GET(
 
     // Use DB-stored harvinScore — single source of truth across all pages
     const harvinScore = doc?.harvinScore || 0;
+    const harvinScoreBreakdown = doc?.harvinScoreBreakdown || null;
+    const harvinScoreReasons = doc?.harvinScoreReasons || [];
+    const harvinMaturity = doc?.harvinMaturity || null;
 
     return NextResponse.json({
       ...meta,
       score: harvinScore,
       harvinScore,
+      harvinScoreBreakdown,
+      harvinScoreReasons,
+      harvinMaturity,
       similar,
       found: !!doc,
     }, {

@@ -5411,6 +5411,38 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
   return null;
 }
 
+/* ── Tech Change helpers ───────────────────────────────────────────────── */
+
+function TechChangeIcon({ techName, color }: { techName: string; color: string }) {
+  const [failed, setFailed] = useState(false);
+  const logoVal = TECH_LOGO_MAP[techName];
+  const fallbackDomain = !logoVal ? guessTechDomain(techName) : null;
+  const iconUrl = logoVal
+    ? (logoVal.startsWith('http') ? logoVal : `https://www.google.com/s2/favicons?domain=${logoVal}&sz=64`)
+    : `https://www.google.com/s2/favicons?domain=${fallbackDomain}&sz=64`;
+  return (
+    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0 bg-white dark:bg-[#1a1a1e] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
+      {!failed ? (
+        <img src={iconUrl} alt={techName} className="w-[22px] h-[22px] object-contain" onError={() => setFailed(true)} />
+      ) : (
+        <span className="text-[10px] font-extrabold" style={{ color }}>{techName.slice(0, 2).toUpperCase()}</span>
+      )}
+    </div>
+  );
+}
+
+const CAT_COLORS: Record<string, string> = {
+  'Marketing automation': '#8B5CF6', 'Email Marketing': '#8B5CF6', 'Email': '#8B5CF6',
+  'Analytics & Optimization Platform': '#3B82F6', 'Analytics': '#3B82F6',
+  'Payment processors': '#F59E0B', 'Payments & Checkout - Gateway': '#F59E0B',
+  'Customer Support': '#10B981', 'Live chat': '#10B981',
+  'Ecommerce Platform': '#EC4899', 'Ecommerce': '#EC4899',
+  'A/B Testing': '#6366F1', 'A/B Testing & Personalization': '#6366F1',
+  'CRM': '#0EA5E9', 'Customer Engagement / CRM': '#0EA5E9',
+  'Site Search': '#F97316', 'Customer Data Platform': '#14B8A6',
+  'Reviews & UGC': '#A855F7', 'Push notifications': '#EF4444',
+};
+
 function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
   const [scanInput, setScanInput] = useState(initialDomain);
   const [scanning, setScanning] = useState(false);
@@ -5533,276 +5565,244 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
   const filteredCats = activeCat ? categories.filter(c => c === activeCat) : categories;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Scanner input card */}
-      <div className="relative">
-        <div className="absolute -inset-2 rounded-[24px] bg-gradient-to-r from-[#C94C1E]/10 via-amber-500/5 to-[#C94C1E]/10 blur-xl opacity-60 pointer-events-none" />
-        <div className="relative bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm dark:shadow-none">
-          <div className="text-center mb-5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C94C1E]/10 text-[#C94C1E] text-[12px] font-semibold mb-3">
-              <Radar size={14} />
-              Tech Scanner
-            </div>
-            <h2 className="text-[20px] font-bold text-slate-800 dark:text-white tracking-[-0.02em] mb-1">
-              Scan any D2C brand instantly
-            </h2>
-            <p className="text-[13px] text-slate-400 dark:text-neutral-500 max-w-md mx-auto">
-              Enter a domain to detect its full tech stack, company info, store count and more.
-            </p>
+    <div className="space-y-5">
+      {/* Scanner input */}
+      <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
+        <form onSubmit={e => { e.preventDefault(); runScan(scanInput); }}
+          className="flex items-center gap-3">
+          <div className="flex-shrink-0 text-slate-400 dark:text-neutral-500">
+            <Globe size={18} />
           </div>
-
-          {/* Search form */}
-          <form onSubmit={e => { e.preventDefault(); runScan(scanInput); }}
-            className="flex items-center gap-3 p-2 max-w-2xl mx-auto rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] focus-within:border-[#C94C1E]/60 focus-within:shadow-[0_0_0_3px_rgba(201,76,30,0.1)] focus-within:bg-white dark:focus-within:bg-[#1a1a1a] transition-all duration-200">
-            <div className="pl-2 flex-shrink-0">
-              <svg className="w-5 h-5 text-slate-400 dark:text-neutral-500" viewBox="0 0 20 20" fill="none">
-                <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M10 2c-2 2-3 5-3 8s1 6 3 8M10 2c2 2 3 5 3 8s-1 6-3 8M2 10h16" stroke="currentColor" strokeWidth="1.5" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              value={scanInput}
-              onChange={e => setScanInput(e.target.value)}
-              placeholder="e.g. mamaearth.in or boat-lifestyle.com"
-              className="flex-1 bg-transparent outline-none text-[15px] text-slate-900 dark:text-neutral-100 placeholder:text-slate-400 dark:placeholder:text-neutral-500 min-w-0"
-            />
-            <button type="submit" disabled={!scanInput.trim() || scanning}
-              className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-[12px] text-[14px] font-semibold text-white bg-[#C94C1E] hover:bg-[#b5431a] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-[0_2px_8px_rgba(201,76,30,0.3)]">
-              {scanning ? <Loader2 size={16} className="animate-spin" /> : <Radar size={16} />}
-              {scanning ? 'Scanning...' : 'Scan'}
-            </button>
-          </form>
-
-          {/* Quick scan buttons */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            <span className="text-[12px] text-slate-400 dark:text-neutral-500">Try:</span>
+          <input type="text" value={scanInput} onChange={e => setScanInput(e.target.value)}
+            placeholder="Enter domain — e.g. mamaearth.in"
+            className="flex-1 bg-transparent outline-none text-[14px] text-slate-900 dark:text-neutral-100 placeholder:text-slate-400 dark:placeholder:text-neutral-500 min-w-0" />
+          <button type="submit" disabled={!scanInput.trim() || scanning}
+            className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#C94C1E] hover:bg-[#b5431a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            {scanning ? <Loader2 size={15} className="animate-spin" /> : <Radar size={15} />}
+            {scanning ? 'Scanning...' : 'Scan'}
+          </button>
+        </form>
+        {!scanResult && !scanning && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 dark:border-white/[0.05]">
+            <span className="text-[11px] text-slate-400 dark:text-neutral-600">Quick scan:</span>
             {SCAN_DEMO_BRANDS.map(b => (
-              <button key={b.url} type="button"
-                onClick={() => { setScanInput(b.url); runScan(b.url); }}
-                className="text-[12px] font-medium text-slate-500 dark:text-neutral-400 hover:text-[#C94C1E] dark:hover:text-[#C94C1E] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/[0.06] hover:bg-[#C94C1E]/5 dark:hover:bg-[#C94C1E]/10 transition-all">
+              <button key={b.url} type="button" onClick={() => { setScanInput(b.url); runScan(b.url); }}
+                className="text-[11px] font-medium text-slate-500 dark:text-neutral-400 hover:text-[#C94C1E] px-2 py-0.5 rounded-md bg-slate-50 dark:bg-white/[0.04] hover:bg-[#C94C1E]/5 transition-colors">
                 {b.name}
               </button>
             ))}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Scanning animation */}
+      {/* Scanning state */}
       {scanning && !scanResult && (
         <div className="flex flex-col items-center py-16">
-          <div className="relative w-16 h-16 mb-6">
-            <div className="absolute inset-0 rounded-full border-[3px] border-slate-200 dark:border-white/[0.08]" />
-            <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#C94C1E] animate-spin" />
+          <div className="relative w-12 h-12 mb-4">
+            <div className="absolute inset-0 rounded-full border-[2.5px] border-slate-200 dark:border-white/[0.08]" />
+            <div className="absolute inset-0 rounded-full border-[2.5px] border-transparent border-t-[#C94C1E] animate-spin" />
           </div>
-          <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white mb-2">
-            Scanning {scanDomain}
-          </h3>
-          <p className="text-[13px] text-slate-400 dark:text-neutral-500">
-            Detecting technologies, store data, and company info...
-          </p>
-          <div className="mt-5 w-64 h-1.5 rounded-full bg-slate-200 dark:bg-white/[0.06] overflow-hidden">
-            <div className="h-full rounded-full bg-[#C94C1E] animate-[scan_1.8s_ease-in-out_infinite] w-1/3" />
-          </div>
+          <p className="text-[14px] font-semibold text-slate-700 dark:text-neutral-200">Scanning {scanDomain}</p>
+          <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-1">Detecting technologies and company info...</p>
         </div>
       )}
 
-      {/* Company meta while tech loads */}
+      {/* Meta loading state */}
       {scanResult && metaLoading && scanResult.companyMeta && (
-        <div>
-          <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5 mb-4">
-            <div className="flex items-center gap-3 mb-4">
-              <img src={`https://www.google.com/s2/favicons?domain=${scanDomain}&sz=64`} alt="" className="w-8 h-8 rounded-lg dark:bg-white dark:p-[2px]"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              <div>
-                <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">{domainToName(scanDomain)}</h3>
-                <p className="text-[12px] text-slate-400 dark:text-neutral-500 font-mono">{scanDomain}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {([
-                { key: 'category' as const, label: 'Category' },
-                { key: 'subCategory' as const, label: 'Sub-Category' },
-                { key: 'region' as const, label: 'Region' },
-                { key: 'offlineStores' as const, label: 'Stores' },
-              ]).map(({ key, label }) => (
-                <div key={key} className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
-                  <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">{label}</p>
-                  <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta![key] || '\u2014'}</p>
-                </div>
-              ))}
-            </div>
-            {/* Extra meta: Business Model, App Presence, Traffic */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
-              {scanResult.companyMeta!.businessModel && (
-                <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
-                  <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">Business Model</p>
-                  <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta!.businessModel}</p>
-                </div>
-              )}
-              {scanResult.companyMeta!.appPresence && (
-                <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
-                  <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">App Presence</p>
-                  <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta!.appPresence}</p>
-                </div>
-              )}
-              {scanResult.companyMeta!.monthlyVisitsFormatted && (
-                <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
-                  <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">Est. Traffic</p>
-                  <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta!.monthlyVisitsFormatted} <span className="text-[11px] text-slate-400 dark:text-neutral-500">visits/mo</span></p>
-                </div>
-              )}
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <img src={faviconUrl(scanDomain)} alt="" className="w-8 h-8 rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <div>
+              <h3 className="text-[15px] font-bold text-slate-800 dark:text-white">{domainToName(scanDomain)}</h3>
+              <p className="text-[12px] text-slate-400 dark:text-neutral-500">{scanDomain}</p>
             </div>
           </div>
-          <div className="flex flex-col items-center py-8">
-            <div className="relative w-10 h-10 mb-3">
-              <div className="absolute inset-0 rounded-full border-[3px] border-slate-200 dark:border-white/[0.08]" />
-              <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#C94C1E] animate-spin" />
-            </div>
-            <p className="text-[13px] text-slate-400 dark:text-neutral-500">Loading technologies...</p>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {[scanResult.companyMeta.category, scanResult.companyMeta.region, scanResult.companyMeta.offlineStores].filter(Boolean).map(v => (
+              <span key={v} className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-neutral-400">{v}</span>
+            ))}
+          </div>
+          <div className="flex items-center justify-center gap-2 py-6">
+            <div className="w-5 h-5 rounded-full border-2 border-slate-200 dark:border-white/[0.08] border-t-[#C94C1E] animate-spin" />
+            <span className="text-[12px] text-slate-400 dark:text-neutral-500">Loading technologies...</span>
           </div>
         </div>
       )}
 
-      {/* Error state */}
+      {/* Error */}
       {scanError && !scanning && (
-        <div className="flex flex-col items-center py-12">
-          <div className="w-14 h-14 mb-4 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
-            <X size={24} className="text-red-400" />
-          </div>
-          <h3 className="text-[16px] font-semibold text-slate-800 dark:text-white mb-2">Scan failed</h3>
-          <p className="text-[13px] text-slate-400 dark:text-neutral-500 mb-4 max-w-md text-center">{scanError}</p>
-          <button onClick={() => runScan(scanDomain)}
-            className="px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#C94C1E] hover:bg-[#b5431a] transition-all">
-            Retry scan
-          </button>
+        <div className="text-center py-12">
+          <p className="text-[14px] font-semibold text-slate-700 dark:text-neutral-200 mb-1">Scan failed</p>
+          <p className="text-[12px] text-slate-400 dark:text-neutral-500 mb-4">{scanError}</p>
+          <button onClick={() => runScan(scanDomain)} className="px-4 py-2 rounded-lg text-[12px] font-semibold text-white bg-[#C94C1E] hover:bg-[#b5431a] transition-colors">Retry</button>
         </div>
       )}
 
-      {/* Full results */}
-      {scanResult && !scanning && !metaLoading && scanResult.count > 0 && (
+      {/* ── Full results — Tech DNA Report ──────────────────── */}
+      {scanResult && !scanning && !metaLoading && scanResult.count > 0 && (() => {
+        const addedCount = scanResult.techChanges?.added?.length || 0;
+        const removedCount = scanResult.techChanges?.removed?.length || 0;
+        const hasChanges = addedCount > 0 || removedCount > 0;
+        const allTechs = filteredCats.flatMap(cat => grouped[cat]);
+        const totalTech = scanResult.count;
+        // Donut chart data
+        const RING_COLORS = ['#C94C1E', '#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899', '#6366F1', '#0EA5E9', '#F97316', '#14B8A6', '#A855F7', '#EF4444', '#64748B', '#84CC16', '#06B6D4'];
+        const donutData = categories.map((cat, i) => ({ name: cat, count: grouped[cat].length, color: RING_COLORS[i % RING_COLORS.length] }));
+        const circumference = 2 * Math.PI * 54;
+        let donutOffset = 0;
+
+        return (
         <div className="space-y-5">
-          {/* Results header */}
-          <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <img src={`https://www.google.com/s2/favicons?domain=${scanDomain}&sz=64`} alt="" className="w-10 h-10 rounded-lg border border-slate-200 dark:border-white/[0.08] dark:bg-white dark:p-[3px]"
-                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                <div>
-                  <h3 className="text-[17px] font-bold text-slate-800 dark:text-white">{domainToName(scanDomain)}</h3>
-                  <p className="text-[12px] text-slate-400 dark:text-neutral-500">
-                    <span className="font-mono text-[#C94C1E]">{scanDomain}</span>
-                    {' '}&middot; <span className="font-semibold text-slate-600 dark:text-neutral-300">{scanResult.count} technologies</span> across <span className="font-semibold text-slate-600 dark:text-neutral-300">{categories.length} categories</span>
-                  </p>
+
+          {/* ── Hero card: brand + donut + stats ──────────── */}
+          <div className="bg-white dark:bg-[#131316] border border-slate-200 dark:border-white/[0.06] rounded-2xl overflow-hidden">
+            <div className="flex flex-col sm:flex-row">
+
+              {/* Left: donut visualization */}
+              <div className="sm:w-[220px] flex-shrink-0 flex flex-col items-center justify-center py-6 px-4 bg-slate-50/50 dark:bg-white/[0.015] border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-white/[0.05]">
+                <div className="relative w-[130px] h-[130px]">
+                  <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                    {donutData.map(seg => {
+                      const segLen = (seg.count / totalTech) * circumference;
+                      const gap = 2;
+                      const d = <circle key={seg.name} cx="60" cy="60" r="54" fill="none" stroke={activeCat === seg.name ? seg.color : seg.color} strokeWidth={activeCat && activeCat !== seg.name ? '6' : '10'}
+                        strokeDasharray={`${Math.max(0, segLen - gap)} ${circumference - segLen + gap}`} strokeDashoffset={-donutOffset} strokeLinecap="round"
+                        className="transition-all duration-300 cursor-pointer" style={{ opacity: activeCat && activeCat !== seg.name ? 0.2 : 1 }}
+                        onClick={() => setActiveCat(activeCat === seg.name ? null : seg.name)} />;
+                      donutOffset += segLen;
+                      return d;
+                    })}
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-[28px] font-black text-slate-800 dark:text-white tabular-nums leading-none">{totalTech}</span>
+                    <span className="text-[9px] font-semibold text-slate-400 dark:text-neutral-500 uppercase tracking-widest mt-1">Techs</span>
+                  </div>
+                </div>
+                <div className="mt-3 text-center">
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest">{categories.length} categories</p>
                 </div>
               </div>
-              <button onClick={() => { setScanResult(null); setScanDomain(''); setScanInput(''); }}
-                className="text-[12px] font-medium text-slate-400 dark:text-neutral-500 hover:text-[#C94C1E] transition-colors flex items-center gap-1.5">
-                <Radar size={14} /> New scan
-              </button>
-            </div>
 
-            {/* Company meta */}
-            {scanResult.companyMeta && (
-              <>
-                {/* Non-D2C warning banner */}
-                {scanResult.companyMeta.isNonD2C && (
-                  <div className="mb-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
-                    <p className="text-[13px] font-semibold text-amber-700 dark:text-amber-400">Non D2C Brand</p>
-                    {scanResult.companyMeta.nonD2CReason && (
-                      <p className="text-[12px] text-amber-600 dark:text-amber-500/80 mt-0.5">{scanResult.companyMeta.nonD2CReason}</p>
+              {/* Right: brand info + meta + changes summary */}
+              <div className="flex-1 p-5">
+                {/* Brand row */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <img src={faviconUrl(scanDomain)} alt="" className="w-9 h-9 rounded-xl border border-slate-200/60 dark:border-white/[0.06]"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <div>
+                      <h3 className="text-[16px] font-bold text-slate-800 dark:text-white leading-tight">{domainToName(scanDomain)}</h3>
+                      <p className="text-[11px] text-slate-400 dark:text-neutral-500">{scanDomain}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => { setScanResult(null); setScanDomain(''); setScanInput(''); }}
+                    className="text-[11px] font-medium text-slate-400 hover:text-[#C94C1E] flex items-center gap-1 transition-colors">
+                    <Radar size={12} /> New scan
+                  </button>
+                </div>
+
+                {/* Meta tags */}
+                {scanResult.companyMeta && (
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {[
+                      scanResult.companyMeta.category, scanResult.companyMeta.subCategory,
+                      scanResult.companyMeta.region, scanResult.companyMeta.offlineStores !== 'Online' ? `${scanResult.companyMeta.offlineStores} stores` : null,
+                      scanResult.companyMeta.businessModel, scanResult.companyMeta.appPresence !== 'No App' ? scanResult.companyMeta.appPresence : null,
+                      scanResult.companyMeta.monthlyVisitsFormatted ? `${scanResult.companyMeta.monthlyVisitsFormatted}/mo` : null,
+                    ].filter(Boolean).map(v => (
+                      <span key={v} className="text-[10px] font-semibold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.05] px-2 py-[3px] rounded-md">{v}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Changes highlight */}
+                {hasChanges && (
+                  <div className="flex gap-3 mb-3">
+                    {addedCount > 0 && (
+                      <div className="flex-1 rounded-xl bg-emerald-50 dark:bg-emerald-500/[0.06] border border-emerald-200/50 dark:border-emerald-500/10 p-3">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Plus size={13} className="text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} />
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Installed</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(scanResult.techChanges?.added || []).map(n => (
+                            <span key={n} className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-500/15 px-2 py-0.5 rounded-md">{n}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {removedCount > 0 && (
+                      <div className="flex-1 rounded-xl bg-red-50 dark:bg-red-500/[0.05] border border-red-200/50 dark:border-red-500/10 p-3">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <X size={13} className="text-red-500 dark:text-red-400" strokeWidth={2.5} />
+                          <span className="text-[10px] font-bold text-red-500 dark:text-red-400 uppercase tracking-wider">Removed</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(scanResult.techChanges?.removed || []).map(n => (
+                            <span key={n} className="text-[11px] font-semibold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-500/12 px-2 py-0.5 rounded-md line-through">{n}</span>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {([
-                    { key: 'category' as const, label: 'Category' },
-                    { key: 'subCategory' as const, label: 'Sub-Category' },
-                    { key: 'region' as const, label: 'Region' },
-                    { key: 'offlineStores' as const, label: 'Stores' },
-                  ]).map(({ key, label }) => (
-                    <div key={key} className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
-                      <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">{label}</p>
-                      <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta![key] || '\u2014'}</p>
-                    </div>
+
+                {/* Donut legend */}
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {donutData.slice(0, 8).map(seg => (
+                    <button key={seg.name} onClick={() => setActiveCat(activeCat === seg.name ? null : seg.name)}
+                      className={`inline-flex items-center gap-1.5 text-[10px] transition-all ${activeCat === seg.name ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200'}`}>
+                      <span className="w-[6px] h-[6px] rounded-full flex-shrink-0" style={{ backgroundColor: seg.color, opacity: activeCat && activeCat !== seg.name ? 0.3 : 1 }} />
+                      {seg.name} <span className="opacity-50">{seg.count}</span>
+                    </button>
                   ))}
+                  {donutData.length > 8 && <span className="text-[10px] text-slate-400 dark:text-neutral-500">+{donutData.length - 8} more</span>}
                 </div>
-                {/* Extra meta: Business Model, App Presence, Traffic */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
-                  {scanResult.companyMeta.businessModel && (
-                    <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
-                      <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">Business Model</p>
-                      <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta.businessModel}</p>
-                    </div>
-                  )}
-                  {scanResult.companyMeta.appPresence && (
-                    <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
-                      <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">App Presence</p>
-                      <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta.appPresence}</p>
-                    </div>
-                  )}
-                  {scanResult.companyMeta.monthlyVisitsFormatted && (
-                    <div className="bg-slate-50 dark:bg-white/[0.04] rounded-lg p-3">
-                      <p className="text-[10px] font-bold text-[#C94C1E] uppercase tracking-wider mb-1">Est. Traffic</p>
-                      <p className="text-[13px] font-medium text-slate-700 dark:text-neutral-200">{scanResult.companyMeta.monthlyVisitsFormatted} <span className="text-[11px] text-slate-400 dark:text-neutral-500">visits/mo</span></p>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+              </div>
+            </div>
           </div>
 
-          {/* Category filter pills with icons */}
-          <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' } as React.CSSProperties}>
-            <div className="flex gap-2 w-max">
-              <button onClick={() => setActiveCat(null)}
-                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-all ${!activeCat ? 'bg-[#C94C1E] text-white shadow-sm shadow-[#C94C1E]/20' : 'bg-white dark:bg-white/[0.04] text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/[0.08]'}`}>
-                <Layers size={14} />
-                All
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${!activeCat ? 'bg-white/20' : 'bg-slate-100 dark:bg-white/[0.06] text-slate-400 dark:text-neutral-500'}`}>{scanResult.count}</span>
-              </button>
-              {categories.map(cat => {
-                const ci = getCatIcon(cat);
+          {/* ── Tech mosaic grid ──────────────────────────────── */}
+          <div className="bg-white dark:bg-[#131316] border border-slate-200 dark:border-white/[0.06] rounded-2xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
+              <span className="text-[12px] font-bold text-slate-700 dark:text-neutral-200">
+                {activeCat || 'All Technologies'} <span className="font-normal text-slate-400 dark:text-neutral-500 ml-1">{allTechs.length}</span>
+              </span>
+              {activeCat && (
+                <button onClick={() => setActiveCat(null)} className="text-[10px] font-medium text-slate-400 hover:text-[#C94C1E] dark:text-neutral-500 transition-colors">Clear filter</button>
+              )}
+            </div>
+
+            {/* Dense tile grid */}
+            <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-[1px] bg-slate-100 dark:bg-white/[0.04] rounded-b-xl overflow-hidden">
+              {allTechs.map(tech => {
+                const lv = TECH_LOGO_MAP[tech.name];
+                const fb = !lv ? guessTechDomain(tech.name) : null;
+                const src = lv ? (lv.startsWith('http') ? lv : `https://www.google.com/s2/favicons?domain=${lv}&sz=32`) : `https://www.google.com/s2/favicons?domain=${fb}&sz=32`;
+                const isA = tech.changeTag === 'added', isR = tech.changeTag === 'removed';
                 return (
-                  <button key={cat} onClick={() => setActiveCat(activeCat === cat ? null : cat)}
-                    className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-all ${activeCat === cat ? 'bg-[#C94C1E] text-white shadow-sm shadow-[#C94C1E]/20' : 'bg-white dark:bg-white/[0.04] text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/[0.08]'}`}>
-                    <span className={activeCat === cat ? 'text-white' : ci.color}>{ci.icon}</span>
-                    {cat}
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${activeCat === cat ? 'bg-white/20' : 'bg-slate-100 dark:bg-white/[0.06] text-slate-400 dark:text-neutral-500'}`}>{grouped[cat].length}</span>
-                  </button>
+                  <div key={tech.name}
+                    className={`relative flex items-center gap-2.5 px-3 py-3 transition-colors ${
+                      isA ? 'bg-emerald-50 dark:bg-emerald-950/40 border-l-[3px] border-l-emerald-500'
+                      : isR ? 'bg-red-50 dark:bg-red-950/30 border-l-[3px] border-l-red-500'
+                      : 'bg-white dark:bg-[#131316] border-l-[3px] border-l-transparent hover:bg-slate-50 dark:hover:bg-white/[0.02]'
+                    }`}>
+                    <img src={src} alt="" className="w-5 h-5 rounded flex-shrink-0 dark:bg-white dark:p-[1px] dark:rounded"
+                      onError={e => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-[11.5px] font-semibold truncate ${isR ? 'line-through text-slate-400 dark:text-neutral-600' : 'text-slate-800 dark:text-neutral-100'}`}>{tech.name}</div>
+                      <div className="text-[9px] text-slate-400 dark:text-neutral-600 truncate">{tech.category}</div>
+                    </div>
+                    {isA && <span className="text-[8px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-200/80 dark:bg-emerald-500/20 px-1.5 py-[2px] rounded leading-none uppercase flex-shrink-0">New</span>}
+                    {isR && <span className="text-[8px] font-bold text-red-600 dark:text-red-400 bg-red-200/80 dark:bg-red-500/20 px-1.5 py-[2px] rounded leading-none uppercase flex-shrink-0">Removed</span>}
+                  </div>
                 );
               })}
             </div>
           </div>
-
-          {/* Tech grid — category cards with icons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filteredCats.map(cat => {
-              const ci = getCatIcon(cat);
-              return (
-                <div key={cat} className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden hover:border-slate-300 dark:hover:border-white/[0.12] hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)] transition-all">
-                  {/* Category header */}
-                  <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-slate-200 dark:border-white/[0.12] bg-slate-50/50 dark:bg-white/[0.02]">
-                    <div className={`w-8 h-8 rounded-lg ${ci.bg} flex items-center justify-center ${ci.color} flex-shrink-0`}>
-                      {ci.icon}
-                    </div>
-                    <h4 className="text-[13px] font-bold text-slate-700 dark:text-neutral-200 leading-none">{cat}</h4>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-400 dark:text-neutral-500">{grouped[cat].length}</span>
-                  </div>
-                  {/* Tech list */}
-                  <div className="p-4">
-                    <div className="flex flex-wrap gap-2">
-                      {grouped[cat].map(tech => (
-                        <TechPill key={tech.name} tech={tech} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Empty scan result */}
       {scanResult && !scanning && !metaLoading && scanResult.count === 0 && !scanError && scanResult.technologies.length === 0 && !metaLoading && (

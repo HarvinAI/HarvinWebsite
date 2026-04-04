@@ -295,6 +295,7 @@ export default function AccountDetailPage() {
         if (scanData.blocked) setTechBlocked(true);
         if (scanData.count > 0) setCachedTech(domain, scanData);
       } catch {}
+
       if (!stale) {
         setScanProgress(100);
         setTechLoading(false);

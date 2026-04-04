@@ -438,6 +438,9 @@ export async function GET(req: NextRequest) {
           brandName: 1,
           categoryConfidence: 1,
           harvinScore: 1,
+          harvinScoreBreakdown: 1,
+          harvinScoreReasons: 1,
+          harvinMaturity: 1,
         });
 
     if (dbSkip > 0) findCursor = findCursor.skip(dbSkip);

@@ -147,7 +147,22 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
           (result as Record<string, unknown>).techChanges = prevCache.techChanges;
         }
 
-        await Promise.all([
+        // Build category lookup for changed techs
+        const techCategoryMap: Record<string, string> = {};
+        const techColorMap: Record<string, string> = {};
+        for (const t of techs as { name: string; category: string; color: string }[]) {
+          techCategoryMap[t.name] = t.category;
+          techColorMap[t.name] = t.color;
+        }
+        // Also include removed techs from previous cache
+        if (prevCache?.technologies) {
+          for (const t of prevCache.technologies as { name: string; category: string; color: string }[]) {
+            if (!techCategoryMap[t.name]) techCategoryMap[t.name] = t.category;
+            if (!techColorMap[t.name]) techColorMap[t.name] = t.color;
+          }
+        }
+
+        const writes: Promise<unknown>[] = [
           // Full tech objects + diff in tech_cache
           db.collection('tech_cache').updateOne(
             { domain },
@@ -176,7 +191,33 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
             },
             { upsert: true },
           ),
-        ]);
+        ];
+
+        // Log individual tech changes to tech_changes collection (feed)
+        if (prevCache && (addedTechs.length > 0 || removedTechs.length > 0)) {
+          const changeDocs: Record<string, unknown>[] = [];
+          for (const name of addedTechs) {
+            changeDocs.push({
+              domain, techName: name, changeType: 'installed',
+              category: techCategoryMap[name] || 'Other',
+              color: techColorMap[name] || '#6B7280',
+              detectedAt: now,
+            });
+          }
+          for (const name of removedTechs) {
+            changeDocs.push({
+              domain, techName: name, changeType: 'uninstalled',
+              category: techCategoryMap[name] || 'Other',
+              color: techColorMap[name] || '#6B7280',
+              detectedAt: now,
+            });
+          }
+          if (changeDocs.length > 0) {
+            writes.push(db.collection('tech_changes').insertMany(changeDocs));
+          }
+        }
+
+        await Promise.all(writes);
       } catch {}
     }
 
