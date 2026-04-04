@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     // Enrich with brand info from company_meta
-    const domains = [...new Set(changes.map(c => c.domain))];
+    const domains = [...new Set(changes.map((c: { domain: string }) => c.domain))];
     const metaDocs = await db.collection('company_meta')
       .find({ normalizedDomain: { $in: domains } })
       .project({ normalizedDomain: 1, category: 1, brandName: 1, monthlyVisitsFormatted: 1 })
@@ -71,7 +71,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Format response
-    const items = changes.map(c => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const items = changes.map((c: any) => ({
       domain: c.domain,
       techName: c.techName,
       changeType: c.changeType,
@@ -83,8 +84,8 @@ export async function GET(req: NextRequest) {
       traffic: metaMap[c.domain]?.monthlyVisitsFormatted || null,
     }));
 
-    const installed = typeStats.find(t => t._id === 'installed')?.count || 0;
-    const uninstalled = typeStats.find(t => t._id === 'uninstalled')?.count || 0;
+    const installed = typeStats.find((t: { _id: string; count: number }) => t._id === 'installed')?.count || 0;
+    const uninstalled = typeStats.find((t: { _id: string; count: number }) => t._id === 'uninstalled')?.count || 0;
 
     return NextResponse.json({
       items,
@@ -95,7 +96,7 @@ export async function GET(req: NextRequest) {
         installed,
         uninstalled,
         total: installed + uninstalled,
-        categories: categoryStats.map(c => ({ name: c._id, count: c.count })),
+        categories: categoryStats.map((c: { _id: string; count: number }) => ({ name: c._id, count: c.count })),
       },
     }, { headers: corsHeaders });
   } catch (err) {
