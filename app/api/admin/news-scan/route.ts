@@ -5,9 +5,10 @@ const { getDb } = require('@/lib/scan/db');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { runNewsDrivenScan, BROAD_QUERIES, PUBLISHER_FEEDS } = require('@/lib/signals/newsDrivenScan');
 
-// Full scan takes ~3 minutes. Configure long max duration so platforms that
-// honor this (Vercel/Railway) don't kill the request mid-run.
-export const maxDuration = 800;
+// Full scan takes ~165s. Cap at 300 because Vercel Hobby's hard limit is 300.
+// (Pro: 800, Enterprise: no cap. Railway: no cap.) If your plan supports more,
+// bump this — otherwise the run fits comfortably under 300.
+export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 const corsHeaders = {
