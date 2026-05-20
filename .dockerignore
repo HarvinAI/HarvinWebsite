@@ -1,0 +1,41 @@
+# Build artifacts
+node_modules
+.next
+out
+
+# Local env (never bake secrets into the image — use Secret Manager)
+.env
+.env.local
+.env.local.example
+.env.*.local
+
+# Git / VCS
+.git
+.gitignore
+.github
+
+# IDE / OS
+.vscode
+.idea
+.DS_Store
+*.swp
+
+# Docs and unused-in-runtime
+README.md
+CLAUDE.md
+docs/
+*.pdf
+*.docx
+diagram.svg
+
+# Local-only scripts & their progress JSON (cron jobs invoke endpoints instead)
+scripts/*-progress.json
+
+# Chrome extension is a separate distribution channel
+extension/
+*.zip
+
+# Test / scratch files
+test-*.js
+scan-all.js
+implementation.txt

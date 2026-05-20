@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth/adminAuth';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getDb } = require('@/lib/scan/db');
@@ -21,20 +22,11 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
-function isAuthorized(req: NextRequest): boolean {
-  const expected = process.env.ADMIN_API_TOKEN;
-  if (!expected) return false; // require explicit token in env
-  const header = req.headers.get('x-admin-token') || '';
-  const query = req.nextUrl.searchParams.get('token') || '';
-  return header === expected || query === expected;
-}
-
 /**
  * POST /api/admin/news-scan
  *
- * Triggers the full news-driven scan. Designed to be invoked by a Railway
- * cron job (or any HTTP scheduler). Captures the lib's log stream and
- * returns it alongside the run stats.
+ * Triggers the full news-driven scan. Invoked by Cloud Scheduler / Railway
+ * cron / curl. Captures the lib's log stream and returns it with run stats.
  *
  * Headers:
  *   x-admin-token: <ADMIN_API_TOKEN env var>
@@ -44,9 +36,8 @@ function isAuthorized(req: NextRequest): boolean {
  *     limitQueries?: number, query?: string, skipFeeds?: boolean }
  */
 export async function POST(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: corsHeaders });
-  }
+  const denied = await requireAdmin(req);
+  if (denied) return new NextResponse(denied.body, { status: denied.status, headers: corsHeaders });
 
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* empty body is fine */ }
@@ -100,9 +91,8 @@ export async function POST(req: NextRequest) {
  * Same admin-token gate.
  */
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: corsHeaders });
-  }
+  const denied = await requireAdmin(req);
+  if (denied) return new NextResponse(denied.body, { status: denied.status, headers: corsHeaders });
 
   try {
     const db = await getDb();
