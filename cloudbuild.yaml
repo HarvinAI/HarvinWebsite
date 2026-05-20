@@ -43,7 +43,7 @@ steps:
 
   # ── 3. Deploy to Cloud Run ────────────────────────────────────────────
   - id: deploy
-    name: gcr.io/google.com/cloud-sdk
+    name: gcr.io/cloud-builders/gcloud
     entrypoint: gcloud
     args:
       - run
