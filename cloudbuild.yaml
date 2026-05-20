@@ -15,6 +15,11 @@ substitutions:
   _SERVICE: harvinai-web
   _REPO: harvinai
   _IMAGE: web
+  # User-defined tag. Default is "latest" for ad-hoc manual builds.
+  # For SHA-tagged deploys, override: --substitutions=_TAG=$(git rev-parse --short HEAD)
+  # (Built-in $SHORT_SHA is only auto-populated by git-triggered builds, not by
+  # `gcloud builds submit` from local — that's why we use a user-defined _TAG.)
+  _TAG: latest
 
 steps:
   # ── 1. Build the image ────────────────────────────────────────────────
@@ -23,15 +28,15 @@ steps:
     args:
       - build
       - --tag
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:${_TAG}
       - --tag
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:latest
       - .
 
   # ── 2. Push to Artifact Registry ──────────────────────────────────────
-  - id: docker-push-sha
+  - id: docker-push-tag
     name: gcr.io/cloud-builders/docker
-    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA']
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:${_TAG}']
   - id: docker-push-latest
     name: gcr.io/cloud-builders/docker
     args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:latest']
@@ -44,7 +49,7 @@ steps:
       - run
       - deploy
       - ${_SERVICE}
-      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:${_TAG}
       - --region=${_REGION}
       - --platform=managed
       - --allow-unauthenticated
@@ -57,7 +62,7 @@ steps:
       - --update-secrets=MONGO_URI=MONGO_URI:latest,ADMIN_API_TOKEN=ADMIN_API_TOKEN:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest,NEXTAUTH_URL=NEXTAUTH_URL:latest,SMTP_HOST=SMTP_HOST:latest,SMTP_PORT=SMTP_PORT:latest,SMTP_USER=SMTP_USER:latest,SMTP_PASS=SMTP_PASS:latest,FROM_NAME=FROM_NAME:latest,ADMIN_EMAIL=ADMIN_EMAIL:latest
 
 images:
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:${_TAG}'
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:latest'
 
 options:
