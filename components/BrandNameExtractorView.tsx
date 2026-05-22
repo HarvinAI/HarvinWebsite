@@ -148,7 +148,7 @@ export default function BrandNameExtractorView({
         <h2 className="text-[20px] font-bold text-slate-900 dark:text-white">Brand Name Extractor</h2>
       </div>
       <p className="text-[13px] text-slate-500 dark:text-neutral-400 mb-6">
-        Paste up to 5,000 domains (one per line). For each, we&apos;ll resolve the real company name —
+        Paste up to 10,000 domains (one per line). For each, we&apos;ll resolve the real company name —
         scraping <code className="text-[12px] bg-slate-100 dark:bg-white/[0.06] px-1 rounded">og:site_name</code> → <code className="text-[12px] bg-slate-100 dark:bg-white/[0.06] px-1 rounded">og:title</code> → <code className="text-[12px] bg-slate-100 dark:bg-white/[0.06] px-1 rounded">&lt;title&gt;</code>,
         cleaning publisher trails, and falling back to title-case of the domain stem when scraping fails.
       </p>
