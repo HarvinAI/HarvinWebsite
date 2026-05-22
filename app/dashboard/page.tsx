@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useTheme } from '@/components/ThemeProvider';
 import DashboardTour from '@/components/DashboardTour';
 import ChatBot from '@/components/ChatBot';
+import BrandNameExtractorView from '@/components/BrandNameExtractorView';
 import {
   Search, ChevronDown, ChevronUp, X,
   ChevronLeft, ChevronRight,
@@ -40,6 +41,7 @@ type Account = {
   locationLevel: string;
   offlineStores: string;
   aiStoreCount: number;
+  storeRawCount: number;
   techCount: number;
   techStack: string[];
   businessModel: string | null;
@@ -59,7 +61,7 @@ type FilterOptions = { categories: string[]; regions: string[]; states: string[]
 type WatchlistContact = { name: string; email: string; title: string; department: string };
 type Watchlist = { _id: string; name: string; domains: string[]; contactCount?: number; createdAt: string; updatedAt: string };
 type WatchlistAccount = { normalizedDomain: string; category: string; subCategory: string; region: string; state: string; offlineStores: string; businessModel: string; monthlyVisitsFormatted: string; appPresence: string; techCount: number; harvinScore: number; brandName: string; updatedAt: string; contacts: WatchlistContact[] };
-type SidebarTab = 'market-intelligence' | 'my-universe' | 'account-explorer' | 'tech-scanner' | 'lookalike-brands' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations' | 'admin-accounts';
+type SidebarTab = 'market-intelligence' | 'my-universe' | 'account-explorer' | 'tech-scanner' | 'lookalike-brands' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations' | 'admin-accounts' | 'brand-name-extractor';
 type UniverseStatus = 'all' | 'in-conversation' | 'active-client' | 'churned-client';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
@@ -68,8 +70,8 @@ const CAT_SHOW = 5;
 
 
 
-type ScanTech = { name: string; category: string; color: string; changeTag?: 'added' | 'removed' };
-type ScanCompanyMeta = { category: string; subCategory: string; region: string; offlineStores: string; businessModel?: string; appPresence?: string; monthlyVisitsFormatted?: string; isNonD2C?: boolean; nonD2CReason?: string };
+type ScanTech = { name: string; category: string; color: string; version?: string; changeTag?: 'added' | 'removed' };
+type ScanCompanyMeta = { category: string; subCategory: string; region: string; offlineStores: string; storeRawCount?: number; businessModel?: string; appPresence?: string; monthlyVisitsFormatted?: string; isNonD2C?: boolean; nonD2CReason?: string };
 type TechChanges = { added: string[]; removed: string[]; previousScanAt?: string };
 type ScanResult = { url: string; technologies: ScanTech[]; count: number; companyMeta?: ScanCompanyMeta; techChanges?: TechChanges };
 
@@ -86,6 +88,7 @@ const TAB_TITLES: Record<SidebarTab, string> = {
   'icp-preferences': 'ICP & Preferences',
   'integrations': 'Integrations',
   'admin-accounts': 'Admin: Accounts',
+  'brand-name-extractor': 'Admin: Brand Name Extractor',
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
@@ -152,6 +155,13 @@ function domainToName(domain: string): string {
   }
   if (bestSplit) return bestSplit.map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+/** Format store band with count: "51-100 (54 stores)" or "Online" */
+function formatStores(band: string, rawCount?: number): string {
+  if (!band || band === 'Online' || band === 'Online Only' || band === 'Unknown') return band || 'Unknown';
+  if (rawCount && rawCount > 0) return `${band} (${rawCount} stores)`;
+  return band;
 }
 
 function faviconUrl(domain: string): string {
@@ -638,6 +648,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
     return map;
   }, [filterOptions.techStackOptions]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const fetchRef = useRef(0);
 
   // My Universe state
@@ -775,6 +786,120 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   }, [ready, filters, debouncedSearch, sortKey, sortAsc, page]);
 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+
+  /* ── CSV export of all filtered accounts (paginated fetch) ───────── */
+  const buildAccountsParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (filters.category.length) params.set('categories', filters.category.join(','));
+    if (filters.region.length) params.set('regions', filters.region.join(','));
+    if (filters.state.length) params.set('states', filters.state.join(','));
+    if (filters.city.length) params.set('cities', filters.city.join(','));
+    if (filters.offlinePresence.length) params.set('offlinePresence', filters.offlinePresence.join(','));
+    if (filters.businessModel.length) params.set('businessModel', filters.businessModel.join(','));
+    if (filters.scale.length) params.set('scale', filters.scale.join(','));
+    if (filters.appPresence.length) params.set('appPresence', filters.appPresence.join(','));
+    if (filters.techStack.length) params.set('techStack', filters.techStack.join(','));
+    if (filters.activeSignals.length) params.set('activeSignals', filters.activeSignals.join(','));
+    if (filters.funding.length) params.set('funding', filters.funding.join(','));
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    params.set('sortBy', sortKey);
+    params.set('sortDir', sortAsc ? 'asc' : 'desc');
+    return params;
+  }, [filters, debouncedSearch, sortKey, sortAsc]);
+
+  const handleExportAll = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const FILTER_LABELS: Record<keyof Filters, string> = {
+        category: 'Category', region: 'Country', state: 'State', city: 'City',
+        businessModel: 'Business Model', scale: 'Scale', offlinePresence: 'Offline Presence',
+        appPresence: 'App Presence', techStack: 'Tech Stack', activeSignals: 'Active Signals',
+        funding: 'Funding',
+      };
+      const activeFilterPairs = (Object.keys(filters) as (keyof Filters)[])
+        .filter(k => filters[k].length > 0)
+        .map(k => `${FILTER_LABELS[k]}: ${filters[k].join('|')}`);
+      const filtersSummary = activeFilterPairs.length > 0 ? activeFilterPairs.join('; ') : 'None';
+
+      const PAGE_LIMIT = 100;
+      const baseParams = buildAccountsParams();
+      baseParams.set('limit', String(PAGE_LIMIT));
+      baseParams.set('page', '1');
+
+      const firstRes = await fetch(`/api/accounts?${baseParams.toString()}`);
+      if (!firstRes.ok) throw new Error(`HTTP ${firstRes.status}`);
+      const firstData = await firstRes.json();
+      if (firstData.error) throw new Error(firstData.error);
+
+      const allAccounts: Account[] = [...(firstData.accounts || [])];
+      const totalPgs: number = firstData.totalPages || 1;
+
+      for (let p = 2; p <= totalPgs; p++) {
+        const pp = buildAccountsParams();
+        pp.set('limit', String(PAGE_LIMIT));
+        pp.set('page', String(p));
+        const r = await fetch(`/api/accounts?${pp.toString()}`);
+        if (!r.ok) continue;
+        const d = await r.json();
+        if (d.accounts) allAccounts.push(...d.accounts);
+      }
+
+      const esc = (v: unknown) => {
+        const s = v == null ? '' : String(v);
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+
+      const exportedAt = new Date().toISOString();
+      const metaLines = [
+        `# Account Explorer Export`,
+        `# Exported At: ${exportedAt}`,
+        `# Total Results: ${allAccounts.length}`,
+        `# Search: ${debouncedSearch || 'None'}`,
+        `# Sort: ${sortKey} ${sortAsc ? 'asc' : 'desc'}`,
+        `# Filters Applied: ${filtersSummary}`,
+        ``,
+      ];
+
+      const headers = [
+        'Domain', 'Brand Name', 'Category', 'SubCategory', 'Region', 'State', 'City',
+        'Display Location', 'Business Model', 'Offline Stores', 'Store Count',
+        'Monthly Visits', 'Scale Band', 'App Presence', 'Tech Count', 'Tech Stack',
+        'Active Signals', 'Funding Stage', 'Harvin Score', 'Updated At', 'Filters Applied',
+      ];
+
+      const rows = allAccounts.map(a => [
+        a.normalizedDomain, a.brandName || '', a.category, a.subCategory, a.region,
+        (a as Account & { state?: string }).state || '',
+        (a as Account & { city?: string }).city || '',
+        a.displayLocation || '', a.businessModel || '',
+        formatStores(a.offlineStores, a.storeRawCount),
+        a.storeRawCount || a.aiStoreCount || '',
+        a.monthlyVisitsFormatted || a.monthlyVisits || '',
+        a.scaleBand || '', a.appPresence || '', a.techCount,
+        (a.techStack || []).join('|'),
+        (a.activeSignals || []).join('|'),
+        a.fundingStage || '', a.harvinScore, a.updatedAt, filtersSummary,
+      ].map(esc).join(','));
+
+      const csv = [...metaLines, headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const stamp = exportedAt.replace(/[:.]/g, '-');
+      link.href = url;
+      link.download = `accounts-export-${stamp}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      showGlobalToast(`Exported ${allAccounts.length} accounts`, 'success');
+    } catch (err) {
+      console.error('[export] failed', err);
+      showGlobalToast('Export failed', 'error');
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, filters, debouncedSearch, sortKey, sortAsc, buildAccountsParams]);
 
   /* ── My Universe ─────────────────────────────────────────────────── */
   const fetchUniverse = useCallback(async () => {
@@ -976,55 +1101,64 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
   const createWatchlist = async () => {
     if (!newWlName.trim()) return;
+    const name = newWlName.trim();
+    setNewWlName('');
+    setShowCreateWl(false);
     try {
       const res = await fetch('/api/watchlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newWlName.trim() }),
+        body: JSON.stringify({ name }),
       });
       if (res.ok) {
-        setNewWlName('');
-        setShowCreateWl(false);
-        fetchWatchlists();
+        const data = await res.json();
+        setWatchlists(prev => [data.watchlist, ...prev]);
       }
     } catch {}
   };
 
   const deleteWatchlist = async (id: string) => {
+    // Optimistic: remove from UI immediately
+    if (activeWatchlist?._id === id) { setActiveWatchlist(null); setWatchlistAccounts([]); }
+    setWatchlists(prev => prev.filter(w => w._id !== id));
+    showGlobalToast('Watchlist deleted', 'success');
     try {
       await fetch(`/api/watchlists?id=${id}`, { method: 'DELETE' });
-      if (activeWatchlist?._id === id) { setActiveWatchlist(null); setWatchlistAccounts([]); }
-      fetchWatchlists();
-      showGlobalToast('Watchlist deleted', 'success');
     } catch {
-      showGlobalToast('Failed to delete watchlist', 'error');
+      fetchWatchlists(); // Revert on failure
     }
   };
 
   const renameWatchlist = async (id: string) => {
     if (!renameValue.trim()) return;
+    const newName = renameValue.trim();
+    // Optimistic: update UI immediately
+    setRenamingWl(null);
+    setRenameValue('');
+    setWatchlists(prev => prev.map(w => w._id === id ? { ...w, name: newName } : w));
+    if (activeWatchlist?._id === id) setActiveWatchlist({ ...activeWatchlist, name: newName });
     try {
       await fetch('/api/watchlists', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, name: renameValue.trim() }),
+        body: JSON.stringify({ id, name: newName }),
       });
-      setRenamingWl(null);
-      setRenameValue('');
-      fetchWatchlists();
-      if (activeWatchlist?._id === id) fetchWatchlistDetail(id);
     } catch {}
   };
 
   const removeFromWatchlist = async (wlId: string, domain: string) => {
+    // Optimistic: remove from UI immediately
+    setWatchlistAccounts(prev => prev.filter(a => a.normalizedDomain !== domain));
+    setWatchlists(prev => prev.map(w => w._id === wlId ? { ...w, domains: w.domains.filter(d => d !== domain) } : w));
+    if (activeWatchlist?._id === wlId) {
+      setActiveWatchlist(prev => prev ? { ...prev, domains: prev.domains.filter(d => d !== domain) } : prev);
+    }
     try {
       await fetch('/api/watchlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: wlId, domain, remove: true }),
       });
-      fetchWatchlistDetail(wlId);
-      fetchWatchlists();
     } catch {}
   };
 
@@ -1060,39 +1194,40 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
 
   const addSelectedToWatchlist = async (wlId: string) => {
     setBulkAdding(true);
+    const domains = Array.from(selectedAccounts);
+    // Optimistic: update local watchlist count
+    setWatchlists(prev => prev.map(w => w._id === wlId ? { ...w, domains: [...new Set([...w.domains, ...domains])] } : w));
+    setShowBulkWlDropdown(false);
+    clearSelection();
     try {
-      await Promise.all(
-        Array.from(selectedAccounts).map(domain =>
-          fetch('/api/watchlists', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: wlId, domain }),
-          })
-        )
-      );
-      setShowBulkWlDropdown(false);
-      clearSelection();
-      fetchWatchlists();
+      // Single bulk API call instead of N separate requests
+      await fetch('/api/watchlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: wlId, domains }),
+      });
     } catch {}
     setBulkAdding(false);
   };
 
   const createAndAddToWatchlist = async () => {
     if (!bulkNewWlName.trim()) return;
+    const name = bulkNewWlName.trim();
     setBulkAdding(true);
+    setBulkNewWlName('');
     try {
       const res = await fetch('/api/watchlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: bulkNewWlName.trim() }),
+        body: JSON.stringify({ name }),
       });
       if (res.ok) {
         const data = await res.json();
-        const newId = data.watchlist?._id || data._id;
-        if (newId) {
-          await addSelectedToWatchlist(newId);
+        const wl = data.watchlist;
+        if (wl?._id) {
+          setWatchlists(prev => [wl, ...prev]);
+          await addSelectedToWatchlist(wl._id);
         }
-        setBulkNewWlName('');
       }
     } catch {}
     setBulkAdding(false);
@@ -1167,7 +1302,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const isSettingsTab = activeTab === 'icp-preferences' || activeTab === 'integrations';
   const isComingSoonTab = activeTab === 'competitor-clients' || activeTab === 'current-clients';
   const isRecentlyFundedTab = activeTab === 'recently-funded';
-  const isAdminTab = activeTab === 'admin-accounts';
+  const isAdminTab = activeTab === 'admin-accounts' || activeTab === 'brand-name-extractor';
   const isWatchlistTab = activeTab === 'my-watchlists';
   const isMarketIntelTab = activeTab === 'market-intelligence';
   const isTechScannerTab = activeTab === 'tech-scanner';
@@ -1232,6 +1367,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                 <h3 className="px-3 mb-1 text-[11px] font-black text-red-500 dark:text-red-400 uppercase tracking-widest">Admin</h3>
                 <div className="space-y-0.5">
                   <NavBtn icon={<Shield size={18} />} label="Manage Accounts" active={activeTab === 'admin-accounts'} onClick={() => setActiveTab('admin-accounts')} />
+                  <NavBtn icon={<Tag size={18} />} label="Brand Name Extractor" active={activeTab === 'brand-name-extractor'} onClick={() => setActiveTab('brand-name-extractor')} />
                 </div>
               </div>
             )}
@@ -1509,18 +1645,13 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
               </div>
 
               {/* Export */}
-              <button onClick={() => {
-                const rows = accounts.map(a => [a.normalizedDomain, a.category, a.subCategory, a.region, a.offlineStores, a.techCount, a.updatedAt].join(','));
-                const csv = ['Domain,Category,SubCategory,Region,OfflineStores,TechCount,UpdatedAt', ...rows].join('\n');
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url; link.download = 'accounts-export.csv'; link.click();
-                URL.revokeObjectURL(url);
-              }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[12px] font-medium text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all">
-                <Download size={14} className="text-slate-400 dark:text-neutral-500" />
-                Export
+              <button
+                onClick={handleExportAll}
+                disabled={exporting || total === 0}
+                title={exporting ? 'Exporting…' : `Export all ${total} filtered results`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[12px] font-medium text-slate-600 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <Download size={14} className={`text-slate-400 dark:text-neutral-500 ${exporting ? 'animate-pulse' : ''}`} />
+                {exporting ? 'Exporting…' : 'Export'}
               </button>
             </div>
           )}
@@ -1563,7 +1694,9 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             /* ── Market Intelligence ─────────────────────────────── */
             <MarketIntelligenceView />
           ) : isAdminTab ? (
-            <AdminAccountsView showToast={showGlobalToast} />
+            activeTab === 'brand-name-extractor'
+              ? <BrandNameExtractorView showToast={showGlobalToast} />
+              : <AdminAccountsView showToast={showGlobalToast} />
           ) : isRecentlyFundedTab ? (
             /* ── Recently Funded ─────────────────────────────────── */
             <RecentlyFundedView />
@@ -1884,7 +2017,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                       </span>
                                     ) : (
                                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 text-[9px] font-bold flex-shrink-0">
-                                        {a.offlineStores} stores
+                                        {formatStores(a.offlineStores, a.storeRawCount)} stores
                                       </span>
                                     )}
                                   </div>
@@ -2159,7 +2292,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                 )}
                                 {a.offlineStores && a.offlineStores !== 'Online' && a.offlineStores !== 'Online Only' && a.offlineStores !== 'Unknown' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                                    <Store size={10} />{a.offlineStores} stores
+                                    <Store size={10} />{formatStores(a.offlineStores, a.storeRawCount)} stores
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-500/20 bg-violet-50 dark:bg-violet-500/10 text-[10px] font-bold text-violet-600 dark:text-violet-400">
@@ -3314,7 +3447,7 @@ function LookALikeBrandsView({ initialDomain = '' }: { initialDomain?: string })
                           <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{a.appPresence === 'Both iOS & Android' ? 'iOS+Android' : a.appPresence}</span>
                         )}
                         {activeBases.has('offlineStores') && (
-                          <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{a.offlineStores || 'Online'}</span>
+                          <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{formatStores(a.offlineStores, (a as Record<string, unknown>).storeRawCount as number) || 'Online'}</span>
                         )}
                         {activeBases.has('tech') && (
                           <span className="text-[10px] font-bold text-[#C94C1E] bg-[#C94C1E]/10 ring-1 ring-[#C94C1E]/30 px-2 py-0.5 rounded">{a.topTech?.length > 0 ? a.topTech.join(', ') : 'No tech'}</span>
@@ -4120,8 +4253,8 @@ function TechPill({ tech }: { tech: ScanTech }) {
   // If the map value starts with http, use it as a direct icon URL;
   // otherwise, treat it as a domain for Google's favicon API.
   const iconUrl = logoVal
-    ? (logoVal.startsWith('http') ? logoVal : `https://www.google.com/s2/favicons?domain=${logoVal}&sz=32`)
-    : `https://www.google.com/s2/favicons?domain=${fallbackDomain}&sz=32`;
+    ? (logoVal.startsWith('http') ? logoVal : `https://icon.horse/icon/${logoVal}`)
+    : `https://icon.horse/icon/${fallbackDomain}`;
 
   const isAdded = tech.changeTag === 'added';
   const isRemoved = tech.changeTag === 'removed';
@@ -4158,8 +4291,8 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Squarespace': 'squarespace.com', 'PrestaShop': 'prestashop.com', 'OpenCart': 'opencart.com',
   'Shopware': 'shopware.com', 'Ecwid': 'ecwid.com', 'Volusion': 'volusion.com',
   'Shopline': 'shoplineapp.com', 'Dukaan': 'mydukaan.io', 'Nuvemshop': 'nuvemshop.com',
-  'Shift4Shop': 'shift4shop.com',
-  'Salesforce Commerce Cloud': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'Shift4Shop': 'shift4shop.com', 'Vue Storefront': 'vuestorefront.io',
+  'Salesforce Commerce Cloud': 'salesforce.com',
   'SAP Commerce Cloud': 'sap.com', 'Commercetools': 'commercetools.com',
   // CMS
   'WordPress': 'wordpress.org', 'Drupal': 'drupal.org', 'Joomla': 'joomla.org',
@@ -4167,7 +4300,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Webflow': 'webflow.com', 'Gatsby': 'gatsbyjs.com', 'Hugo': 'gohugo.io',
   'Sanity': 'sanity.io', 'Prismic': 'prismic.io', 'Storyblok': 'storyblok.com',
   'DatoCMS': 'datocms.com', 'Sitecore': 'sitecore.com', 'Kentico': 'kentico.com',
-  'Adobe Experience Manager': 'https://cdn.simpleicons.org/adobeexperiencecloud/EB1000',
+  'Adobe Experience Manager': 'adobe.com',
   'HubSpot CMS Hub': 'hubspot.com',
   // JS Frameworks
   'React': 'react.dev', 'Next.js': 'nextjs.org', 'Vue.js': 'vuejs.org',
@@ -4185,10 +4318,10 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'GSAP': 'gsap.com', 'Axios': 'axios-http.com', 'Chart.js': 'chartjs.org',
   'Moment.js': 'momentjs.com', 'Three.js': 'threejs.org', 'Socket.io': 'socket.io',
   // Analytics
-  'Google Analytics': 'https://cdn.simpleicons.org/googleanalytics/E37400',
-  'Google Tag Manager': 'https://cdn.simpleicons.org/googletagmanager/246FDB',
+  'Google Analytics': 'https://www.google.com/s2/favicons?domain=analytics.google.com&sz=64',
+  'Google Tag Manager': 'https://www.google.com/s2/favicons?domain=tagmanager.google.com&sz=64',
   'Mixpanel': 'mixpanel.com', 'Amplitude': 'amplitude.com', 'Heap': 'heap.io',
-  'Hotjar': 'hotjar.com', 'Microsoft Clarity': 'clarity.microsoft.com',
+  'Hotjar': 'hotjar.com', 'Microsoft Clarity': 'https://www.google.com/s2/favicons?domain=clarity.microsoft.com&sz=64',
   'Segment': 'segment.com', 'PostHog': 'posthog.com', 'Plausible': 'plausible.io',
   'Matomo': 'matomo.org', 'Crazy Egg': 'crazyegg.com', 'Fathom': 'usefathom.com',
   'Contentsquare': 'contentsquare.com', 'FullStory': 'fullstory.com',
@@ -4199,8 +4332,8 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Stripe': 'stripe.com', 'Razorpay': 'razorpay.com', 'PayPal': 'paypal.com',
   'Adyen': 'adyen.com', 'Braintree': 'braintreepayments.com', 'Square': 'squareup.com',
   'Cashfree': 'cashfree.com', 'Paytm': 'paytm.com', 'PhonePe': 'phonepe.com',
-  'Google Pay': 'https://cdn.simpleicons.org/googlepay/4285F4',
-  'Apple Pay': 'https://cdn.simpleicons.org/applepay/000000',
+  'Google Pay': 'https://www.google.com/s2/favicons?domain=pay.google.com&sz=64',
+  'Apple Pay': 'apple.com',
   'Amazon Pay': 'pay.amazon.com',
   'Mollie': 'mollie.com', 'CCAvenue': 'ccavenue.com', 'PayU': 'payu.in',
   'Juspay': 'juspay.in', 'Instamojo': 'instamojo.com', 'BillDesk': 'billdesk.com',
@@ -4214,26 +4347,26 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Tawk.to': 'tawk.to', 'Drift': 'drift.com', 'LiveChat': 'livechat.com',
   'Crisp': 'crisp.chat', 'Tidio': 'tidio.com', 'Freshchat': 'freshworks.com',
   'Gorgias': 'gorgias.com', 'Olark': 'olark.com', 'Smartsupp': 'smartsupp.com',
-  'HelpScout Beacon': 'helpscout.com', 'JivoChat': 'jivochat.com',
+  'HelpScout Beacon': 'https://www.google.com/s2/favicons?domain=helpscout.com&sz=64', 'JivoChat': 'jivochat.com',
   'Chatwoot': 'chatwoot.com', 'Pure Chat': 'purechat.com',
   'Yellow.ai': 'yellow.ai', 'Haptik': 'haptik.ai', 'Verloop': 'verloop.io',
   // Customer Engagement & CRM
   'CleverTap': 'clevertap.com', 'MoEngage': 'moengage.com', 'WebEngage': 'webengage.com',
-  'HubSpot': 'https://cdn.simpleicons.org/hubspot/FF7A59',
-  'Salesforce': 'https://cdn.simpleicons.org/salesforce/00A1E0', 'Braze': 'braze.com',
+  'HubSpot': 'hubspot.com',
+  'Salesforce': 'salesforce.com', 'Braze': 'braze.com',
   'Insider': 'useinsider.com', 'Iterable': 'iterable.com', 'Customer.io': 'customer.io',
   'Drip': 'drip.com', 'ActiveCampaign': 'activecampaign.com',
-  'Zoho CRM': 'https://cdn.simpleicons.org/zoho/C8202B', 'Pipedrive': 'pipedrive.com',
+  'Zoho CRM': 'zoho.com', 'Pipedrive': 'pipedrive.com',
   // CDN
   'Cloudflare': 'cloudflare.com', 'Fastly': 'fastly.com', 'Akamai': 'akamai.com',
-  'AWS CloudFront': 'https://cdn.simpleicons.org/amazoncloudwatch/FF4F8B',
+  'AWS CloudFront': 'https://www.google.com/s2/favicons?domain=aws.amazon.com&sz=64',
   'Bunny CDN': 'bunny.net',
   'KeyCDN': 'keycdn.com', 'StackPath': 'stackpath.com', 'Imgix': 'imgix.com',
   // SEO
   'Yoast SEO': 'yoast.com', 'Rank Math': 'rankmath.com',
   'All in One SEO': 'aioseo.com', 'SEOPress': 'seopress.org',
   // Tag Managers
-  'Adobe Launch': 'https://cdn.simpleicons.org/adobeexperiencecloud/EB1000',
+  'Adobe Launch': 'adobe.com',
   'Tealium': 'tealium.com', 'Ensighten': 'ensighten.com',
   // Marketing Automation
   'Klaviyo': 'klaviyo.com', 'Mailchimp': 'mailchimp.com', 'Marketo': 'marketo.com',
@@ -4244,9 +4377,9 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Campaign Monitor': 'campaignmonitor.com', 'Postscript': 'postscript.io',
   'Attentive': 'attentive.com', 'Dotdigital': 'dotdigital.com',
   // Advertising
-  'Google Ads': 'https://cdn.simpleicons.org/googleads/4285F4',
-  'Meta Pixel': 'https://cdn.simpleicons.org/meta/0081FB',
-  'Facebook Pixel': 'https://cdn.simpleicons.org/facebook/1877F2',
+  'Google Ads': 'https://www.google.com/s2/favicons?domain=ads.google.com&sz=64',
+  'Meta Pixel': 'meta.com',
+  'Facebook Pixel': 'facebook.com',
   'TikTok Pixel': 'tiktok.com', 'Snapchat Pixel': 'snapchat.com',
   'Pinterest Tag': 'pinterest.com', 'Twitter Pixel': 'twitter.com',
   'LinkedIn Insight Tag': 'linkedin.com', 'Criteo': 'criteo.com',
@@ -4255,7 +4388,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   // A/B Testing
   'Optimizely': 'optimizely.com', 'VWO': 'vwo.com', 'LaunchDarkly': 'launchdarkly.com',
   'AB Tasty': 'abtasty.com', 'Convert Experiences': 'convert.com',
-  'Google Optimize': 'https://cdn.simpleicons.org/googleoptimize/B366F6',
+  'Google Optimize': 'https://www.google.com/s2/favicons?domain=optimize.google.com&sz=64',
   'Dynamic Yield': 'dynamicyield.com',
   // Reviews
   'Yotpo': 'yotpo.com', 'Judge.me': 'judge.me', 'Loox': 'loox.app',
@@ -4297,8 +4430,8 @@ const TECH_LOGO_MAP: Record<string, string> = {
   // Hosting & Infrastructure
   'Vercel': 'vercel.com', 'Netlify': 'netlify.com', 'Heroku': 'heroku.com',
   'DigitalOcean': 'digitalocean.com',
-  'AWS': 'https://cdn.simpleicons.org/amazonaws/232F3E',
-  'Google Cloud': 'cloud.google.com', 'Fly.io': 'fly.io',
+  'AWS': 'https://www.google.com/s2/favicons?domain=aws.amazon.com&sz=64',
+  'Google Cloud': 'https://www.google.com/s2/favicons?domain=cloud.google.com&sz=64', 'Fly.io': 'fly.io',
   'Railway': 'railway.app', 'Render': 'render.com',
   // Servers
   'Nginx': 'nginx.org', 'Apache': 'apache.org', 'LiteSpeed': 'litespeedtech.com',
@@ -4318,19 +4451,19 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'SimplyBook.me': 'simplybook.me',
   // Auth
   'Auth0': 'auth0.com', 'Okta': 'okta.com',
-  'Firebase': 'https://cdn.simpleicons.org/firebase/DD2C00',
-  'Google Sign-In': 'https://cdn.simpleicons.org/google/4285F4',
-  'Facebook Login': 'https://cdn.simpleicons.org/facebook/1877F2',
+  'Firebase': 'https://www.google.com/s2/favicons?domain=firebase.google.com&sz=64',
+  'Google Sign-In': 'https://www.google.com/s2/favicons?domain=google.com&sz=64',
+  'Facebook Login': 'facebook.com',
   // Video
   'Vimeo': 'vimeo.com', 'Wistia': 'wistia.com', 'Brightcove': 'brightcove.com',
   'JW Player': 'jwplayer.com', 'Vidyard': 'vidyard.com',
   // Maps
-  'Google Maps': 'https://cdn.simpleicons.org/googlemaps/4285F4',
+  'Google Maps': 'https://www.google.com/s2/favicons?domain=maps.google.com&sz=64',
   'Mapbox': 'mapbox.com',
   'Leaflet': 'leafletjs.com', 'HERE Maps': 'here.com',
   // Fonts
-  'Google Fonts': 'https://cdn.simpleicons.org/googlefonts/4285F4',
-  'Adobe Fonts': 'https://cdn.simpleicons.org/adobefonts/000B1D',
+  'Google Fonts': 'https://www.google.com/s2/favicons?domain=fonts.google.com&sz=64',
+  'Adobe Fonts': 'fonts.adobe.com',
   'Font Awesome': 'fontawesome.com',
   // Surveys
   'Typeform': 'typeform.com', 'SurveyMonkey': 'surveymonkey.com',
@@ -4355,14 +4488,14 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Snapmint': 'snapmint.com', 'FlexiPay': 'flexipay.com',
   // Alternate spellings / variants
   'Clevertap': 'clevertap.com', 'Moengage': 'moengage.com',
-  'Facebook Ads': 'https://cdn.simpleicons.org/facebook/1877F2',
-  'Facebook Retargeting': 'https://cdn.simpleicons.org/facebook/1877F2',
-  'Google Remarketing': 'https://cdn.simpleicons.org/googleads/4285F4',
-  'Google Search Console': 'https://cdn.simpleicons.org/googlesearchconsole/458CF5',
-  'Google AdSense': 'https://cdn.simpleicons.org/googleadsense/4285F4',
-  'Google Ad Manager': 'https://cdn.simpleicons.org/googleadmob/EA4335',
-  'Google Cloud CDN': 'https://cdn.simpleicons.org/googlecloud/4285F4',
-  'Google Sites': 'https://cdn.simpleicons.org/google/4285F4',
+  'Facebook Ads': 'facebook.com',
+  'Facebook Retargeting': 'facebook.com',
+  'Google Remarketing': 'https://www.google.com/s2/favicons?domain=ads.google.com&sz=64',
+  'Google Search Console': 'https://www.google.com/s2/favicons?domain=search.google.com&sz=64',
+  'Google AdSense': 'https://www.google.com/s2/favicons?domain=adsense.google.com&sz=64',
+  'Google Ad Manager': 'https://www.google.com/s2/favicons?domain=admob.google.com&sz=64',
+  'Google Cloud CDN': 'https://www.google.com/s2/favicons?domain=cloud.google.com&sz=64',
+  'Google Sites': 'https://www.google.com/s2/favicons?domain=sites.google.com&sz=64',
   'Shopify Checkout': 'cdn.shopify.com',
   'Criteo Retargeting': 'criteo.com', 'Barilliance Recommendations': 'barilliance.com',
   'Barilliance': 'barilliance.com',
@@ -4377,27 +4510,27 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Highlight.js': 'highlightjs.org', 'KaTeX': 'katex.org', 'MathJax': 'mathjax.org',
   'Prism': 'prismjs.com', 'PDF.js': 'mozilla.github.io',
   'WP Rocket': 'wp-rocket.me',
-  'WP Super Cache': 'https://cdn.simpleicons.org/wordpress/21759B',
-  'W3 Total Cache': 'https://cdn.simpleicons.org/wordpress/21759B',
+  'WP Super Cache': 'wordpress.org',
+  'W3 Total Cache': 'wordpress.org',
   'LiteSpeed Cache': 'litespeedtech.com',
   'Jetpack': 'jetpack.com', 'Elementor': 'elementor.com',
   'WPBakery': 'wpbakery.com', 'Divi Builder': 'elegantthemes.com',
   'Advanced Custom Fields': 'advancedcustomfields.com',
   'Contact Form 7': 'contactform7.com', 'WPForms': 'wpforms.com',
   'Gravity Forms': 'gravityforms.com',
-  'Akamai CDN': 'https://cdn.simpleicons.org/akamai/0096D6',
-  'Akamai Bot Manager': 'https://cdn.simpleicons.org/akamai/0096D6',
-  'Azure CDN': 'azure.microsoft.com', 'PerimeterX': 'perimeterx.com',
+  'Akamai CDN': 'akamai.com',
+  'Akamai Bot Manager': 'akamai.com',
+  'Azure CDN': 'microsoft.com', 'PerimeterX': 'perimeterx.com',
   'VWO Engage': 'vwo.com', 'Yotpo SMSBump': 'yotpo.com',
-  'Salesforce Live Agent': 'https://cdn.simpleicons.org/salesforce/00A1E0',
-  'Salesforce Marketing Cloud': 'https://cdn.simpleicons.org/salesforce/00A1E0',
-  'Zendesk Chat': 'https://cdn.simpleicons.org/zendesk/03363D',
-  'Zoho SalesIQ': 'https://cdn.simpleicons.org/zoho/C8202B',
-  'Zoho Desk': 'https://cdn.simpleicons.org/zoho/C8202B',
-  'Zoho Campaigns': 'https://cdn.simpleicons.org/zoho/C8202B',
-  'Freshmarketer': 'https://cdn.simpleicons.org/freshworks/F36C00',
-  'Freshsales': 'https://cdn.simpleicons.org/freshworks/F36C00',
-  'Freshservice': 'https://cdn.simpleicons.org/freshworks/F36C00',
+  'Salesforce Live Agent': 'salesforce.com',
+  'Salesforce Marketing Cloud': 'salesforce.com',
+  'Zendesk Chat': 'zendesk.com',
+  'Zoho SalesIQ': 'zoho.com',
+  'Zoho Desk': 'zoho.com',
+  'Zoho Campaigns': 'zoho.com',
+  'Freshmarketer': 'freshworks.com',
+  'Freshsales': 'freshworks.com',
+  'Freshservice': 'freshworks.com',
   'Supabase': 'supabase.com', 'Medusa': 'medusajs.com',
   'three.js': 'threejs.org', 'PixiJS': 'pixijs.com',
   'Swiper': 'swiperjs.com', 'Slick': 'kenwheeler.github.io',
@@ -4442,26 +4575,26 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Worldpay': 'worldpay.com', 'Zaakpay': 'zaakpay.com', 'Zip': 'zip.co',
   'ePayLater': 'epaylater.in', 'Kiwi Checkout': 'kiwi.com',
   // Analytics & Data
-  'Adobe Analytics': 'https://cdn.simpleicons.org/adobeanalytics/EB1000',
-  'Adobe Experience Cloud': 'https://cdn.simpleicons.org/adobeexperiencecloud/EB1000',
-  'Adobe Target': 'https://cdn.simpleicons.org/adobe/FF0000',
+  'Adobe Analytics': 'adobe.com',
+  'Adobe Experience Cloud': 'adobe.com',
+  'Adobe Target': 'adobe.com',
   'Akamai mPulse': 'akamai.com',
-  'Amazon Advertising': 'https://cdn.simpleicons.org/amazon/FF9900',
-  'Bing UET': 'https://cdn.simpleicons.org/microsoftbing/258FFA',
-  'Bing Webmaster': 'https://cdn.simpleicons.org/microsoftbing/258FFA', 'Blue Triangle': 'bluetriangle.com',
+  'Amazon Advertising': 'amazon.com',
+  'Bing UET': 'bing.com',
+  'Bing Webmaster': 'bing.com', 'Blue Triangle': 'bluetriangle.com',
   'Chartbeat': 'chartbeat.com', 'Clicky': 'clicky.com', 'Comscore': 'comscore.com',
   'comScore': 'comscore.com', 'ContentSquare': 'contentsquare.com',
   'Countly': 'count.ly', 'Decibel Insight': 'decibelinsight.com',
-  'DoubleClick': 'https://cdn.simpleicons.org/googleads/4285F4',
-  'DoubleClick Floodlight': 'https://cdn.simpleicons.org/googleads/4285F4',
+  'DoubleClick': 'https://www.google.com/s2/favicons?domain=ads.google.com&sz=64',
+  'DoubleClick Floodlight': 'https://www.google.com/s2/favicons?domain=ads.google.com&sz=64',
   'Fathom Analytics': 'usefathom.com',
-  'Firebase Analytics': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'Firebase Analytics': 'https://www.google.com/s2/favicons?domain=firebase.google.com&sz=64',
   'Flurry': 'flurry.com', 'GoSquared': 'gosquared.com',
-  'Google Publisher Tag': 'https://cdn.simpleicons.org/googleads/4285F4', 'Hightouch': 'hightouch.com',
+  'Google Publisher Tag': 'https://www.google.com/s2/favicons?domain=ads.google.com&sz=64', 'Hightouch': 'hightouch.com',
   'Indicative': 'indicative.com', 'Inspectlet': 'inspectlet.com',
   'Kochava': 'kochava.com', 'Localytics': 'localytics.com',
   'Lytics': 'lytics.com', 'MediaMath': 'mediamath.com', 'mParticle': 'mparticle.com',
-  'Microsoft Advertising': 'https://cdn.simpleicons.org/microsoftadvertising/0078D4', 'MonsterInsights': 'monsterinsights.com',
+  'Microsoft Advertising': 'microsoft.com', 'MonsterInsights': 'monsterinsights.com',
   'Nextdoor Ads': 'nextdoor.com', 'Oribi': 'oribi.io',
   'Parse.ly': 'parsely.com', 'Pirsch': 'pirsch.io',
   'Piwik Tag Manager': 'matomo.org', 'PixelYourSite': 'pixelyoursite.com',
@@ -4483,9 +4616,9 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Clerk': 'clerk.io', 'Clerk.io': 'clerk.io', 'Close CRM': 'close.com',
   'Copper': 'copper.com', 'Cordial': 'cordial.com',
   'Elastic Email': 'elasticemail.com',
-  'Eloqua': 'https://cdn.simpleicons.org/oracle/F80000',
+  'Eloqua': 'oracle.com',
   'Emarsys': 'emarsys.com', 'Engage360': 'engage360.com',
-  'Evergage': 'https://cdn.simpleicons.org/salesforce/00A1E0', 'Folk CRM': 'folk.app',
+  'Evergage': 'salesforce.com', 'Folk CRM': 'folk.app',
   'Glood.AI': 'glood.ai', 'Intercom Marketing': 'intercom.com',
   'Insightly': 'insightly.com', 'Joy Loyalty': 'joy.so',
   'Kangaroo Rewards': 'kangaroorewards.com', 'Keap': 'keap.com',
@@ -4497,11 +4630,11 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Monday CRM': 'monday.com', 'Moosend': 'moosend.com',
   'NETCORE': 'netcorecloud.com', 'Nimble': 'nimble.com', 'Nutshell': 'nutshell.com',
   'Ometria': 'ometria.com', 'Open Loyalty': 'openloyalty.io',
-  'Ortto': 'ortto.com', 'Responsys': 'https://cdn.simpleicons.org/oracle/F80000',
+  'Ortto': 'ortto.com', 'Responsys': 'oracle.com',
   'Retention.com': 'retention.com', 'RevLifter': 'revlifter.com',
   'Rise.ai': 'rise.ai', 'SaleCycle': 'salecycle.com',
-  'Salesforce DMP (Krux)': 'https://cdn.simpleicons.org/salesforce/00A1E0',
-  'Salesforce Einstein': 'https://cdn.simpleicons.org/salesforce/00A1E0',
+  'Salesforce DMP (Krux)': 'salesforce.com',
+  'Salesforce Einstein': 'salesforce.com',
   'SendPulse': 'sendpulse.com', 'Sendinblue': 'brevo.com',
   'SharpSpring': 'sharpspring.com', 'Simon Data': 'simondata.com',
   'Sprig': 'sprig.com', 'Streak': 'streak.com',
@@ -4516,7 +4649,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Dixa': 'dixa.com', 'Genesys Cloud': 'genesys.com', 'GetButton': 'getbutton.io',
   'HelpCrunch': 'helpcrunch.com', 'Kayako': 'kayako.com',
   'Kommunicate': 'kommunicate.io',
-  'Microsoft Dynamics 365': 'https://cdn.simpleicons.org/dynamics365/002050',
+  'Microsoft Dynamics 365': 'microsoft.com',
   'SnapEngage': 'snapengage.com',
   // Reviews & Social Proof
   'Baremetrics': 'baremetrics.com', 'Fera.ai': 'fera.ai',
@@ -4553,7 +4686,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'tRPC': 'trpc.io', 'Loadable-Components': 'loadable-components.com',
   // UI Frameworks & CSS
   'Carbon Design System': 'carbondesignsystem.com', 'Element UI': 'element-plus.org',
-  'Fluent UI': 'https://cdn.simpleicons.org/microsoft/5E5E5E', 'Headless UI': 'headlessui.com',
+  'Fluent UI': 'microsoft.com', 'Headless UI': 'headlessui.com',
   'Materialize': 'materializecss.com', 'PrimeNG': 'primeng.org',
   'PrimeReact': 'primereact.org', 'PrimeVue': 'primevue.org',
   'Primer CSS': 'primer.style', 'Quasar': 'quasar.dev', 'Radix UI': 'radix-ui.com',
@@ -4573,7 +4706,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'TYPO3': 'typo3.org', 'Tilda': 'tilda.cc', 'Tumblr': 'tumblr.com',
   'Umbraco': 'umbraco.com', 'Wagtail': 'wagtail.org',
   // Hosting & Infrastructure
-  'Azure': 'azure.microsoft.com',
+  'Azure': 'microsoft.com',
   'BunnyCDN': 'bunny.net', 'Caddy': 'caddyserver.com',
   'Cloudinary': 'cloudinary.com', 'Envoy': 'envoyproxy.io',
   'IIS': 'iis.net', 'ImageKit': 'imagekit.io', 'Neon': 'neon.tech',
@@ -4589,11 +4722,11 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'OneTrust CookiePro': 'onetrust.com',
   'Usercentrics': 'usercentrics.com',
   // Auth & Identity
-  'Firebase Auth': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'Firebase Auth': 'https://www.google.com/s2/favicons?domain=firebase.google.com&sz=64',
   'Keycloak': 'keycloak.org',
   // Push & Messaging
-  'Amazon SES': 'https://cdn.simpleicons.org/amazonsimpleemailservice/DD344C',
-  'Firebase Cloud Messaging': 'https://cdn.simpleicons.org/firebase/DD2C00',
+  'Amazon SES': 'https://www.google.com/s2/favicons?domain=aws.amazon.com&sz=64',
+  'Firebase Cloud Messaging': 'https://www.google.com/s2/favicons?domain=firebase.google.com&sz=64',
   'MessageBird': 'messagebird.com', 'Postmark': 'postmarkapp.com',
   'Pusher': 'pusher.com', 'cm.com': 'cm.com',
   // Video & Media
@@ -4612,7 +4745,7 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Rollbar': 'rollbar.com',
   // Advertising & Retargeting
   'Carbon Ads': 'carbonads.net', 'Ezoic': 'ezoic.com',
-  'iGoDigital': 'https://cdn.simpleicons.org/salesforce/00A1E0', 'Inmobi': 'inmobi.com',
+  'iGoDigital': 'salesforce.com', 'Inmobi': 'inmobi.com',
   'LiveIntent': 'liveintent.com', 'Mediavine': 'mediavine.com',
   'RTB House': 'rtbhouse.com', 'Visenze': 'visenze.com',
   // Search
@@ -4633,9 +4766,9 @@ const TECH_LOGO_MAP: Record<string, string> = {
   'Schema Pro': 'wpschema.com', 'SuperAGI': 'superagi.com',
   'Twitter Cards': 'twitter.com', 'Rapchat': 'rapchat.com',
   'Mesoka': 'mesoka.com', 'Pinnacle': 'pinnacle.com',
-  'generator': 'https://cdn.simpleicons.org/wordpress/21759B',
-  'google-site-verification': 'https://cdn.simpleicons.org/googlesearchconsole/458CF5',
-  'msvalidate.01': 'https://cdn.simpleicons.org/microsoftbing/258FFA', 'Impact': 'impact.com',
+  'generator': 'wordpress.org',
+  'google-site-verification': 'https://www.google.com/s2/favicons?domain=search.google.com&sz=64',
+  'msvalidate.01': 'bing.com', 'Impact': 'impact.com',
   'Popupsmart': 'popupsmart.com', 'Lander': 'landerapp.com',
   'Landingi': 'landingi.com', 'TagCommander': 'commandersact.com',
   'Beaver Builder': 'wpbeaverbuilder.com',
@@ -4681,15 +4814,19 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
   // ICP role selections
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set(['CMO', 'VP Marketing', 'Head of Growth', 'Founder', 'Co-founder']));
 
-  // Auto-select all accounts once when first entering step 2
+  // Auto-select all accounts when entering step 2 ONLY if none were pre-selected from the list view
   const step2Initialized = useRef(false);
   useEffect(() => {
     if (wizardStep === 2 && !step2Initialized.current && watchlistAccounts.length > 0) {
       step2Initialized.current = true;
-      setSelectedCompanies(new Set(watchlistAccounts.map(a => a.normalizedDomain)));
+      // If user already selected specific accounts from the list view, keep that selection
+      // Only auto-select all if nothing was pre-selected
+      if (selectedCompanies.size === 0) {
+        setSelectedCompanies(new Set(watchlistAccounts.map(a => a.normalizedDomain)));
+      }
     }
     if (wizardStep !== 2) step2Initialized.current = false;
-  }, [wizardStep, watchlistAccounts]);
+  }, [wizardStep, watchlistAccounts, selectedCompanies.size]);
 
   const ROLE_FILTERS = ['All Roles', 'Founder', 'C-Suite', 'Marketing', 'Sales', 'Product', 'Operations', 'Engineering'];
 
@@ -4803,20 +4940,28 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
   // SIMPLE ACCOUNT LIST VIEW (non-wizard, from "View Accounts")
   // ══════════════════════════════════════════════════════════════════════
   if (wizardStep === -1 && activeWatchlist) {
+    const allSelected = selectedCompanies.size === watchlistAccounts.length && watchlistAccounts.length > 0;
+    const someSelected = selectedCompanies.size > 0;
     return (
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-5">
-          <button onClick={() => { setWizardStep(0); setActiveWatchlist(null); setWatchlistAccounts([]); }}
+          <button onClick={() => { setWizardStep(0); setActiveWatchlist(null); setWatchlistAccounts([]); setSelectedCompanies(new Set()); }}
             className="p-1.5 rounded-lg text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors">
             <ChevronLeft size={18} />
           </button>
           <div className="flex-1">
             <h2 className="text-[16px] font-bold text-slate-800 dark:text-white">{activeWatchlist.name}</h2>
-            <p className="text-[11px] text-slate-400 dark:text-neutral-500">{watchlistAccounts.length} accounts</p>
+            <p className="text-[11px] text-slate-400 dark:text-neutral-500">
+              {watchlistAccounts.length} accounts{someSelected ? ` · ${selectedCompanies.size} selected` : ''}
+            </p>
           </div>
-          <button onClick={() => startEnrichment(activeWatchlist._id)}
+          <button onClick={() => {
+            // Pre-select the checked accounts for enrichment (or all if none selected)
+            if (!someSelected) setSelectedCompanies(new Set(watchlistAccounts.map(a => a.normalizedDomain)));
+            startEnrichment(activeWatchlist._id);
+          }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold bg-[#C94C1E] text-white hover:bg-[#b5431a] transition-colors">
-            <Zap size={11} /> Enrich Contacts
+            <Zap size={11} /> Enrich {someSelected ? `${selectedCompanies.size} Selected` : 'All Contacts'}
           </button>
         </div>
 
@@ -4832,6 +4977,15 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
             <table className="w-full">
               <thead>
                 <tr className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider bg-slate-50 dark:bg-white/[0.02]">
+                  <th className="text-left px-4 py-2.5 w-[36px]">
+                    <button onClick={() => {
+                      if (allSelected) setSelectedCompanies(new Set());
+                      else setSelectedCompanies(new Set(watchlistAccounts.map(a => a.normalizedDomain)));
+                    }} className={`w-4 h-4 rounded border-[1.5px] flex items-center justify-center transition-colors ${allSelected ? 'bg-[#C94C1E] border-[#C94C1E]' : someSelected ? 'bg-[#C94C1E]/30 border-[#C94C1E]' : 'border-slate-300 dark:border-neutral-600'}`}>
+                      {allSelected && <Check size={10} className="text-white stroke-[3]" />}
+                      {!allSelected && someSelected && <span className="w-1.5 h-0.5 bg-white rounded-full" />}
+                    </button>
+                  </th>
                   <th className="text-left px-4 py-2.5">Company</th>
                   <th className="text-left px-4 py-2.5">Category</th>
                   <th className="text-left px-4 py-2.5">Region</th>
@@ -4843,8 +4997,15 @@ function WatchlistView({ watchlists, activeWatchlist, watchlistAccounts, wlLoadi
               <tbody>
                 {watchlistAccounts.map(a => {
                   const name = safeBrandName(a.brandName) || domainToName(a.normalizedDomain);
+                  const isChecked = selectedCompanies.has(a.normalizedDomain);
                   return (
-                    <tr key={a.normalizedDomain} className="border-t border-slate-100 dark:border-white/[0.06] hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors group">
+                    <tr key={a.normalizedDomain} className={`border-t border-slate-100 dark:border-white/[0.06] hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors group ${isChecked ? 'bg-[#C94C1E]/[0.03] dark:bg-[#C94C1E]/[0.05]' : ''}`}>
+                      <td className="px-4 py-3">
+                        <button onClick={() => toggleCompany(a.normalizedDomain)}
+                          className={`w-4 h-4 rounded border-[1.5px] flex items-center justify-center transition-colors ${isChecked ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-neutral-600 hover:border-slate-400'}`}>
+                          {isChecked && <Check size={10} className="text-white stroke-[3]" />}
+                        </button>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -5418,8 +5579,8 @@ function TechChangeIcon({ techName, color }: { techName: string; color: string }
   const logoVal = TECH_LOGO_MAP[techName];
   const fallbackDomain = !logoVal ? guessTechDomain(techName) : null;
   const iconUrl = logoVal
-    ? (logoVal.startsWith('http') ? logoVal : `https://www.google.com/s2/favicons?domain=${logoVal}&sz=64`)
-    : `https://www.google.com/s2/favicons?domain=${fallbackDomain}&sz=64`;
+    ? (logoVal.startsWith('http') ? logoVal : `https://icon.horse/icon/${logoVal}`)
+    : `https://icon.horse/icon/${fallbackDomain}`;
   return (
     <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0 bg-white dark:bg-[#1a1a1e] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
       {!failed ? (
@@ -5453,6 +5614,22 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [scanHistory, setScanHistory] = useState<{ domain: string; techCount: number; category: string; ts: number }[]>([]);
   const autoScanned = useRef(false);
+
+  // Bulk Lookup state
+  type BulkRow = {
+    domain: string;
+    category: string | null;
+    subCategory: string | null;
+    businessModel: string | null;
+    appPresence: string | null;
+    source: 'company_meta' | 'scan' | 'failed';
+    error?: string;
+  };
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, phase: '' });
+  const [bulkSummary, setBulkSummary] = useState<{ total: number; fromMeta: number; scanned: number; failed: number; ts: number } | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const bulkFileRef = useRef<HTMLInputElement>(null);
 
   // Load scan history from localStorage
   useEffect(() => {
@@ -5510,6 +5687,7 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
             subCategory: metaJson.data.subCategory || '',
             region: metaJson.data.region || '',
             offlineStores: metaJson.data.offlineStores || '',
+            storeRawCount: metaJson.data.storeRawCount || metaJson.data.aiStoreCount || 0,
             businessModel: metaJson.data.businessModel || '',
             appPresence: metaJson.data.appPresence || '',
             monthlyVisitsFormatted: metaJson.data.monthlyVisitsFormatted || '',
@@ -5556,11 +5734,141 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
     }
   };
 
-  const grouped = scanResult ? scanResult.technologies.reduce<Record<string, ScanTech[]>>((acc, t) => {
+  /* ── Bulk lookup: company_meta → fallback to /api/detect ────────── */
+  const downloadBulkCsv = (rows: BulkRow[]) => {
+    const esc = (v: unknown) => {
+      const s = v == null ? '' : String(v);
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const headers = ['Domain', 'Category', 'SubCategory', 'Business Model', 'App Presence', 'Source', 'Error'];
+    const lines = [
+      headers.join(','),
+      ...rows.map(r => [r.domain, r.category, r.subCategory, r.businessModel, r.appPresence, r.source, r.error || ''].map(esc).join(',')),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.href = url;
+    link.download = `bulk-lookup-${stamp}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkUpload = async (file: File) => {
+    if (bulkRunning) return;
+    setBulkError(null);
+    setBulkSummary(null);
+
+    let domains: string[];
+    try {
+      const text = await file.text();
+      const lines = text.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) { setBulkError('CSV is empty'); return; }
+      const header = lines[0].toLowerCase();
+      const hasHeader = /domain|url|website|company/.test(header);
+      const dataLines = hasHeader ? lines.slice(1) : lines;
+      let colIndex = 0;
+      if (hasHeader) {
+        const cols = lines[0].split(',').map(c => c.trim().toLowerCase());
+        const idx = cols.findIndex(c => c.includes('domain') || c.includes('url') || c.includes('website'));
+        if (idx >= 0) colIndex = idx;
+      }
+      const raw = dataLines
+        .map(l => (l.split(',')[colIndex] || '').trim())
+        .filter(Boolean)
+        .map(d => d.replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').replace(/\/.*$/, '').toLowerCase())
+        .filter(d => /\./.test(d));
+      domains = [...new Set(raw)];
+      if (domains.length === 0) { setBulkError('No valid domains found'); return; }
+      if (domains.length > 5000) { setBulkError('Max 5,000 domains per upload'); return; }
+    } catch {
+      setBulkError('Failed to read CSV');
+      return;
+    }
+
+    setBulkRunning(true);
+    setBulkProgress({ done: 0, total: domains.length, phase: 'Looking up known brands...' });
+
+    const results: BulkRow[] = [];
+    let fromMeta = 0;
+    let scanned = 0;
+    let failed = 0;
+
+    try {
+      // Phase 1: bulk DB lookup
+      const lookupRes = await fetch('/api/bulk-enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domains }),
+      });
+      if (!lookupRes.ok) throw new Error(`Lookup failed (HTTP ${lookupRes.status})`);
+      const lookup = await lookupRes.json();
+      if (lookup.error) throw new Error(lookup.error);
+
+      for (const f of (lookup.found || []) as Omit<BulkRow, 'source'>[]) {
+        results.push({ ...f, source: 'company_meta' });
+      }
+      fromMeta = (lookup.found || []).length;
+      const notFound: string[] = lookup.notFound || [];
+
+      setBulkProgress({ done: fromMeta, total: domains.length, phase: `Scanning ${notFound.length} unknown domain${notFound.length === 1 ? '' : 's'}...` });
+
+      // Phase 2: concurrency-limited scan for unknowns
+      const CONCURRENCY = 4;
+      let cursor = 0;
+      const workers = Array.from({ length: Math.min(CONCURRENCY, notFound.length) }, async () => {
+        while (cursor < notFound.length) {
+          const i = cursor++;
+          const dom = notFound[i];
+          try {
+            const r = await fetch(`/api/detect?url=${encodeURIComponent(dom)}`);
+            const j = await r.json();
+            if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
+            const meta = (j.companyMeta || {}) as Record<string, unknown>;
+            results.push({
+              domain: dom,
+              category: (meta.category as string) || null,
+              subCategory: (meta.subCategory as string) || null,
+              businessModel: (meta.businessModel as string) || null,
+              appPresence: (meta.appPresence as string) || null,
+              source: 'scan',
+            });
+            scanned++;
+          } catch (err) {
+            results.push({
+              domain: dom,
+              category: null, subCategory: null, businessModel: null, appPresence: null,
+              source: 'failed',
+              error: (err as Error).message || 'Scan failed',
+            });
+            failed++;
+          }
+          setBulkProgress(p => ({ ...p, done: fromMeta + scanned + failed }));
+        }
+      });
+      await Promise.all(workers);
+
+      // Re-order results to match original input order
+      const order = new Map(domains.map((d, i) => [d, i]));
+      results.sort((a, b) => (order.get(a.domain) ?? 0) - (order.get(b.domain) ?? 0));
+
+      downloadBulkCsv(results);
+      setBulkSummary({ total: domains.length, fromMeta, scanned, failed, ts: Date.now() });
+    } catch (err) {
+      setBulkError((err as Error).message || 'Bulk lookup failed');
+    } finally {
+      setBulkRunning(false);
+      setBulkProgress({ done: 0, total: 0, phase: '' });
+    }
+  };
+
+  const visibleTechs = scanResult ? scanResult.technologies.filter(t => t.changeTag !== 'removed') : [];
+  const grouped = visibleTechs.reduce<Record<string, ScanTech[]>>((acc, t) => {
     if (!acc[t.category]) acc[t.category] = [];
     acc[t.category].push(t);
     return acc;
-  }, {}) : {};
+  }, {});
   const categories = scanSortCategories(grouped);
   const filteredCats = activeCat ? categories.filter(c => c === activeCat) : categories;
 
@@ -5594,6 +5902,85 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
           </div>
         )}
       </div>
+
+      {/* ── Bulk Lookup card ──────────────────────────────────── */}
+      {!scanning && !scanResult && (
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-5">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-9 h-9 rounded-xl bg-[#C94C1E]/10 flex items-center justify-center flex-shrink-0">
+              <FileSpreadsheet size={17} className="text-[#C94C1E]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[14px] font-bold text-slate-800 dark:text-white">Bulk Lookup</h3>
+              <p className="text-[12px] text-slate-400 dark:text-neutral-500 mt-0.5">
+                Upload a CSV of domains to get category, sub-category, business model, and app presence. We&apos;ll look up known brands instantly and scan unknown domains.
+              </p>
+            </div>
+          </div>
+
+          <input
+            ref={bulkFileRef}
+            type="file"
+            accept=".csv,.tsv,.txt"
+            className="hidden"
+            onChange={e => {
+              const f = e.target.files?.[0];
+              if (f) handleBulkUpload(f);
+              e.target.value = '';
+            }}
+          />
+
+          {!bulkRunning && (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => bulkFileRef.current?.click()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#C94C1E] hover:bg-[#b5431a] transition-colors">
+                <Upload size={15} /> Choose CSV File
+              </button>
+              <span className="text-[11px] text-slate-400 dark:text-neutral-500">
+                Supports .csv, .tsv — needs a <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06]">domain</code>, <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06]">url</code>, or <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06]">website</code> column. Max 5,000 rows.
+              </span>
+            </div>
+          )}
+
+          {bulkRunning && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Loader2 size={14} className="animate-spin text-[#C94C1E]" />
+                <span className="text-[12px] font-semibold text-slate-700 dark:text-neutral-200">{bulkProgress.phase}</span>
+                <span className="ml-auto text-[12px] tabular-nums text-slate-500 dark:text-neutral-400">{bulkProgress.done}/{bulkProgress.total}</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
+                <div
+                  className="h-full bg-[#C94C1E] transition-all duration-300"
+                  style={{ width: `${bulkProgress.total > 0 ? Math.min(100, (bulkProgress.done / bulkProgress.total) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {bulkError && !bulkRunning && (
+            <div className="mt-3 flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20">
+              <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[12px] text-red-600 dark:text-red-400">{bulkError}</p>
+            </div>
+          )}
+
+          {bulkSummary && !bulkRunning && !bulkError && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
+              <Check size={14} className="text-emerald-600" />
+              <span className="text-[12px] font-semibold text-emerald-700 dark:text-emerald-300">
+                Exported {bulkSummary.total} rows
+              </span>
+              <span className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80">
+                ({bulkSummary.fromMeta} from DB
+                {bulkSummary.scanned > 0 ? ` · ${bulkSummary.scanned} scanned` : ''}
+                {bulkSummary.failed > 0 ? ` · ${bulkSummary.failed} failed` : ''})
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Scanning state */}
       {scanning && !scanResult && (
@@ -5644,7 +6031,7 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
         const removedCount = scanResult.techChanges?.removed?.length || 0;
         const hasChanges = addedCount > 0 || removedCount > 0;
         const allTechs = filteredCats.flatMap(cat => grouped[cat]);
-        const totalTech = scanResult.count;
+        const totalTech = visibleTechs.length;
         // Donut chart data
         const RING_COLORS = ['#C94C1E', '#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899', '#6366F1', '#0EA5E9', '#F97316', '#14B8A6', '#A855F7', '#EF4444', '#64748B', '#84CC16', '#06B6D4'];
         const donutData = categories.map((cat, i) => ({ name: cat, count: grouped[cat].length, color: RING_COLORS[i % RING_COLORS.length] }));
@@ -5703,14 +6090,15 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
 
                 {/* Meta tags */}
                 {scanResult.companyMeta && (
-                  <div className="flex flex-wrap gap-1.5 mb-4">
+                  <div className="flex flex-wrap gap-2 mb-4">
                     {[
                       scanResult.companyMeta.category, scanResult.companyMeta.subCategory,
-                      scanResult.companyMeta.region, scanResult.companyMeta.offlineStores !== 'Online' ? `${scanResult.companyMeta.offlineStores} stores` : null,
+                      scanResult.companyMeta.region,
+                      scanResult.companyMeta.offlineStores !== 'Online' && scanResult.companyMeta.offlineStores !== 'Unknown' ? `${formatStores(scanResult.companyMeta.offlineStores, scanResult.companyMeta.storeRawCount)} stores` : null,
                       scanResult.companyMeta.businessModel, scanResult.companyMeta.appPresence !== 'No App' ? scanResult.companyMeta.appPresence : null,
                       scanResult.companyMeta.monthlyVisitsFormatted ? `${scanResult.companyMeta.monthlyVisitsFormatted}/mo` : null,
                     ].filter(Boolean).map(v => (
-                      <span key={v} className="text-[10px] font-semibold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.05] px-2 py-[3px] rounded-md">{v}</span>
+                      <span key={v} className="text-[13px] font-semibold text-slate-600 dark:text-neutral-300 bg-slate-100 dark:bg-white/[0.06] px-3 py-1 rounded-lg border border-slate-200/60 dark:border-white/[0.08]">{v}</span>
                     ))}
                   </div>
                 )}
@@ -5747,7 +6135,7 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
                   </div>
                 )}
 
-                {/* Donut legend */}
+                {/* Donut legend (top 8) */}
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {donutData.slice(0, 8).map(seg => (
                     <button key={seg.name} onClick={() => setActiveCat(activeCat === seg.name ? null : seg.name)}
@@ -5762,10 +6150,10 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
             </div>
           </div>
 
-          {/* ── Tech mosaic grid ──────────────────────────────── */}
+          {/* ── All Technologies grid ──────────────────────────── */}
           <div className="bg-white dark:bg-[#131316] border border-slate-200 dark:border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
-              <span className="text-[12px] font-bold text-slate-700 dark:text-neutral-200">
+              <span className="text-[13px] font-bold text-slate-700 dark:text-neutral-200">
                 {activeCat || 'All Technologies'} <span className="font-normal text-slate-400 dark:text-neutral-500 ml-1">{allTechs.length}</span>
               </span>
               {activeCat && (
@@ -5773,25 +6161,26 @@ function TechScannerView({ initialDomain = '' }: { initialDomain?: string }) {
               )}
             </div>
 
-            {/* Dense tile grid */}
             <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-[1px] bg-slate-100 dark:bg-white/[0.04] rounded-b-xl overflow-hidden">
-              {allTechs.map(tech => {
+              {allTechs.map((tech, idx) => {
                 const lv = TECH_LOGO_MAP[tech.name];
                 const fb = !lv ? guessTechDomain(tech.name) : null;
-                const src = lv ? (lv.startsWith('http') ? lv : `https://www.google.com/s2/favicons?domain=${lv}&sz=32`) : `https://www.google.com/s2/favicons?domain=${fb}&sz=32`;
+                const src = lv ? (lv.startsWith('http') ? lv : `https://icon.horse/icon/${lv}`) : `https://icon.horse/icon/${fb}`;
                 const isA = tech.changeTag === 'added', isR = tech.changeTag === 'removed';
                 return (
-                  <div key={tech.name}
-                    className={`relative flex items-center gap-2.5 px-3 py-3 transition-colors ${
+                  <div key={`${tech.name}-${tech.category}-${idx}`}
+                    className={`relative flex items-center gap-3 px-4 py-4 transition-colors ${
                       isA ? 'bg-emerald-50 dark:bg-emerald-950/40 border-l-[3px] border-l-emerald-500'
                       : isR ? 'bg-red-50 dark:bg-red-950/30 border-l-[3px] border-l-red-500'
                       : 'bg-white dark:bg-[#131316] border-l-[3px] border-l-transparent hover:bg-slate-50 dark:hover:bg-white/[0.02]'
                     }`}>
-                    <img src={src} alt="" className="w-5 h-5 rounded flex-shrink-0 dark:bg-white dark:p-[1px] dark:rounded"
-                      onError={e => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                    <div className="w-[36px] h-[36px] min-w-[36px] rounded-full flex items-center justify-center flex-shrink-0 bg-slate-50 dark:bg-white/[0.05]">
+                      <img src={src} alt="" className="w-[20px] h-[20px] object-contain rounded"
+                        onError={e => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                    </div>
                     <div className="min-w-0 flex-1">
-                      <div className={`text-[11.5px] font-semibold truncate ${isR ? 'line-through text-slate-400 dark:text-neutral-600' : 'text-slate-800 dark:text-neutral-100'}`}>{tech.name}</div>
-                      <div className="text-[9px] text-slate-400 dark:text-neutral-600 truncate">{tech.category}</div>
+                      <div className={`text-[13px] font-semibold truncate ${isR ? 'line-through text-slate-400 dark:text-neutral-600' : 'text-slate-800 dark:text-neutral-100'}`}>{tech.name}</div>
+                      <div className="text-[11px] text-slate-400 dark:text-neutral-500 truncate">{tech.category}</div>
                     </div>
                     {isA && <span className="text-[8px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-200/80 dark:bg-emerald-500/20 px-1.5 py-[2px] rounded leading-none uppercase flex-shrink-0">New</span>}
                     {isR && <span className="text-[8px] font-bold text-red-600 dark:text-red-400 bg-red-200/80 dark:bg-red-500/20 px-1.5 py-[2px] rounded leading-none uppercase flex-shrink-0">Removed</span>}
