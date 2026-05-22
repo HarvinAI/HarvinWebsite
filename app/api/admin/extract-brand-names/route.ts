@@ -40,22 +40,53 @@ function domainStemTitleCase(domain: string): string {
     .trim();
 }
 
-// Strip common publisher/site suffixes from a title.
-// "Hotstar - Watch Live TV …" → "Hotstar"
-// "TV9 Telugu Live | Latest News" → "TV9 Telugu"
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'").replace(/&#x27;/gi, "'")
+    .replace(/&quot;/g, '"').replace(/&#x22;/gi, '"')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#x2F;/gi, '/');
+}
+
+// Strip common publisher/tagline trail from a scraped title.
+// Handles three common patterns:
+//   "Brand - Tagline"           → "Brand"
+//   "Tagline | … | Brand"       → "Brand"    ← was previously broken
+//   "Brand: Tagline"            → "Brand"
+// Strategy: split on common separators; pick the segment whose normalized
+// form matches the domain stem. If none matches, fall back to the first.
 function cleanScrapedTitle(raw: string, domain: string): string {
   if (!raw) return '';
-  let s = raw.trim();
-  // Decode common HTML entities
-  s = s.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ');
-  // Cut on the first " - ", " | ", " — ", " :: ", " · " separator (publishers' tagline format)
-  const splitMatch = s.split(/\s+(?:[-|—·]|::)\s+/)[0];
-  if (splitMatch && splitMatch.length >= 2) s = splitMatch;
-  // Remove trailing words that are obviously not part of the name
+  let s = decodeEntities(raw.trim());
+
+  // Split into segments. Supported separators (each surrounded by whitespace,
+  // except `:` which is allowed to be tight on the left — "Paytm: …"):
+  //   " - "  " | "  " — "  " · "  " :: "  ": "
+  const segments = s.split(/\s+(?:[-|—·]|::)\s+|:\s+/).map((seg) => seg.trim()).filter(Boolean);
+
+  if (segments.length > 1) {
+    const stem = domain.replace(/\.[a-z.]+$/i, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    let matched: string | null = null;
+    for (const seg of segments) {
+      const normSeg = seg.replace(/[^a-z0-9]/gi, '').toLowerCase();
+      if (!normSeg) continue;
+      // Strong match: segment exactly equals the stem, OR is a superstring
+      // of the stem with length >= stem (catches "MagicBricks" → "magicbricks",
+      // "Shaadi.com" → "shaadicom" containing "shaadi"). Prevents weak matches
+      // like "Pay" matching stem "paypal".
+      if (normSeg === stem || (normSeg.length >= stem.length && normSeg.includes(stem))) {
+        matched = seg;
+        break;
+      }
+    }
+    s = matched || segments[0];
+  }
+
+  // Strip trailing tagline words even after segment selection
   s = s.replace(/\s+(?:official(?:\s+(?:site|website|store|page))?|home(?:page)?|live|online|india|in|app)$/i, '');
-  // Collapse whitespace
   s = s.replace(/\s+/g, ' ').trim();
-  // If the scrape collapsed to something tiny but the domain hints at multi-word, prefer the domain
+
   if (s.length < 3) return domainStemTitleCase(domain);
   return s;
 }
