@@ -14,8 +14,9 @@ const corsHeaders = {
 };
 
 const BATCH_MAX = 500;
-const SCRAPE_TIMEOUT_MS = 7000;
-const SCRAPE_CONCURRENCY = 30;
+const SCRAPE_TIMEOUT_MS = 15000;       // was 7s — too aggressive for slow Indian D2C SPAs
+const SCRAPE_CONCURRENCY = 20;          // was 30 — reduces local-socket contention
+const SCRAPE_MAX_ATTEMPTS = 2;          // 1 retry on timeout/error; recovers most slow first-bytes
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
@@ -59,55 +60,80 @@ function cleanScrapedTitle(raw: string, domain: string): string {
   return s;
 }
 
-async function fetchHomepageBrand(domain: string): Promise<{ name: string | null; source: string }> {
+// Real Chrome UA. Sites that throttle non-browser traffic stop throttling.
+const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+async function fetchOnce(domain: string, timeoutMs: number): Promise<{ html: string | null; status: string }> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SCRAPE_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`https://${domain}/`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 HarvinAI-BrandExtractor/1.0',
-        'Accept': 'text/html,application/xhtml+xml',
+        'User-Agent': BROWSER_UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1',
       },
       signal: controller.signal,
       redirect: 'follow',
     });
     clearTimeout(timer);
-    if (!res.ok) return { name: null, source: `http-${res.status}` };
+    if (!res.ok) return { html: null, status: `http-${res.status}` };
     const html = (await res.text()).slice(0, 200_000);
-
-    // 1. og:site_name
-    const ogSite = html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i)?.[1]
-                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:site_name["']/i)?.[1];
-    if (ogSite && ogSite.trim().length >= 2) {
-      return { name: cleanScrapedTitle(ogSite, domain), source: 'og:site_name' };
-    }
-
-    // 2. application-name meta
-    const appName = html.match(/<meta[^>]+name=["']application-name["'][^>]+content=["']([^"']+)["']/i)?.[1];
-    if (appName && appName.trim().length >= 2) {
-      return { name: cleanScrapedTitle(appName, domain), source: 'application-name' };
-    }
-
-    // 3. og:title
-    const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1]
-                 || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)?.[1];
-    if (ogTitle && ogTitle.trim().length >= 2) {
-      return { name: cleanScrapedTitle(ogTitle, domain), source: 'og:title' };
-    }
-
-    // 4. <title>
-    const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
-    if (titleTag && titleTag.trim().length >= 2) {
-      return { name: cleanScrapedTitle(titleTag, domain), source: 'title' };
-    }
-
-    return { name: null, source: 'no-meta' };
+    return { html, status: 'ok' };
   } catch (err) {
     clearTimeout(timer);
     const msg = (err as Error).message || 'fetch-error';
-    return { name: null, source: msg.includes('abort') ? 'timeout' : 'error' };
+    return { html: null, status: msg.includes('abort') ? 'timeout' : 'error' };
   }
+}
+
+async function fetchHomepageBrand(domain: string): Promise<{ name: string | null; source: string }> {
+  let lastStatus = 'unknown';
+  let html: string | null = null;
+
+  // Retry once on timeout/error; many cold TLS handshakes complete on the 2nd try.
+  for (let attempt = 1; attempt <= SCRAPE_MAX_ATTEMPTS; attempt++) {
+    const result = await fetchOnce(domain, SCRAPE_TIMEOUT_MS);
+    lastStatus = result.status;
+    if (result.html) { html = result.html; break; }
+    // Don't waste a retry on a definite client error (404 / 410)
+    if (result.status.startsWith('http-4')) break;
+  }
+
+  if (!html) return { name: null, source: lastStatus };
+
+  // 1. og:site_name
+  const ogSite = html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i)?.[1]
+              || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:site_name["']/i)?.[1];
+  if (ogSite && ogSite.trim().length >= 2) {
+    return { name: cleanScrapedTitle(ogSite, domain), source: 'og:site_name' };
+  }
+
+  // 2. application-name meta
+  const appName = html.match(/<meta[^>]+name=["']application-name["'][^>]+content=["']([^"']+)["']/i)?.[1];
+  if (appName && appName.trim().length >= 2) {
+    return { name: cleanScrapedTitle(appName, domain), source: 'application-name' };
+  }
+
+  // 3. og:title
+  const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1]
+               || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)?.[1];
+  if (ogTitle && ogTitle.trim().length >= 2) {
+    return { name: cleanScrapedTitle(ogTitle, domain), source: 'og:title' };
+  }
+
+  // 4. <title>
+  const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+  if (titleTag && titleTag.trim().length >= 2) {
+    return { name: cleanScrapedTitle(titleTag, domain), source: 'title' };
+  }
+
+  return { name: null, source: 'no-meta' };
 }
 
 type ExtractRow = {
