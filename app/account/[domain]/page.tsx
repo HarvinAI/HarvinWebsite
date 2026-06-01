@@ -49,6 +49,7 @@ interface AccountData {
   displayLocation: string;
   locationLevel: string;
   offlineStores: string;
+  storeRawCount: number;
   businessModel: string | null;
   aiStoreCount: number;
   storeConfidence: { level?: string; score?: number } | null;
@@ -158,6 +159,12 @@ function detectPlatform(techs: Tech[]): string {
   if (names.some(n => n.includes('bigcommerce'))) return 'BigCommerce';
   if (names.some(n => n.includes('wordpress'))) return 'WordPress';
   return 'Custom';
+}
+
+function formatStores(band: string, rawCount?: number): string {
+  if (!band || band === 'Online' || band === 'Online Only' || band === 'Unknown') return band || 'Unknown';
+  if (rawCount && rawCount > 0) return `${band} (${rawCount} stores)`;
+  return band;
 }
 
 function computeConfidenceLabel(score: number): { label: string; color: string; bg: string } {
@@ -656,7 +663,7 @@ export default function AccountDetailPage() {
                     {[
                       { icon: <Building2 size={14}/>, label: 'Model', value: account.businessModel || 'Pure D2C' },
                       { icon: <Globe size={14}/>, label: 'Region', value: account.displayLocation || account.region || 'Global' },
-                      { icon: <Store size={14}/>, label: 'Stores', value: account.offlineStores === 'Unknown' ? '\u2014' : account.offlineStores },
+                      { icon: <Store size={14}/>, label: 'Stores', value: account.offlineStores === 'Unknown' ? '\u2014' : formatStores(account.offlineStores, account.storeRawCount) },
                       { icon: <Smartphone size={14}/>, label: 'Apps', value: account.appPresence === 'Both iOS & Android' ? 'iOS + Android' : account.appPresence },
                       { icon: <Users size={14}/>, label: 'Traffic', value: account.monthlyVisitsFormatted || '\u2014' },
                     ].map((item, i) => (
@@ -751,7 +758,7 @@ export default function AccountDetailPage() {
                         />
                         {account.offlineStores && account.offlineStores !== 'Unknown' && account.offlineStores !== 'Online' && (
                           <SignalCard active icon={<Store size={16}/>} color="blue"
-                            text={`${account.offlineStores} offline retail locations mapped across ${account.displayLocation || account.region}`} />
+                            text={`${formatStores(account.offlineStores, account.storeRawCount)} offline retail locations mapped across ${account.displayLocation || account.region}`} />
                         )}
                         {!techLoading && platform !== 'Custom' && (
                           <SignalCard active icon={<ShoppingCart size={16}/>} color="orange"
@@ -781,7 +788,7 @@ export default function AccountDetailPage() {
                           { label: 'Sub-category', value: account.subCategory !== 'General' ? account.subCategory : '\u2014' },
                           { label: 'Location', value: account.displayLocation || account.region || 'Global' },
                           { label: 'Business Model', value: account.businessModel || 'Pure D2C' },
-                          { label: 'Stores', value: account.offlineStores === 'Unknown' ? '\u2014' : account.offlineStores },
+                          { label: 'Stores', value: account.offlineStores === 'Unknown' ? '\u2014' : formatStores(account.offlineStores, account.storeRawCount) },
                           { label: 'Traffic', value: account.monthlyVisitsFormatted || '\u2014' },
                         ].map((row, i) => (
                           <div key={i} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-white/[0.02] rounded-lg transition-colors">

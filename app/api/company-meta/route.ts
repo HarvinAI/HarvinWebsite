@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
         subCategory: overrides.subCategory || doc.subCategory || null,
         region: overrides.region || doc.region || null,
         offlineStores: overrides.offlineStores || doc.offlineStores || null,
+        storeRawCount: doc.storeRawCount || 0,
         businessModel: doc.businessModel || null,
         appPresence: doc.appPresence || null,
         monthlyVisitsFormatted: doc.monthlyVisitsFormatted || null,

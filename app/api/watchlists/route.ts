@@ -108,13 +108,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ...wl, accounts, totalContacts });
   }
 
-  // List all watchlists with summary stats
-  const watchlists = await db.collection('watchlists').find({ userId }).toArray();
-  const enriched = watchlists.map((wl: Record<string, unknown>) => ({
+  // List all watchlists with summary stats (fast — no contact generation)
+  const watchlists = await db.collection('watchlists').find({ userId }).sort({ updatedAt: -1 }).toArray();
+  const list = watchlists.map((wl: Record<string, unknown>) => ({
     ...wl,
-    contactCount: ((wl.domains as string[]) || []).reduce((sum: number, d: string) => sum + generateContacts(d).length, 0),
+    contactCount: ((wl.domains as string[]) || []).length * 3, // Estimate ~3 contacts per domain (fast)
   }));
-  return NextResponse.json({ watchlists: enriched });
+  return NextResponse.json({ watchlists: list });
 }
 
 // POST /api/watchlists — create new watchlist OR add domain to existing
@@ -144,7 +144,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ watchlist: doc }, { status: 201 });
   }
 
-  // Add or remove domain from existing watchlist
+  // Bulk add domains to existing watchlist (single request instead of N)
+  if (body.id && body.domains && Array.isArray(body.domains)) {
+    const cleanDomains = (body.domains as string[]).map((d: string) =>
+      d.trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '')
+        .replace(/^(?:en|ar|fr|de|es|it|pt|ja|ko|zh|ru|hi|th|vi|m|mobile|shop|store|app|my|web|online|buy)[-_.]/i, '')
+        .replace(/\/.*$/, '')
+    ).filter(Boolean);
+    if (cleanDomains.length > 0) {
+      await col.updateOne(
+        { _id: body.id, userId },
+        { $addToSet: { domains: { $each: cleanDomains } }, $set: { updatedAt: new Date() } }
+      );
+    }
+    const updated = await col.findOne({ _id: body.id, userId });
+    return NextResponse.json({ ok: true, action: 'bulk_added', count: cleanDomains.length, watchlist: updated });
+  }
+
+  // Add or remove single domain from existing watchlist
   if (body.id && body.domain) {
     const domain = body.domain.trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').replace(/^(?:en|ar|fr|de|es|it|pt|ja|ko|zh|ru|hi|th|vi|m|mobile|shop|store|app|my|web|online|buy)[-_.]/i, '').replace(/\/.*$/, '');
 

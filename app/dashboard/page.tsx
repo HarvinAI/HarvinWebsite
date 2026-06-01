@@ -679,6 +679,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const [showBulkWlDropdown, setShowBulkWlDropdown] = useState(false);
   const [bulkNewWlName, setBulkNewWlName] = useState('');
   const [bulkAdding, setBulkAdding] = useState(false);
+  const [selectingAll, setSelectingAll] = useState(false);
   const bulkDropdownRef = useRef<HTMLDivElement>(null);
 
   /* ── Auth + admin gate + onboarding sync ──────────────────────────── */
@@ -1186,9 +1187,28 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
       return next;
     });
   };
-  const selectAll = () => {
-    if (selectedAccounts.size === accounts.length) setSelectedAccounts(new Set());
-    else setSelectedAccounts(new Set(accounts.map(a => a.normalizedDomain)));
+  // Select every account matching the current filters (across all pages), not just
+  // the accounts visible on the current page. Fetches the full domain list from the API.
+  const selectAll = async () => {
+    if (selectingAll) return;
+    // Already everything selected → deselect all
+    if (total > 0 && selectedAccounts.size >= total) { setSelectedAccounts(new Set()); return; }
+    setSelectingAll(true);
+    try {
+      const params = buildAccountsParams();
+      params.set('domainsOnly', '1');
+      const res = await fetch(`/api/accounts?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const domains: string[] = data.domains || [];
+      setSelectedAccounts(new Set(domains));
+    } catch (err) {
+      console.error('Failed to select all accounts', err);
+      // Fallback: select the current page so the action isn't a no-op
+      setSelectedAccounts(new Set(accounts.map(a => a.normalizedDomain)));
+    } finally {
+      setSelectingAll(false);
+    }
   };
   const clearSelection = () => setSelectedAccounts(new Set());
 
@@ -1261,8 +1281,9 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
     return () => { clearTimeout(timer); document.removeEventListener('click', handler); };
   }, [showSortMenu]);
 
-  // Clear selection when page/filters change
-  useEffect(() => { clearSelection(); }, [page, filters, debouncedSearch]);
+  // Clear selection when the filtered set changes (but NOT on page change — an
+  // overall "select all" selection persists while paging through results).
+  useEffect(() => { clearSelection(); }, [filters, debouncedSearch]);
 
   // Load watchlists for bulk-add dropdown when in account-explorer
   useEffect(() => {
@@ -2147,12 +2168,18 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             <div className="max-w-6xl mx-auto space-y-4">
               {/* Select all / selection actions bar */}
               <div className="flex items-center justify-between">
-                <button onClick={selectAll}
-                  className="flex items-center gap-2 text-[12px] font-medium text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors">
-                  {selectedAccounts.size === accounts.length && accounts.length > 0
+                <button onClick={selectAll} disabled={selectingAll}
+                  className="flex items-center gap-2 text-[12px] font-medium text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-200 transition-colors disabled:opacity-60">
+                  {total > 0 && selectedAccounts.size >= total
                     ? <CheckSquare size={16} className="text-[#C94C1E]" />
                     : <Square size={16} />}
-                  <span>{selectedAccounts.size === accounts.length && accounts.length > 0 ? 'Deselect all' : 'Select all'}</span>
+                  <span>
+                    {selectingAll
+                      ? 'Selecting…'
+                      : total > 0 && selectedAccounts.size >= total
+                        ? 'Deselect all'
+                        : `Select all${total > 0 ? ` ${total.toLocaleString()}` : ''}`}
+                  </span>
                 </button>
 
                 {selectedAccounts.size > 0 && (

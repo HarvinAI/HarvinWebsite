@@ -1,0 +1,68 @@
+# Local dev stack — production-equivalent Next.js + IAP tunnel to GCP MongoDB.
+#
+# Usage:
+#   ./scripts/dev-docker-up.sh   # fetches MONGO_APP_PASSWORD from Secret Manager,
+#                                 # then runs `docker compose up --build`
+#
+# Or set the var yourself and call docker compose directly:
+#   export MONGO_APP_PASSWORD=$(gcloud secrets versions access latest --secret=MONGO_APP_PASSWORD)
+#   docker compose up --build
+#
+# What this does:
+#   - iap-tunnel container holds the IAP tunnel mongo-a:27017 → iap-tunnel:27017
+#   - app container builds from ./Dockerfile (same image used in Cloud Run prod)
+#   - app reads most env from .env.local; MONGO_URI + NEXTAUTH_URL are overridden
+#     so they point at the sidecar tunnel (not localhost) and the docker port.
+
+services:
+  # ── Sidecar: holds the IAP tunnel to mongo-a:27017 ─────────────────────
+  iap-tunnel:
+    image: google/cloud-sdk:slim
+    container_name: harvinai-iap-tunnel
+    command: >
+      gcloud compute start-iap-tunnel mongo-a 27017
+        --zone=asia-south1-a
+        --project=harvin-496905
+        --local-host-port=0.0.0.0:27017
+    # Use host's gcloud auth. Read-write because gcloud refreshes tokens
+    # and writes logs/credentials.db. The container runs the same gcloud
+    # binary the host uses, so writes are benign.
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud
+    networks:
+      - harvinai-net
+    restart: unless-stopped
+    # Bash TCP-check on the listening port — works because cloud-sdk:slim has bash
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/27017'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  # ── Next.js app — same Dockerfile as Cloud Run prod ───────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: harvinai-web
+    depends_on:
+      iap-tunnel:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    # Most env vars come from .env.local (your existing local config).
+    # MONGO_URI + NEXTAUTH_URL are overridden below to suit the docker network.
+    env_file:
+      - .env.local
+    environment:
+      MONGO_URI: "mongodb://harvinai:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD: gcloud secrets versions access latest --secret=MONGO_APP_PASSWORD}@iap-tunnel:27017/harvinai?authSource=admin&directConnection=true"
+      NEXTAUTH_URL: "http://localhost:8080"
+      NODE_ENV: production
+    networks:
+      - harvinai-net
+    restart: unless-stopped
+
+networks:
+  harvinai-net:
+    driver: bridge

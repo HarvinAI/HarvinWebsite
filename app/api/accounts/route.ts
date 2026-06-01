@@ -224,6 +224,8 @@ export async function GET(req: NextRequest) {
   const search = sp.get('search')?.trim() || '';
   const sortBy = sp.get('sortBy') || 'updatedAt';
   const sortDir = sp.get('sortDir') === 'asc' ? 1 : -1;
+  // "Select all": return only the full list of matching domains (no enrichment/pagination)
+  const domainsOnly = sp.get('domainsOnly') === '1';
 
   // Apply label mappings
   const categories = mapValues(rawCategories, CATEGORY_MAP);
@@ -406,6 +408,19 @@ export async function GET(req: NextRequest) {
     const hasInferredFilters = sortByStores || businessModel.length > 0 || scaleRanges.length > 0 ||
       appPresence.length > 0 || activeSignals.length > 0 || funding.length > 0;
 
+    // Fast path for "Select all": when no inferred filters are active, the DB query
+    // is exact, so we can return every matching domain directly without enrichment.
+    if (domainsOnly && !hasInferredFilters) {
+      const docs = await col.find(query).project({ normalizedDomain: 1, _id: 0 }).toArray();
+      const seen = new Set<string>();
+      const domains: string[] = [];
+      for (const d of docs as { normalizedDomain?: string }[]) {
+        const nd = d.normalizedDomain;
+        if (nd && !seen.has(nd)) { seen.add(nd); domains.push(nd); }
+      }
+      return NextResponse.json({ domains, total: domains.length }, { headers: corsHeaders });
+    }
+
     const dbLimit = hasInferredFilters ? 0 : limit; // 0 = no limit (fetch all)
     const dbSkip = hasInferredFilters ? 0 : skip;
 
@@ -545,7 +560,7 @@ export async function GET(req: NextRequest) {
         displayLocation,
         locationLevel,
         offlineStores,
-        storeRawCount: rawCount,
+        storeRawCount: rawCount || aiCount || 0,
         aiStoreCount: a.aiStoreCount,
         techCount: techCountFinal,
         techStack: (a.techStack as string[] || []).length > 0 ? a.techStack : (techCacheMap[domain]?.names || []),
@@ -598,6 +613,15 @@ export async function GET(req: NextRequest) {
         const bVal = STORE_ORDER[b.offlineStores as string] || 0;
         return sortDir === -1 ? bVal - aVal : aVal - bVal;
       });
+    }
+
+    // "Select all" with inferred filters: the full matching set is already computed
+    // (and post-filtered) in allFiltered — return just the domains.
+    if (domainsOnly) {
+      return NextResponse.json({
+        domains: allFiltered.map((a: Record<string, unknown>) => a.normalizedDomain as string),
+        total: allFiltered.length,
+      }, { headers: corsHeaders });
     }
 
     // When post-filtering, apply pagination in JS
