@@ -4,6 +4,8 @@ export const maxDuration = 5;
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getDb } = require('@/lib/scan/db');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { lookupKnownBrand } = require('@/lib/scan/companyMeta');
 
 function normalizeDomain(raw: string): string {
   return raw
@@ -33,14 +35,16 @@ export async function GET(req: NextRequest) {
 
     // Check for overrides sub-document
     const overrides = doc.overrides || {};
+    // Known-brand data is authoritative (same precedence as the accounts/account APIs)
+    const knownBrand = lookupKnownBrand(normalizedDomain) || {};
 
     return NextResponse.json({
       found: true,
       data: {
-        category: overrides.category || doc.category || null,
-        subCategory: overrides.subCategory || doc.subCategory || null,
-        region: overrides.region || doc.region || null,
-        offlineStores: overrides.offlineStores || doc.offlineStores || null,
+        category: knownBrand.category || overrides.category || doc.category || null,
+        subCategory: knownBrand.subCategory || overrides.subCategory || doc.subCategory || null,
+        region: knownBrand.region || overrides.region || doc.region || null,
+        offlineStores: knownBrand.stores || overrides.offlineStores || doc.offlineStores || null,
         storeRawCount: doc.storeRawCount || 0,
         businessModel: doc.businessModel || null,
         appPresence: doc.appPresence || null,

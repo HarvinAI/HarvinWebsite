@@ -823,28 +823,45 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         .map(k => `${FILTER_LABELS[k]}: ${filters[k].join('|')}`);
       const filtersSummary = activeFilterPairs.length > 0 ? activeFilterPairs.join('; ') : 'None';
 
-      const PAGE_LIMIT = 100;
-      const baseParams = buildAccountsParams();
-      baseParams.set('limit', String(PAGE_LIMIT));
-      baseParams.set('page', '1');
+      // Larger batches + skip the per-request filter-option scans = far fewer, cheaper calls.
+      const PAGE_LIMIT = 500;
+      const CONCURRENCY = 6;
+      const exportParams = (p: number, withCount: boolean) => {
+        const pp = buildAccountsParams();
+        pp.set('limit', String(PAGE_LIMIT));
+        pp.set('page', String(p));
+        pp.set('skipFilterOptions', '1');
+        if (!withCount) pp.set('skipCount', '1');
+        return pp;
+      };
 
-      const firstRes = await fetch(`/api/accounts?${baseParams.toString()}`);
+      // First page carries the count so we know how many pages remain.
+      const firstRes = await fetch(`/api/accounts?${exportParams(1, true).toString()}`);
       if (!firstRes.ok) throw new Error(`HTTP ${firstRes.status}`);
       const firstData = await firstRes.json();
       if (firstData.error) throw new Error(firstData.error);
 
-      const allAccounts: Account[] = [...(firstData.accounts || [])];
       const totalPgs: number = firstData.totalPages || 1;
+      // Index 0 = page 1; remaining pages fetched in parallel and slotted in order.
+      const pageResults: Account[][] = new Array(totalPgs).fill(null).map(() => []);
+      pageResults[0] = firstData.accounts || [];
 
-      for (let p = 2; p <= totalPgs; p++) {
-        const pp = buildAccountsParams();
-        pp.set('limit', String(PAGE_LIMIT));
-        pp.set('page', String(p));
-        const r = await fetch(`/api/accounts?${pp.toString()}`);
-        if (!r.ok) continue;
-        const d = await r.json();
-        if (d.accounts) allAccounts.push(...d.accounts);
-      }
+      const remaining = Array.from({ length: totalPgs - 1 }, (_, i) => i + 2);
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < remaining.length) {
+          const p = remaining[cursor++];
+          try {
+            const r = await fetch(`/api/accounts?${exportParams(p, false).toString()}`);
+            if (!r.ok) continue;
+            const d = await r.json();
+            if (d.accounts) pageResults[p - 1] = d.accounts;
+          } catch { /* skip failed page */ }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, remaining.length) }, worker));
+
+      const allAccounts: Account[] = pageResults.flat();
 
       const esc = (v: unknown) => {
         const s = v == null ? '' : String(v);

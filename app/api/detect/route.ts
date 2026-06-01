@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 const { scanSingleUrl } = require('@/lib/scan/scan');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getDb } = require('@/lib/scan/db');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { lookupKnownBrand } = require('@/lib/scan/companyMeta');
 
 export const maxDuration = 120;
 
@@ -340,8 +342,19 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
     } catch { /* non-critical — skip if DB unavailable */ }
 
     // D2C vs Non-D2C determination
-    // Priority: DB validation > DB category > scan result category
+    // Priority: KNOWN_BRANDS (authoritative) > DB validation > DB category > scan result category
     if (result.companyMeta) {
+      // Known brands are curated truth — they override any stale DB classification
+      // (e.g. Canon misread as "News & Media") and are never treated as Non-D2C here.
+      const knownBrand = lookupKnownBrand(domain);
+      if (knownBrand?.category) {
+        result.companyMeta.category = knownBrand.category;
+        result.companyMeta.subCategory = knownBrand.subCategory || result.companyMeta.subCategory || 'General';
+        result.companyMeta.isNonD2C = false;
+        delete result.companyMeta.nonD2CReason;
+        return NextResponse.json(result, { headers: corsHeaders });
+      }
+
       const NON_D2C_CATS = new Set([
         'SaaS & B2B', 'Professional Services', 'Manufacturing', 'Wholesale & Distribution',
         'Cloud & DevTools', 'Data Center & Infrastructure', 'Web Hosting & Domains',

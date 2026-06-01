@@ -206,7 +206,9 @@ export async function GET(req: NextRequest) {
 
   // Pagination
   const page = Math.max(1, parseInt(sp.get('page') || '1', 10));
-  const limit = Math.min(100, Math.max(1, parseInt(sp.get('limit') || '20', 10)));
+  // Cap at 100 for normal browsing; allow larger batches for bulk export only.
+  const limitCap = sp.get('skipFilterOptions') === '1' ? 1000 : 100;
+  const limit = Math.min(limitCap, Math.max(1, parseInt(sp.get('limit') || '20', 10)));
   const skip = (page - 1) * limit;
 
   // Filters (comma-separated)
@@ -226,6 +228,10 @@ export async function GET(req: NextRequest) {
   const sortDir = sp.get('sortDir') === 'asc' ? 1 : -1;
   // "Select all": return only the full list of matching domains (no enrichment/pagination)
   const domainsOnly = sp.get('domainsOnly') === '1';
+  // Export fast-paths: the filter-option dropdowns require 3 full-collection distinct()
+  // scans, and the count is only needed once. Bulk export skips both so each page is cheap.
+  const skipFilterOptions = sp.get('skipFilterOptions') === '1';
+  const skipCount = sp.get('skipCount') === '1';
 
   // Apply label mappings
   const categories = mapValues(rawCategories, CATEGORY_MAP);
@@ -463,7 +469,7 @@ export async function GET(req: NextRequest) {
 
     const [rawAccounts, dbTotal] = await Promise.all([
       findCursor.toArray(),
-      col.countDocuments(query),
+      skipCount ? Promise.resolve(0) : col.countDocuments(query),
     ]);
 
     // Deduplicate by normalizedDomain (keep first/most recent occurrence)
@@ -627,6 +633,16 @@ export async function GET(req: NextRequest) {
     // When post-filtering, apply pagination in JS
     const finalTotal = hasInferredFilters ? allFiltered.length : dbTotal;
     const filtered = hasInferredFilters ? allFiltered.slice(skip, skip + limit) : allFiltered;
+
+    // Bulk export: skip the expensive filter-option distinct() scans entirely.
+    if (skipFilterOptions) {
+      return NextResponse.json({
+        accounts: filtered,
+        total: finalTotal,
+        page,
+        totalPages: skipCount ? page : Math.ceil(finalTotal / limit),
+      }, { headers: corsHeaders });
+    }
 
     // Get distinct values for filter options
     const [allCategories, allRegions, allTechNames] = await Promise.all([
