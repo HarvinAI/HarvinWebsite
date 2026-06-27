@@ -40,17 +40,26 @@ services:
       retries: 30
       start_period: 10s
 
-  # ── Next.js app — same Dockerfile as Cloud Run prod ───────────────────
+  # ── Next.js app — hot-reloading `next dev` (NOT the prod Dockerfile) ───
+  # Source is bind-mounted so edits reload instantly; rebuild is only needed
+  # when package-lock.json changes. Cloud Run prod still uses ./Dockerfile.
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: harvinai-web
     depends_on:
       iap-tunnel:
         condition: service_healthy
     ports:
       - "8080:8080"
+    volumes:
+      # Bind-mount the repo for hot-reload…
+      - .:/app
+      # …but keep the container's Linux-native deps + build cache (anonymous
+      # volumes shadow the bind mount so the host's macOS modules don't leak in).
+      - /app/node_modules
+      - /app/.next
     # Most env vars come from .env.local (your existing local config).
     # MONGO_URI + NEXTAUTH_URL are overridden below to suit the docker network.
     env_file:
@@ -58,7 +67,11 @@ services:
     environment:
       MONGO_URI: "mongodb://harvinai:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD: gcloud secrets versions access latest --secret=MONGO_APP_PASSWORD}@iap-tunnel:27017/harvinai?authSource=admin&directConnection=true"
       NEXTAUTH_URL: "http://localhost:8080"
-      NODE_ENV: production
+      NODE_ENV: development
+      # Bind mounts on macOS don't emit native FS events — poll so the watcher
+      # picks up edits reliably.
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     networks:
       - harvinai-net
     restart: unless-stopped

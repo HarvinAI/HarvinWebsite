@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1.7
+#
+# Dev Dockerfile — hot-reloading `next dev` for local docker-compose.
+# NOT used for production (Cloud Run uses ./Dockerfile via cloudbuild.yaml).
+#
+# Source is bind-mounted over /app at runtime (see docker-compose.yml) so code
+# edits hot-reload without a rebuild. node_modules is baked into the image here
+# and shadowed by an anonymous volume so the host's macOS-compiled modules never
+# clobber the container's Linux-native ones (puppeteer / @sparticuz/chromium).
+
+FROM node:24-bookworm-slim
+WORKDIR /app
+
+# Headless Chromium runtime deps (puppeteer + @sparticuz/chromium) — same set as
+# the prod runtime stage, otherwise the scanner crashes on launch.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates fonts-liberation libnss3 libatk-bridge2.0-0 libxkbcommon0 \
+      libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 \
+      libasound2 libdrm2 libxshmfence1 libxss1 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NODE_ENV=development
+
+# Install deps inside the image (Linux-native). Only re-runs when the lockfile
+# changes, since the source is bind-mounted at runtime.
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+# Seed source so the image is runnable standalone; the bind mount overlays it.
+COPY . .
+
+EXPOSE 8080
+# -H 0.0.0.0 so the port is reachable from the host; -p 8080 to match the extension.
+CMD ["npm", "run", "dev", "--", "-p", "8080", "-H", "0.0.0.0"]
