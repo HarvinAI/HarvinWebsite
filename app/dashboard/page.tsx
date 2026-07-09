@@ -602,7 +602,7 @@ function DashboardInner() {
   const { data: session, status } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
-  const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'rahul@harvin.ai,admin@harvin.ai,bharath@thyleads.com').split(',').map(e => e.trim().toLowerCase());
+  const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'rahul@harvin.ai,admin@harvin.ai,bharath@thyleads.com,mridul@thyleads.com,naman@thyleads.com').split(',').map(e => e.trim().toLowerCase());
   const isAdmin = session?.user?.email && adminEmails.includes(session.user.email.toLowerCase());
 
   // Global toast

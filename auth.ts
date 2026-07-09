@@ -4,7 +4,28 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { getAuthDb } from '@/lib/auth-db';
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '').toLowerCase().split(',').map(e => e.trim()).filter(Boolean);
+// In production, force the canonical site URL when the deployed NEXTAUTH_URL is
+// missing or still points at localhost. Otherwise NextAuth builds post-login
+// redirects (and the Google OAuth callback) against localhost, sending signed-in
+// users to http://localhost:3000.
+if (process.env.NODE_ENV === 'production' &&
+    (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.includes('localhost'))) {
+  process.env.NEXTAUTH_URL = 'https://www.harvin.ai';
+}
+
+// Platform admins — only these emails can access the dashboard. This hardcoded
+// list is the source of truth; ADMIN_EMAILS / ADMIN_EMAIL env values are merged in.
+const DEFAULT_ADMIN_EMAILS = [
+  'rahul@harvin.ai',
+  'admin@harvin.ai',
+  'bharath@thyleads.com',
+  'mridul@thyleads.com',
+  'naman@thyleads.com',
+];
+export const ADMIN_EMAILS = Array.from(new Set([
+  ...DEFAULT_ADMIN_EMAILS,
+  ...(process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '').split(','),
+].map(e => e.trim().toLowerCase()).filter(Boolean)));
 
 export const authOptions = {
   providers: [
