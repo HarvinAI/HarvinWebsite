@@ -154,3 +154,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid action. Use: hide, unhide, approve, reject, update, delete' }, { status: 400, headers: corsHeaders });
   }
 }
+
+// DELETE /api/admin/accounts — bulk delete accounts by domain
+export async function DELETE(req: NextRequest) {
+  if (!(await isAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 403, headers: corsHeaders });
+
+  let domains: string[] = [];
+  try {
+    const body = await req.json();
+    domains = Array.isArray(body?.domains)
+      ? body.domains.filter((d: unknown): d is string => typeof d === 'string' && d.length > 0)
+      : [];
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: corsHeaders });
+  }
+
+  if (domains.length === 0) {
+    return NextResponse.json({ error: 'domains array required' }, { status: 400, headers: corsHeaders });
+  }
+
+  const db = await getDb();
+  const col = db.collection('company_meta');
+  const result = await col.deleteMany({ normalizedDomain: { $in: domains } });
+
+  return NextResponse.json(
+    { ok: true, action: 'bulk_deleted', deleted: result.deletedCount || 0, requested: domains.length },
+    { headers: corsHeaders },
+  );
+}

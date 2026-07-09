@@ -61,7 +61,7 @@ type FilterOptions = { categories: string[]; regions: string[]; states: string[]
 type WatchlistContact = { name: string; email: string; title: string; department: string };
 type Watchlist = { _id: string; name: string; domains: string[]; contactCount?: number; createdAt: string; updatedAt: string };
 type WatchlistAccount = { normalizedDomain: string; category: string; subCategory: string; region: string; state: string; offlineStores: string; businessModel: string; monthlyVisitsFormatted: string; appPresence: string; techCount: number; harvinScore: number; brandName: string; updatedAt: string; contacts: WatchlistContact[] };
-type SidebarTab = 'market-intelligence' | 'my-universe' | 'account-explorer' | 'tech-scanner' | 'lookalike-brands' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations' | 'admin-accounts' | 'brand-name-extractor';
+type SidebarTab = 'market-intelligence' | 'my-universe' | 'account-explorer' | 'tech-scanner' | 'category-finder' | 'lookalike-brands' | 'my-watchlists' | 'recently-funded' | 'competitor-clients' | 'current-clients' | 'icp-preferences' | 'integrations' | 'admin-accounts' | 'brand-name-extractor';
 type UniverseStatus = 'all' | 'in-conversation' | 'active-client' | 'churned-client';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
@@ -80,6 +80,7 @@ const TAB_TITLES: Record<SidebarTab, string> = {
   'my-universe': 'My Universe',
   'account-explorer': 'Account Explorer',
   'tech-scanner': 'Tech Scanner',
+  'category-finder': 'Category Finder',
   'lookalike-brands': 'LookALike Brands',
   'my-watchlists': 'My Watchlists',
   'recently-funded': 'Market News',
@@ -1344,6 +1345,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
   const isWatchlistTab = activeTab === 'my-watchlists';
   const isMarketIntelTab = activeTab === 'market-intelligence';
   const isTechScannerTab = activeTab === 'tech-scanner';
+  const isCategoryFinderTab = activeTab === 'category-finder';
   const isLookalikeTab = activeTab === 'lookalike-brands';
 
 
@@ -1378,6 +1380,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
               <div className="space-y-0.5">
                 <NavBtn icon={<Search size={18} />} label="Account Explorer" active={activeTab === 'account-explorer'} onClick={() => setActiveTab('account-explorer')} />
                 <span data-tour="tech-scanner"><NavBtn icon={<Radar size={18} />} label="Tech Scanner" active={activeTab === 'tech-scanner'} onClick={() => setActiveTab('tech-scanner')} /></span>
+                <NavBtn icon={<Layers size={18} />} label="Category Finder" active={activeTab === 'category-finder'} onClick={() => setActiveTab('category-finder')} />
                 <NavBtn icon={<Target size={18} />} label="LookALike" active={activeTab === 'lookalike-brands'} onClick={() => setActiveTab('lookalike-brands')} />
               </div>
             </div>
@@ -1623,11 +1626,11 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
             <h1 className="text-[18px] font-bold text-slate-800 dark:text-white">{TAB_TITLES[activeTab]}</h1>
             {activeTab === 'account-explorer' && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{total} results</span>}
             {activeTab === 'my-universe' && universeAccounts.length > 0 && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{universeAccounts.length} brands</span>}
-            {activeTab !== 'account-explorer' && activeTab !== 'my-universe' && !isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{total} results</span>}
+            {activeTab !== 'account-explorer' && activeTab !== 'my-universe' && !isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isCategoryFinderTab && !isLookalikeTab && !isRecentlyFundedTab && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{total} results</span>}
             {isWatchlistTab && activeWatchlist && <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">{activeWatchlist.domains?.length || 0} accounts</span>}
           </div>
 
-          {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && !isAdminTab && !isWatchlistTab && activeTab !== 'my-universe' && (
+          {!isSettingsTab && !isComingSoonTab && !isMarketIntelTab && !isTechScannerTab && !isCategoryFinderTab && !isLookalikeTab && !isRecentlyFundedTab && !isAdminTab && !isWatchlistTab && activeTab !== 'my-universe' && (
             <div className="flex items-center gap-2" data-tour="sort-export">
               {/* Sort */}
               <div className="relative">
@@ -1696,7 +1699,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         </header>
 
         {/* Active filter chips */}
-        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && activeCount > 0 && (
+        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isCategoryFinderTab && activeCount > 0 && (
           <div className="bg-white dark:bg-[#141414] border-b border-slate-200 dark:border-white/[0.12] px-8 py-2.5 flex items-center gap-3 overflow-x-auto custom-scrollbar">
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <Filter size={12} className="text-slate-400 dark:text-neutral-500" />
@@ -1741,6 +1744,9 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
           ) : isLookalikeTab ? (
             /* ── LookALike Brands ────────────────────────────────── */
             <LookALikeBrandsView initialDomain={initialLookalikeDomain} />
+          ) : isCategoryFinderTab ? (
+            /* ── Category Finder ─────────────────────────────────── */
+            <CategoryFinderView />
           ) : isTechScannerTab ? (
             /* ── Tech Scanner ────────────────────────────────────── */
             <TechScannerView initialDomain={initialScanDomain} />
@@ -2401,7 +2407,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
         </div>
 
         {/* Footer */}
-        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isLookalikeTab && !isRecentlyFundedTab && !isAdminTab && activeTab !== 'my-universe' && (
+        {!isSettingsTab && !isComingSoonTab && !isWatchlistTab && !isMarketIntelTab && !isTechScannerTab && !isCategoryFinderTab && !isLookalikeTab && !isRecentlyFundedTab && !isAdminTab && activeTab !== 'my-universe' && (
           <footer className="h-[52px] border-t border-slate-200 dark:border-white/[0.12] bg-white dark:bg-[#141414] px-6 flex items-center justify-between flex-shrink-0">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
               className="h-8 px-4 rounded-full text-[11px] font-semibold bg-[#C94C1E]/10 dark:bg-[#C94C1E]/15 text-[#C94C1E] dark:text-[#e8754d] hover:bg-[#C94C1E]/20 dark:hover:bg-[#C94C1E]/25 transition-colors disabled:opacity-30 disabled:hover:bg-[#C94C1E]/10 flex items-center gap-1">
@@ -3522,6 +3528,241 @@ function LookALikeBrandsView({ initialDomain = '' }: { initialDomain?: string })
   );
 }
 
+/* ── Category Finder View (bulk) ───────────────────────────────────────── */
+/* Paste many domains → detect each one's category & sub-category using the SAME
+ * engine as the extension (the /api/detect endpoint → scanSingleUrl → companyMeta).
+ * Runs a small client-side concurrency pool; the detect route caps at 5 in-flight. */
+type FinderRow = {
+  domain: string;
+  status: 'pending' | 'loading' | 'done' | 'error';
+  category?: string; subCategory?: string; region?: string;
+  businessModel?: string; categoryConfidence?: string; isNonD2C?: boolean; error?: string;
+};
+
+const MAX_BULK_DOMAINS = 200;
+const BULK_CONCURRENCY = 4;
+
+function parseBulkDomains(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const tok of text.split(/[\s,;]+/)) {
+    const d = tok.trim().toLowerCase()
+      .replace(/^https?:\/\//, '').replace(/^www\d*\./, '').replace(/\/.*$/, '').trim();
+    if (d && d.includes('.') && !seen.has(d)) { seen.add(d); out.push(d); }
+  }
+  return out;
+}
+
+function csvCell(v: unknown): string {
+  const s = String(v ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function CategoryFinderView() {
+  const [input, setInput] = useState('');
+  const [rows, setRows] = useState<FinderRow[]>([]);
+  const [running, setRunning] = useState(false);
+  const [note, setNote] = useState('');
+  const cancelRef = useRef(false);
+
+  const parsedCount = parseBulkDomains(input).length;
+  const doneCount = rows.filter(r => r.status === 'done' || r.status === 'error').length;
+  const total = rows.length;
+  const pct = total ? Math.round((doneCount / total) * 100) : 0;
+
+  const runBulk = async (domains: string[]) => {
+    cancelRef.current = false;
+    setRunning(true);
+    let cursor = 0;
+    const worker = async () => {
+      while (!cancelRef.current) {
+        const i = cursor++;
+        if (i >= domains.length) return;
+        setRows(prev => { const n = [...prev]; n[i] = { ...n[i], status: 'loading' }; return n; });
+        try {
+          // Same endpoint the extension calls (GET path — server fetches the page).
+          // Per-request timeout so one pathologically slow domain can't stall the batch.
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 75000);
+          let res: Response;
+          try { res = await fetch(`/api/detect?url=${encodeURIComponent(domains[i])}`, { signal: ctrl.signal }); }
+          finally { clearTimeout(timer); }
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Detection failed');
+          const m = data.companyMeta || {};
+          setRows(prev => { const n = [...prev]; n[i] = {
+            domain: domains[i], status: 'done',
+            category: m.category || 'Unknown', subCategory: m.subCategory || 'General',
+            region: m.region || 'Global', businessModel: m.businessModel || '—',
+            categoryConfidence: m.categoryConfidence || '', isNonD2C: !!m.isNonD2C,
+          }; return n; });
+        } catch (e) {
+          const msg = (e as Error)?.name === 'AbortError' ? 'Timed out (site too slow to fetch)' : ((e as Error)?.message || 'Failed');
+          setRows(prev => { const n = [...prev]; n[i] = {
+            domain: domains[i], status: 'error', error: msg,
+          }; return n; });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: BULK_CONCURRENCY }, worker));
+    setRunning(false);
+  };
+
+  const start = () => {
+    const domains = parseBulkDomains(input);
+    if (!domains.length) { setNote('Paste at least one valid domain (one per line).'); return; }
+    const capped = domains.slice(0, MAX_BULK_DOMAINS);
+    setNote(domains.length > MAX_BULK_DOMAINS ? `Processing the first ${MAX_BULK_DOMAINS} of ${domains.length} domains.` : '');
+    setRows(capped.map(d => ({ domain: d, status: 'pending' as const })));
+    runBulk(capped);
+  };
+
+  const stop = () => { cancelRef.current = true; setRunning(false); };
+  const reset = () => { cancelRef.current = true; setRows([]); setNote(''); };
+
+  const exportCsv = () => {
+    const header = ['Domain', 'Category', 'Sub-Category', 'Region', 'Business Model', 'Confidence', 'Status'];
+    const lines = [header.join(',')];
+    for (const r of rows) lines.push([r.domain, r.category, r.subCategory, r.region, r.businessModel, r.categoryConfidence, r.status].map(csvCell).join(','));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `categories-${rows.length}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyTsv = async () => {
+    const lines = [['Domain', 'Category', 'Sub-Category', 'Region', 'Business Model'].join('\t')];
+    for (const r of rows) if (r.status === 'done') lines.push([r.domain, r.category, r.subCategory, r.region, r.businessModel].join('\t'));
+    try { await navigator.clipboard.writeText(lines.join('\n')); setNote('Copied to clipboard.'); }
+    catch { setNote('Copy failed — your browser blocked clipboard access.'); }
+  };
+
+  const confColor = (c?: string) => c === 'high' ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10'
+    : c === 'medium' ? 'text-amber-600 bg-amber-50 dark:bg-amber-500/10'
+    : 'text-slate-500 bg-slate-100 dark:bg-white/[0.06]';
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-5">
+      {/* Intro */}
+      <div className="flex items-center gap-3">
+        <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-orange-50 dark:bg-[#C94C1E]/10 flex-shrink-0">
+          <Layers size={22} className="text-[#C94C1E]" />
+        </div>
+        <div>
+          <h2 className="text-[18px] font-bold text-slate-800 dark:text-white">Category Finder — Bulk</h2>
+          <p className="text-[12.5px] text-slate-400 dark:text-neutral-500">Paste domains (one per line). Same engine as the extension.</p>
+        </div>
+      </div>
+
+      {/* Input */}
+      {total === 0 || !running ? (
+        <div className="space-y-3">
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder={"allbirds.com\ngymshark.com\nhttps://www.curology.com\n…"}
+            rows={7}
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[13px] leading-relaxed font-mono text-slate-800 dark:text-white placeholder-slate-400 outline-none focus:border-[#C94C1E] transition-all resize-y"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={start}
+              disabled={running || parsedCount === 0}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13.5px] font-semibold text-white bg-[#C94C1E] hover:bg-[#E56B2C] disabled:opacity-50 transition-colors"
+            >
+              <Search size={15} /> Find Categories{parsedCount > 0 ? ` (${parsedCount})` : ''}
+            </button>
+            {total > 0 && (
+              <button onClick={reset} className="px-3 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">Clear</button>
+            )}
+            <span className="text-[11.5px] text-slate-400 dark:text-neutral-500">Up to {MAX_BULK_DOMAINS} at a time · duplicates removed</span>
+          </div>
+        </div>
+      ) : null}
+
+      {note && <div className="text-[12px] text-slate-500 dark:text-neutral-400 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] rounded-lg px-3 py-2">{note}</div>}
+
+      {/* Progress + actions */}
+      {total > 0 && (
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center justify-between text-[12px] mb-1.5">
+              <span className="font-semibold text-slate-600 dark:text-neutral-300">{doneCount} / {total} done{running ? '…' : ''}</span>
+              <span className="text-slate-400 dark:text-neutral-500">{pct}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
+              <div className="h-full bg-[#C94C1E] transition-all duration-300" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {running ? (
+              <button onClick={stop} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold text-red-600 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 transition-colors"><X size={13} /> Stop</button>
+            ) : (
+              <>
+                <button onClick={copyTsv} disabled={doneCount === 0} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-slate-600 dark:text-neutral-300 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.04] disabled:opacity-40 transition-colors"><ClipboardList size={13} /> Copy</button>
+                <button onClick={exportCsv} disabled={doneCount === 0} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold text-white bg-[#C94C1E] hover:bg-[#E56B2C] disabled:opacity-40 transition-colors"><Download size={13} /> Export CSV</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Results table */}
+      {total > 0 && (
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/70 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/[0.08]">
+                  {['#', 'Domain', 'Category', 'Sub-Category', 'Region', 'Business Model', ''].map((h, i) => (
+                    <th key={i} className="px-4 py-2.5 text-[10.5px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.domain} className="border-b border-slate-100 dark:border-white/[0.04] hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-2.5 text-[12px] text-slate-400 dark:text-neutral-600 tabular-nums">{i + 1}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={`https://www.google.com/s2/favicons?domain=${r.domain}&sz=64`} alt="" className="w-5 h-5 rounded border border-slate-200 dark:border-white/[0.08] bg-white flex-shrink-0" />
+                        <span className="text-[12.5px] font-semibold text-slate-800 dark:text-white truncate max-w-[180px]">{r.domain}</span>
+                      </div>
+                    </td>
+                    {r.status === 'done' ? (
+                      <>
+                        <td className="px-4 py-2.5">
+                          <span className="text-[12.5px] font-semibold text-slate-700 dark:text-neutral-200">{r.isNonD2C ? 'Non-D2C' : r.category}</span>
+                          {r.categoryConfidence && <span className={`ml-1.5 text-[9px] font-bold uppercase px-1 py-0.5 rounded ${confColor(r.categoryConfidence)}`}>{r.categoryConfidence}</span>}
+                        </td>
+                        <td className="px-4 py-2.5 text-[12.5px] text-slate-600 dark:text-neutral-300">{r.isNonD2C ? '—' : r.subCategory}</td>
+                        <td className="px-4 py-2.5 text-[12.5px] text-slate-600 dark:text-neutral-300">{r.region}</td>
+                        <td className="px-4 py-2.5 text-[12.5px] text-slate-600 dark:text-neutral-300">{r.businessModel}</td>
+                        <td className="px-4 py-2.5"><Check size={14} className="text-emerald-500" /></td>
+                      </>
+                    ) : r.status === 'error' ? (
+                      <>
+                        <td colSpan={4} className="px-4 py-2.5 text-[12px] text-red-500" title={r.error}>Couldn&apos;t analyze — {r.error}</td>
+                        <td className="px-4 py-2.5"><AlertCircle size={14} className="text-red-500" /></td>
+                      </>
+                    ) : r.status === 'loading' ? (
+                      <td colSpan={5} className="px-4 py-2.5 text-[12px] text-slate-400"><span className="inline-flex items-center gap-1.5"><Loader2 size={13} className="animate-spin" /> Analyzing…</span></td>
+                    ) : (
+                      <td colSpan={5} className="px-4 py-2.5 text-[12px] text-slate-300 dark:text-neutral-600">Queued</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Admin Accounts View ───────────────────────────────────────────────── */
 function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'success' | 'error') => void }) {
   const [accounts, setAccounts] = useState<{normalizedDomain: string; category: string; subCategory: string; region: string; monthlyVisitsFormatted: string | null; adminHidden: boolean; adminApproved: boolean; adminNote: string; updatedAt: string}[]>([]);
@@ -3531,6 +3772,9 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  // Multi-select + bulk delete
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
@@ -3546,6 +3790,45 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
   }, [search, statusFilter, page]);
 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+  // Reset selection whenever the visible page/filter/search changes
+  useEffect(() => { setSelected(new Set()); }, [page, statusFilter, search]);
+
+  const pageDomains = accounts.map(a => a.normalizedDomain);
+  const allOnPageSelected = pageDomains.length > 0 && pageDomains.every(d => selected.has(d));
+  const toggleOne = (domain: string) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(domain)) next.delete(domain); else next.add(domain);
+    return next;
+  });
+  const toggleSelectAllOnPage = () => setSelected(prev => {
+    const next = new Set(prev);
+    if (pageDomains.every(d => next.has(d))) pageDomains.forEach(d => next.delete(d));
+    else pageDomains.forEach(d => next.add(d));
+    return next;
+  });
+  const clearSelection = () => setSelected(new Set());
+
+  const bulkDelete = async () => {
+    if (selected.size === 0 || deleting) return;
+    const n = selected.size;
+    if (!confirm(`Delete ${n} account${n > 1 ? 's' : ''} permanently? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domains: Array.from(selected) }),
+      });
+      if (!res.ok) { showToast('Bulk delete failed', 'error'); setDeleting(false); return; }
+      const data = await res.json();
+      showToast(`Deleted ${data.deleted} account${data.deleted !== 1 ? 's' : ''}`, 'success');
+      setSelected(new Set());
+      fetchAccounts();
+    } catch {
+      showToast('Bulk delete failed', 'error');
+    }
+    setDeleting(false);
+  };
 
   const doAction = async (domain: string, action: string, extra?: Record<string, string>) => {
     try {
@@ -3604,7 +3887,35 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
       {/* Account list */}
       <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-2xl overflow-hidden">
         <div className="px-6 py-3 border-b border-slate-200 dark:border-white/[0.12] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.01]">
-          <span className="text-[12px] font-bold text-slate-500 dark:text-neutral-400">{total} accounts</span>
+          <div className="flex items-center gap-3">
+            {/* Select-all-on-page checkbox */}
+            <button
+              onClick={toggleSelectAllOnPage}
+              disabled={accounts.length === 0}
+              title={allOnPageSelected ? 'Deselect all on this page' : 'Select all on this page'}
+              className="flex-shrink-0 disabled:opacity-40"
+            >
+              <span className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${allOnPageSelected ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.15]'}`}>
+                {allOnPageSelected && <Check size={10} className="text-white stroke-[3]" />}
+              </span>
+            </button>
+            {selected.size > 0 ? (
+              <>
+                <span className="text-[12px] font-bold text-[#C94C1E]">{selected.size} selected</span>
+                <button onClick={clearSelection} className="text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-neutral-300 transition-colors">Clear</button>
+                <button
+                  onClick={bulkDelete}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors"
+                >
+                  {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                  Delete selected
+                </button>
+              </>
+            ) : (
+              <span className="text-[12px] font-bold text-slate-500 dark:text-neutral-400">{total} accounts</span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 text-[11px] rounded border border-slate-200 dark:border-white/[0.08] disabled:opacity-30">Prev</button>
             <span className="text-[11px] text-slate-400">Page {page}</span>
@@ -3623,7 +3934,17 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
             {accounts.map(a => (
-              <div key={a.normalizedDomain} className="flex items-center gap-4 px-6 py-3 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+              <div key={a.normalizedDomain} className={`flex items-center gap-4 px-6 py-3 transition-colors ${selected.has(a.normalizedDomain) ? 'bg-[#C94C1E]/[0.04] dark:bg-[#C94C1E]/[0.06]' : 'hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'}`}>
+                {/* Row select checkbox */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleOne(a.normalizedDomain); }}
+                  title="Select account"
+                  className="flex-shrink-0"
+                >
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selected.has(a.normalizedDomain) ? 'bg-[#C94C1E] border-[#C94C1E]' : 'border-slate-300 dark:border-white/[0.15]'}`}>
+                    {selected.has(a.normalizedDomain) && <Check size={10} className="text-white stroke-[3]" />}
+                  </span>
+                </button>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`https://www.google.com/s2/favicons?domain=${a.normalizedDomain}&sz=64`} alt="" className="w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.08] flex-shrink-0 bg-white p-0.5" />
                 <div className="flex-1 min-w-0">

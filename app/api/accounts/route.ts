@@ -118,17 +118,11 @@ function mapValues(values: string[], mapping: Record<string, string>): string[] 
   return values.map(v => mapping[v] || v);
 }
 
-/* Deterministic hash for a domain — must match dashboard's domainHash exactly */
-function domainHash(d: string): number {
-  let h = 0;
-  for (let i = 0; i < d.length; i++) h = ((h << 5) - h + d.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-const DEMO_BIZ = ['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'];
-
-function inferBusinessModel(domain: string): string {
-  return DEMO_BIZ[domainHash(domain) % DEMO_BIZ.length];
+/* Deterministic business-model fallback derived from real store data
+ * (previously a random domainHash pick, which was incorrect). */
+function inferBusinessModel(offlineStores: string | null | undefined): string {
+  const hasPhysicalStores = !!offlineStores && !['Online', 'Online Only', 'Unknown', ''].includes(offlineStores);
+  return hasPhysicalStores ? 'Omnichannel' : 'Pure D2C';
 }
 
 /* Signal type → display label mapping */
@@ -551,7 +545,7 @@ export async function GET(req: NextRequest) {
 
       const techCountFinal = (a.techCount as number) || (a.techStack as string[] || []).length || techCacheMap[domain]?.count || 0;
       const app = (knownBrand?.appPresence as string) || (a.appPresence as string) || 'No App';
-      const bm = (a.businessModel as string) || inferBusinessModel(domain);
+      const bm = (a.businessModel as string) || inferBusinessModel(offlineStores);
 
       // Use DB-stored harvinScore for consistency across all pages
       const harvinScore = (a as Record<string, unknown>).harvinScore as number || 0;

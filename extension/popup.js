@@ -1,9 +1,34 @@
 // ── Config ───────────────────────────────────────────────────────────────
-// Auto-detect: use localhost for development (unpacked extension), production
-// URL for published extension. Dev uses port 8080 to match docker-compose.yml;
-// if you'd rather use `npm run dev`, change to 3000 here.
+// Published (packed) extension → production. Unpacked (dev) extension → a
+// local server. We don't hardcode one dev port: `npm run dev` serves on 3000
+// while the docker-compose stack serves on 8080, so probe both and use
+// whichever is actually up (preferring 3000, the hot-reload dev server).
 const IS_DEV = !('update_url' in chrome.runtime.getManifest());
-const API_BASE = IS_DEV ? 'http://localhost:8080' : 'https://www.harvin.ai';
+const PROD_API_BASE = 'https://www.harvin.ai';
+const DEV_API_CANDIDATES = ['http://localhost:3000', 'http://localhost:8080'];
+let API_BASE = IS_DEV ? DEV_API_CANDIDATES[0] : PROD_API_BASE;
+let _apiBaseResolved = IS_DEV ? null : PROD_API_BASE;
+
+// Resolve (once per popup) which local server is reachable. `/api/healthz`
+// returns 200 when healthy and 503 when up-but-DB-down — both mean "server is
+// there", so we accept either.
+async function resolveApiBase() {
+  if (_apiBaseResolved) return _apiBaseResolved;
+  for (const base of DEV_API_CANDIDATES) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 2500);
+      const res = await fetch(base + '/api/healthz', { signal: ctrl.signal });
+      clearTimeout(t);
+      if (res.ok || res.status === 503) { API_BASE = base; _apiBaseResolved = base; return base; }
+    } catch { /* try next candidate */ }
+  }
+  // Nothing responded — fall back to the first candidate so the error surfaced
+  // to the user points at a concrete address.
+  API_BASE = DEV_API_CANDIDATES[0];
+  _apiBaseResolved = API_BASE;
+  return API_BASE;
+}
 
 // Category colors
 const CATEGORY_COLORS = {
@@ -629,6 +654,13 @@ const ICON_DOMAINS = {
   'styled-components': 'styled-components.com',
   'trpc': 'trpc.io',
   'unpkg': 'unpkg.com',
+  // ── Real-world gaps found via head-only scans (slug guess was wrong) ──
+  'turbopack': 'turbo.build',
+  'freshpaint': 'freshpaint.io',
+  'netlify cdn': 'netlify.com',
+  'netlify cms': 'netlify.com',
+  'owl carousel': 'owlcarousel2.github.io',
+  'the seo framework': 'theseoframework.com',
 };
 
 // ── DOM refs ────────────────────────────────────────────────────────────
@@ -841,8 +873,9 @@ async function capturePageData() {
 
 async function fetchFresh(forceRefresh) {
   try {
+    const apiBase = await resolveApiBase();
     const refreshParam = forceRefresh ? '&refresh=1' : '';
-    const apiUrl = `${API_BASE}/api/detect?url=${encodeURIComponent(currentUrl)}${refreshParam}`;
+    const apiUrl = `${apiBase}/api/detect?url=${encodeURIComponent(currentUrl)}${refreshParam}`;
 
     // Try to capture real page data from the active tab
     // Skip for pages Chrome doesn't allow scripting (chrome://, chrome-extension://, Web Store)
@@ -1016,16 +1049,19 @@ function renderTechStack(data) {
       const techColor = t.color || color;
       const versionHtml = t.version ? `<span class="tech-version">${esc(t.version)}</span>` : '';
 
+      const letter = (t.name.charAt(0) || '?').toUpperCase();
       if (iconUrl) {
+        // Error fallback is wired up in JS (attachIconFallbacks) because MV3's
+        // default CSP blocks inline onerror handlers.
         blockHtml += `
           <div class="tech-row">
-            <span class="tech-icon"><img src="${iconUrl}" alt="" onerror="this.parentElement.outerHTML='<span class=\\'tech-icon-letter\\' style=\\'background:${techColor}\\'>${t.name.charAt(0).toUpperCase()}</span>'" /></span>
+            <span class="tech-icon"><img class="tech-fav" src="${esc(iconUrl)}" alt="" loading="lazy" data-name="${esc(t.name)}" data-color="${esc(techColor)}" data-letter="${esc(letter)}" /></span>
             <span class="tech-info"><span class="tech-name">${esc(t.name)}</span>${versionHtml}</span>
           </div>`;
       } else {
         blockHtml += `
           <div class="tech-row">
-            <span class="tech-icon-letter" style="background:${techColor}">${t.name.charAt(0).toUpperCase()}</span>
+            <span class="tech-icon-letter" style="background:${techColor}">${letter}</span>
             <span class="tech-info"><span class="tech-name">${esc(t.name)}</span>${versionHtml}</span>
           </div>`;
       }
@@ -1054,30 +1090,46 @@ function renderTechStack(data) {
     <div class="categories-col">${col1.join('')}</div>
     <div class="categories-col">${col2.join('')}</div>
   `;
+  attachIconFallbacks(categoriesEl);
+}
+
+// Attach CSP-safe error fallbacks (MV3 blocks inline onerror handlers).
+// icon.horse returns 200 even for unknown domains, so this only fires on a real
+// network/rate-limit failure — in which case we swap in a colored letter tile
+// so a row is never left showing a broken image.
+function attachIconFallbacks(root) {
+  root.querySelectorAll('img.tech-fav').forEach((img) => {
+    img.addEventListener('error', () => {
+      const span = document.createElement('span');
+      span.className = 'tech-icon-letter';
+      span.style.background = img.dataset.color || '#6b7280';
+      span.textContent = img.dataset.letter || (img.dataset.name || '?').charAt(0).toUpperCase();
+      (img.closest('.tech-icon') || img).replaceWith(span);
+    }, { once: true });
+  });
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
-function getIconUrl(techName) {
-  const key = techName.toLowerCase();
-  const val = ICON_DOMAINS[key];
-  // If the map value starts with http, use it directly as an icon URL;
-  // otherwise treat it as a domain for Google's favicon API.
-  if (val) {
-    return val.startsWith('http')
-      ? val
-      : `https://icon.horse/icon/${val}`;
-  }
-
-  // Smart domain guess: strip common suffixes and try .com
-  const cleaned = key
+// Derive a compact slug from a tech name for domain guessing.
+function techSlug(name) {
+  return name.toLowerCase()
     .replace(/\s+(pg|pixel|tag|sdk|retargeting|ads|checkout|payments|switch|engage)$/i, '')
-    .replace(/\s+/g, '')
-    .replace(/\.js$/i, '');
-  if (cleaned.length >= 3 && !/^(open|json|twitter|google|facebook|the|core)/.test(cleaned)) {
-    return `https://icon.horse/icon/${cleaned}.com`;
-  }
+    .replace(/\.js$/i, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
 
-  return null;
+// Always returns an icon URL (never null for a normal name). Mapped techs
+// resolve to their real logo; unmapped techs fall back to a domain guess via
+// icon.horse, which serves a clean generated tile (HTTP 200, never a 404) when
+// the guess doesn't resolve — so every tech renders *something*, never a blank.
+function getIconUrl(techName) {
+  const val = ICON_DOMAINS[techName.toLowerCase()];
+  if (val) {
+    return val.startsWith('http') ? val : `https://icon.horse/icon/${val}`;
+  }
+  const slug = techSlug(techName);
+  if (slug.length >= 2) return `https://icon.horse/icon/${slug}.com`;
+  return null; // extremely short/odd name — caller renders a letter tile
 }
 
 function groupByCategory(techs) {
