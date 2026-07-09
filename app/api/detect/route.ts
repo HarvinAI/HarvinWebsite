@@ -341,90 +341,17 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
       }
     } catch { /* non-critical — skip if DB unavailable */ }
 
-    // D2C vs Non-D2C determination
-    // Priority: KNOWN_BRANDS (authoritative) > DB validation > DB category > scan result category
+    // Category resolution. Non-D2C flagging is removed — every site gets a real
+    // category + sub-category. KNOWN_BRANDS remains authoritative.
     if (result.companyMeta) {
-      // Known brands are curated truth — they override any stale DB classification
-      // (e.g. Canon misread as "News & Media") and are never treated as Non-D2C here.
       const knownBrand = lookupKnownBrand(domain);
       if (knownBrand?.category) {
         result.companyMeta.category = knownBrand.category;
         result.companyMeta.subCategory = knownBrand.subCategory || result.companyMeta.subCategory || 'General';
-        result.companyMeta.isNonD2C = false;
-        delete result.companyMeta.nonD2CReason;
-        return NextResponse.json(result, { headers: corsHeaders });
       }
-
-      const NON_D2C_CATS = new Set([
-        'SaaS & B2B', 'Professional Services', 'Manufacturing', 'Wholesale & Distribution',
-        'Cloud & DevTools', 'Data Center & Infrastructure', 'Web Hosting & Domains',
-        'Staffing & Workforce Solutions', 'Government & Public Sector',
-        'NGO & Non-Profit', 'International & Diplomatic Organizations', 'Professional & Trade Associations',
-        'Schools & Universities', 'Railways & Metro', 'Nuclear & Atomic Energy', 'Aerospace & Defense',
-        'Mining & Quarrying', 'Chemicals & Petrochemicals', 'Rubber, Plastics & Composites',
-        'Glass, Ceramics & Nonmetallic Minerals', 'Wire, Cable & Electrical', 'Semiconductor & Chips',
-        'Conglomerates & Holding Companies', 'Private Equity & Venture Capital',
-        'Import/Export & Trade', 'Social Services & Welfare',
-        'Robotics & Automation', 'IoT & Connected Devices',
-        'Quantum Computing', 'AI & Data Science', 'Printing & Packaging', 'Construction & Building Materials',
-        'Forestry & Timber', 'Aquaculture & Fisheries', 'Plantation & Cash Crops',
-        'Marine & Shipping', 'Outdoor Advertising & Signage',
-      ]);
-
-      try {
-        const db2 = await getDb();
-        const metaDoc = await db2.collection('company_meta').findOne(
-          { normalizedDomain: domain },
-          { projection: { category: 1, subCategory: 1, d2cValidation: 1, techStack: 1, appPresence: 1 } },
-        );
-
-        if (metaDoc) {
-          const dbCat = metaDoc.category;
-          const dbValidation = metaDoc.d2cValidation;
-
-          // Case 1: Explicitly validated as D2C — trust DB, use DB category
-          if (dbValidation?.isD2C === true) {
-            if (dbCat && dbCat !== 'Unknown' && dbCat !== 'Not Required' && dbCat !== '') {
-              result.companyMeta.category = dbCat;
-              result.companyMeta.subCategory = metaDoc.subCategory || result.companyMeta.subCategory;
-            }
-            // NOT Non-D2C — skip all Non-D2C checks
-          }
-          // Case 2: Explicitly validated as Non-D2C
-          else if (dbCat === 'Not Required' || dbValidation?.isD2C === false) {
-            result.companyMeta.category = 'Not Required';
-            result.companyMeta.subCategory = 'Non D2C Brand';
-            result.companyMeta.isNonD2C = true;
-            result.companyMeta.nonD2CReason = dbValidation?.reason || 'This is not a D2C brand';
-          }
-          // Case 3: DB has a valid D2C category but scan returned Unknown
-          else if (dbCat && dbCat !== 'Unknown' && dbCat !== '' && !NON_D2C_CATS.has(dbCat)) {
-            const scanCat = result.companyMeta.category;
-            if (!scanCat || scanCat === 'Unknown' || scanCat === '') {
-              // Scan couldn't classify — use DB category instead
-              result.companyMeta.category = dbCat;
-              result.companyMeta.subCategory = metaDoc.subCategory || 'General';
-            }
-          }
-          // Case 4: Both scan and DB have Non-D2C/Unknown category
-          else {
-            const finalCat = result.companyMeta.category || dbCat;
-            // Check if has ecommerce tech or app — then it's likely D2C despite unknown category
-            const ecomPlatforms = ['Shopify', 'WooCommerce', 'Magento', 'BigCommerce', 'PrestaShop', 'Salesforce Commerce Cloud'];
-            const hasEcom = (metaDoc.techStack || []).some((t: string) => ecomPlatforms.some(p => t.includes(p)));
-            const hasApp = metaDoc.appPresence && metaDoc.appPresence !== 'No App';
-
-            if (hasEcom || hasApp) {
-              // Has ecommerce or app — likely D2C, don't flag
-            } else if (!finalCat || finalCat === 'Unknown' || finalCat === '' || NON_D2C_CATS.has(finalCat)) {
-              result.companyMeta.isNonD2C = true;
-              result.companyMeta.nonD2CReason = !finalCat || finalCat === 'Unknown' || finalCat === ''
-                ? 'Could not identify as a D2C brand — no consumer checkout or product catalog detected'
-                : `Non-D2C industry: ${finalCat}`;
-            }
-          }
-        }
-      } catch { /* non-critical */ }
+      // Never surface a Non-D2C flag to callers.
+      delete result.companyMeta.isNonD2C;
+      delete result.companyMeta.nonD2CReason;
     }
 
     return NextResponse.json(result, { headers: corsHeaders });

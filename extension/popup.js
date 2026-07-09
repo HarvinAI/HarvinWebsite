@@ -934,8 +934,8 @@ function renderDetails(data) {
   let html = '<div class="details-grid">';
 
   if (companyMeta) {
-    // Non-D2C Brand banner — show for explicit Non-D2C OR Unknown/unclassified categories
-    const isNonD2C = companyMeta.isNonD2C || companyMeta.category === 'Not Required' || companyMeta.category === 'Unknown' || !companyMeta.category;
+    // Non-D2C banner removed — every site shows a category & sub-category.
+    const isNonD2C = false;
     if (isNonD2C) {
       const nonD2CReason = companyMeta.nonD2CReason
         || (companyMeta.category === 'Unknown' || !companyMeta.category
