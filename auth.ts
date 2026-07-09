@@ -32,6 +32,9 @@ export const authOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      // Always show the Google account chooser instead of silently reusing the
+      // last-signed-in account.
+      authorization: { params: { prompt: 'select_account' } },
     }),
     CredentialsProvider({
       name: 'credentials',
