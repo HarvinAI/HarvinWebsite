@@ -101,6 +101,9 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
     .replace(/\/.*$/, '').toLowerCase();
   const source = detectSource(req);
   const forceRefresh = req.nextUrl.searchParams.get('refresh') === '1';
+  // Lightweight mode (Category Finder): classify only — skip store scraping,
+  // app-store lookups and traffic estimation so bulk scans are fast.
+  const metaOnly = req.nextUrl.searchParams.get('metaOnly') === '1';
 
   // Acquire a concurrency slot (wait in queue or get rejected)
   const acquired = await acquireSlot();
@@ -113,7 +116,7 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
   }
 
   try {
-    const result = await scanSingleUrl(url, { forceRefresh, pageData });
+    const result = await scanSingleUrl(url, { forceRefresh, pageData, metaOnly });
     logScan(req, domain, source, result, null);
 
     // Persist tech scan results to DB (tech_cache + company_meta)
@@ -224,7 +227,8 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
     }
 
     // Enrich with MAU / traffic data from DB, or estimate for new domains
-    try {
+    // (skipped in metaOnly mode — the CrUX/Tranco estimation is a slow network hop).
+    if (!metaOnly) try {
       const db = await getDb();
       const doc = await db.collection('company_meta').findOne(
         { normalizedDomain: domain },

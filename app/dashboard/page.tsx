@@ -3580,13 +3580,13 @@ function CategoryFinderView() {
         if (i >= domains.length) return;
         setRows(prev => { const n = [...prev]; n[i] = { ...n[i], status: 'loading' }; return n; });
         try {
-          // Same endpoint the extension calls (GET path — server fetches the page).
-          // Per-request timeout so one pathologically slow domain can't stall the batch.
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 75000);
-          let res: Response;
-          try { res = await fetch(`/api/detect?url=${encodeURIComponent(domains[i])}`, { signal: ctrl.signal }); }
-          finally { clearTimeout(timer); }
+          // metaOnly=1 → classify only (skips the slow store/app/traffic enrichment),
+          // so bulk scans are fast. AbortSignal.timeout is a clean per-request cap so
+          // one pathologically slow domain can't stall the batch.
+          const res = await fetch(
+            `/api/detect?url=${encodeURIComponent(domains[i])}&metaOnly=1`,
+            { signal: AbortSignal.timeout(60000) },
+          );
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Detection failed');
           const m = data.companyMeta || {};
@@ -3597,7 +3597,10 @@ function CategoryFinderView() {
             categoryConfidence: m.categoryConfidence || '', isNonD2C: !!m.isNonD2C,
           }; return n; });
         } catch (e) {
-          const msg = (e as Error)?.name === 'AbortError' ? 'Timed out (site too slow to fetch)' : ((e as Error)?.message || 'Failed');
+          const nm = (e as Error)?.name;
+          const msg = (nm === 'TimeoutError' || nm === 'AbortError')
+            ? 'Timed out (site too slow to fetch)'
+            : ((e as Error)?.message || 'Failed');
           setRows(prev => { const n = [...prev]; n[i] = {
             domain: domains[i], status: 'error', error: msg,
           }; return n; });
