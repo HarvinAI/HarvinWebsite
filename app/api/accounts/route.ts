@@ -241,8 +241,10 @@ export async function GET(req: NextRequest) {
     const db = await getDb();
     const col = db.collection('company_meta');
 
-    // Build query — all D2C accounts with complete data (exclude admin-hidden + Non-D2C)
+    // Build query — only admin-APPROVED accounts are visible in Account Explorer.
+    // Nothing shows until an admin explicitly approves it in Manage Accounts.
     const query: Record<string, unknown> = {
+      adminApproved: true,
       category: { $exists: true, $nin: [null, '', 'Not Required', 'Unknown'] },
       region: { $exists: true, $nin: [null, ''] },
       normalizedDomain: { $nin: ['harvin.ai'] },

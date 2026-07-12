@@ -109,14 +109,38 @@ export async function POST(req: NextRequest) {
   if (!(await isAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 403, headers: corsHeaders });
 
   const body = await req.json();
-  const { domain, action, category, subCategory, region, note } = body;
+  const { domain, domains, action, category, subCategory, region, note } = body;
 
-  if (!domain || !action) {
-    return NextResponse.json({ error: 'domain and action required' }, { status: 400, headers: corsHeaders });
+  if (!action) {
+    return NextResponse.json({ error: 'action required' }, { status: 400, headers: corsHeaders });
   }
 
   const db = await getDb();
   const col = db.collection('company_meta');
+  const now = new Date();
+
+  // ── Bulk action across multiple domains (e.g. select many → approve) ──
+  if (Array.isArray(domains) && domains.length > 0) {
+    const list = domains.filter((d: unknown): d is string => typeof d === 'string' && d.length > 0);
+    if (list.length === 0) {
+      return NextResponse.json({ error: 'domains array required' }, { status: 400, headers: corsHeaders });
+    }
+    const filter = { normalizedDomain: { $in: list } };
+    let update: Record<string, unknown> | null = null;
+    if (action === 'approve') update = { $set: { adminApproved: true, adminHidden: false, updatedAt: now } };
+    else if (action === 'hide') update = { $set: { adminHidden: true, adminNote: note || 'Hidden by admin', updatedAt: now } };
+    else if (action === 'unhide') update = { $set: { adminHidden: false, updatedAt: now }, $unset: { adminNote: '' } };
+    else if (action === 'reject') update = { $set: { adminApproved: false, adminHidden: true, adminNote: note || 'Rejected by admin', updatedAt: now } };
+    if (!update) {
+      return NextResponse.json({ error: 'Unsupported bulk action. Use: approve, hide, unhide, reject' }, { status: 400, headers: corsHeaders });
+    }
+    const r = await col.updateMany(filter, update);
+    return NextResponse.json({ ok: true, action, count: r.modifiedCount ?? 0 }, { headers: corsHeaders });
+  }
+
+  if (!domain) {
+    return NextResponse.json({ error: 'domain (or domains[]) required' }, { status: 400, headers: corsHeaders });
+  }
 
   switch (action) {
     case 'hide':

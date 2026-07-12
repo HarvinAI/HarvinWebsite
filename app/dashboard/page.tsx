@@ -3778,6 +3778,7 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
   // Multi-select + bulk delete
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
@@ -3810,6 +3811,27 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
     return next;
   });
   const clearSelection = () => setSelected(new Set());
+
+  const bulkApprove = async () => {
+    if (selected.size === 0 || approving) return;
+    const n = selected.size;
+    setApproving(true);
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domains: Array.from(selected), action: 'approve' }),
+      });
+      if (!res.ok) { showToast('Bulk approve failed', 'error'); setApproving(false); return; }
+      const data = await res.json();
+      showToast(`Approved ${data.count ?? n} account${(data.count ?? n) !== 1 ? 's' : ''} — now visible in Account Explorer`, 'success');
+      setSelected(new Set());
+      fetchAccounts();
+    } catch {
+      showToast('Bulk approve failed', 'error');
+    }
+    setApproving(false);
+  };
 
   const bulkDelete = async () => {
     if (selected.size === 0 || deleting) return;
@@ -3906,6 +3928,15 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
               <>
                 <span className="text-[12px] font-bold text-[#C94C1E]">{selected.size} selected</span>
                 <button onClick={clearSelection} className="text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-neutral-300 transition-colors">Clear</button>
+                <button
+                  onClick={bulkApprove}
+                  disabled={approving}
+                  title="Approve selected — make them visible in Account Explorer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                >
+                  {approving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} className="stroke-[3]" />}
+                  Approve selected
+                </button>
                 <button
                   onClick={bulkDelete}
                   disabled={deleting}
