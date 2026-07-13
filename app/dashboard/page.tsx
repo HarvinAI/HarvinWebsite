@@ -3540,7 +3540,7 @@ type FinderRow = {
 };
 
 const MAX_BULK_DOMAINS = 200;
-const BULK_CONCURRENCY = 4;
+const BULK_CONCURRENCY = 2;
 
 function parseBulkDomains(text: string): string[] {
   const seen = new Set<string>();
