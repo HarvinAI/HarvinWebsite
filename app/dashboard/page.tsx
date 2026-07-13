@@ -3768,13 +3768,15 @@ function CategoryFinderView() {
 
 /* ── Admin Accounts View ───────────────────────────────────────────────── */
 function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'success' | 'error') => void }) {
-  const [accounts, setAccounts] = useState<{normalizedDomain: string; category: string; subCategory: string; region: string; monthlyVisitsFormatted: string | null; adminHidden: boolean; adminApproved: boolean; adminNote: string; updatedAt: string}[]>([]);
+  const [accounts, setAccounts] = useState<{normalizedDomain: string; category: string; subCategory: string; region: string; monthlyVisitsFormatted: string | null; adminHidden: boolean; adminApproved: boolean; adminNote: string; createdAt: string; updatedAt: string}[]>([]);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [stats, setStats] = useState<{total: number; approved: number; hidden: number; pending: number}>({ total: 0, approved: 0, hidden: 0, pending: 0 });
+  const [statusFilter, setStatusFilter] = useState('pending');
+  const [stats, setStats] = useState<{total: number; approved: number; pending: number; unknown: number; hidden: number}>({ total: 0, approved: 0, pending: 0, unknown: 0, hidden: 0 });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState('updatedAt'); // updatedAt | createdAt | domain | category
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   // Multi-select + bulk delete
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
@@ -3783,15 +3785,15 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/accounts?search=${encodeURIComponent(search)}&status=${statusFilter}&page=${page}&limit=50`);
+      const res = await fetch(`/api/admin/accounts?search=${encodeURIComponent(search)}&status=${statusFilter}&page=${page}&limit=50&sortBy=${sortBy}&sortDir=${sortDir}`);
       if (!res.ok) { setLoading(false); return; }
       const data = await res.json();
       setAccounts(data.accounts || []);
       setTotal(data.total || 0);
-      setStats(data.stats || { total: 0, approved: 0, hidden: 0, pending: 0 });
+      setStats(data.stats || { total: 0, approved: 0, pending: 0, unknown: 0, hidden: 0 });
     } catch {}
     setLoading(false);
-  }, [search, statusFilter, page]);
+  }, [search, statusFilter, page, sortBy, sortDir]);
 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
   // Reset selection whenever the visible page/filter/search changes
@@ -3873,24 +3875,26 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          { label: 'Total', value: stats.total, color: 'text-slate-800 dark:text-white' },
-          { label: 'Approved', value: stats.approved, color: 'text-emerald-600' },
-          { label: 'Hidden', value: stats.hidden, color: 'text-red-500' },
-          { label: 'Pending', value: stats.pending, color: 'text-amber-500' },
-        ].map(s => (
-          <div key={s.label} className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/[0.08] rounded-xl p-4">
+      {/* Stats — click a card to filter to that bucket */}
+      <div className="grid grid-cols-5 gap-4">
+        {([
+          { key: 'all', label: 'Total', value: stats.total, color: 'text-slate-800 dark:text-white' },
+          { key: 'approved', label: 'Approved', value: stats.approved, color: 'text-emerald-600' },
+          { key: 'pending', label: 'Pending', value: stats.pending, color: 'text-amber-500' },
+          { key: 'unknown', label: 'Unknown', value: stats.unknown, color: 'text-slate-400' },
+          { key: 'hidden', label: 'Hidden', value: stats.hidden, color: 'text-red-500' },
+        ] as { key: string; label: string; value: number; color: string }[]).map(s => (
+          <button key={s.label} onClick={() => { setStatusFilter(s.key); setPage(1); }}
+            className={`text-left rounded-xl p-4 border transition-all ${statusFilter === s.key ? 'border-[#C94C1E] ring-1 ring-[#C94C1E]/30 bg-white dark:bg-[#141414]' : 'border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#141414] hover:border-slate-300 dark:hover:border-white/[0.16]'}`}>
             <p className="text-[11px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider mb-1">{s.label}</p>
             <p className={`text-[24px] font-extrabold ${s.color}`}>{s.value.toLocaleString()}</p>
-          </div>
+          </button>
         ))}
       </div>
 
-      {/* Search + Filter */}
-      <div className="flex gap-3">
-        <div className="flex-1 relative">
+      {/* Search + Filter + Sort */}
+      <div className="flex gap-3 flex-wrap">
+        <div className="flex-1 min-w-[220px] relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -3904,9 +3908,22 @@ function AdminAccountsView({ showToast }: { showToast: (msg: string, type: 'succ
           className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[13px] font-medium text-slate-700 dark:text-neutral-200 outline-none">
           <option value="all">All Accounts</option>
           <option value="approved">Approved</option>
+          <option value="pending">Pending</option>
+          <option value="unknown">Unknown</option>
           <option value="hidden">Hidden</option>
-          <option value="pending">Pending/Unknown</option>
         </select>
+        <select value={sortBy} onChange={e => { setSortBy(e.target.value); setPage(1); }}
+          className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[13px] font-medium text-slate-700 dark:text-neutral-200 outline-none">
+          <option value="updatedAt">Sort: Last updated</option>
+          <option value="createdAt">Sort: Date listed</option>
+          <option value="domain">Sort: Name</option>
+          <option value="category">Sort: Category</option>
+        </select>
+        <button onClick={() => { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); setPage(1); }}
+          title="Toggle sort direction"
+          className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-[12px] font-semibold text-slate-600 dark:text-neutral-300 hover:border-slate-300 dark:hover:border-white/[0.16] transition-all">
+          <ArrowUpDown size={14} className="text-slate-400" />{sortDir === 'asc' ? 'Asc' : 'Desc'}
+        </button>
       </div>
 
       {/* Account list */}

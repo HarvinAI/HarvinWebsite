@@ -27,40 +27,52 @@ export async function GET(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
   const search = sp.get('search') || '';
-  const status = sp.get('status') || 'all'; // all, approved, pending, hidden
+  const status = sp.get('status') || 'all'; // all, approved, pending, unknown, hidden
   const page = Math.max(1, parseInt(sp.get('page') || '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(sp.get('limit') || '50', 10)));
   const skip = (page - 1) * limit;
+  const sortBy = sp.get('sortBy') || 'updatedAt';  // updatedAt | createdAt | domain | category
+  const sortDir = sp.get('sortDir') === 'asc' ? 1 : -1;
 
   const db = await getDb();
   const col = db.collection('company_meta');
 
-  const query: Record<string, unknown> = {};
+  // ── Mutually-exclusive status buckets ──
+  // hidden   : admin-hidden (not shown to users), regardless of category/approval
+  // unknown  : category could not be determined (Unknown/empty), not hidden
+  // approved : admin-approved & has a real category, not hidden → visible in Explorer
+  // pending  : has a real category but NOT yet approved, not hidden → awaiting review
+  const UNKNOWN_CAT = [{ category: 'Unknown' }, { category: null }, { category: '' }, { category: { $exists: false } }];
+  const VALID_CAT = { $exists: true, $nin: [null, '', 'Unknown'] };
+  const STATUS_FILTERS: Record<string, Record<string, unknown>> = {
+    hidden:   { adminHidden: true },
+    unknown:  { adminHidden: { $ne: true }, $or: UNKNOWN_CAT },
+    approved: { adminHidden: { $ne: true }, adminApproved: true, category: VALID_CAT },
+    pending:  { adminHidden: { $ne: true }, adminApproved: { $ne: true }, category: VALID_CAT },
+  };
+
+  const query: Record<string, unknown> = { ...(STATUS_FILTERS[status] || {}) };
 
   if (search) {
-    query.$or = [
+    const searchOr = [
       { normalizedDomain: { $regex: search, $options: 'i' } },
       { category: { $regex: search, $options: 'i' } },
     ];
+    // If the status filter already uses $or (unknown), AND the two together.
+    if (query.$or) {
+      query.$and = [{ $or: query.$or }, { $or: searchOr }];
+      delete query.$or;
+    } else {
+      query.$or = searchOr;
+    }
   }
 
-  if (status === 'hidden') {
-    query.adminHidden = true;
-  } else if (status === 'approved') {
-    query.adminHidden = { $ne: true };
-    query.category = { $exists: true, $nin: [null, '', 'Unknown'] };
-  } else if (status === 'pending') {
-    query.$or = [
-      { category: 'Unknown' },
-      { category: null },
-      { category: '' },
-      { category: { $exists: false } },
-    ];
-  }
+  const SORT_MAP: Record<string, string> = { updatedAt: 'updatedAt', createdAt: 'createdAt', domain: 'normalizedDomain', category: 'category' };
+  const sortField = SORT_MAP[sortBy] || 'updatedAt';
 
   const [accounts, total] = await Promise.all([
     col.find(query)
-      .sort({ updatedAt: -1 })
+      .sort({ [sortField]: sortDir })
       .skip(skip)
       .limit(limit)
       .project({
@@ -73,6 +85,7 @@ export async function GET(req: NextRequest) {
         adminHidden: 1,
         adminApproved: 1,
         adminNote: 1,
+        createdAt: 1,
         updatedAt: 1,
       })
       .toArray(),
@@ -94,12 +107,14 @@ export async function GET(req: NextRequest) {
     r.monthlyVisitsFormatted = safeStr(r.monthlyVisitsFormatted);
   }
 
-  const stats = {
-    total: await col.countDocuments({}),
-    approved: await col.countDocuments({ adminHidden: { $ne: true }, category: { $exists: true, $nin: [null, '', 'Unknown'] } }),
-    hidden: await col.countDocuments({ adminHidden: true }),
-    pending: await col.countDocuments({ $or: [{ category: 'Unknown' }, { category: null }, { category: '' }, { category: { $exists: false } }] }),
-  };
+  const [sTotal, sApproved, sPending, sUnknown, sHidden] = await Promise.all([
+    col.countDocuments({}),
+    col.countDocuments(STATUS_FILTERS.approved),
+    col.countDocuments(STATUS_FILTERS.pending),
+    col.countDocuments(STATUS_FILTERS.unknown),
+    col.countDocuments(STATUS_FILTERS.hidden),
+  ]);
+  const stats = { total: sTotal, approved: sApproved, pending: sPending, unknown: sUnknown, hidden: sHidden };
 
   return NextResponse.json({ accounts, total, page, stats }, { headers: corsHeaders });
 }
