@@ -77,13 +77,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Google-only users: let them know they should sign in with Google
-    if (user.provider === 'google' && !user.passwordHash) {
-      return NextResponse.json(
-        { error: 'This account uses Google Sign-In. Please sign in with Google instead.' },
-        { status: 400 }
-      );
-    }
+    // Any existing account can set/reset a password via OTP — including accounts
+    // originally created via Google Sign-In (this just adds a password to them,
+    // so they can log in with email + password too).
 
     // Rate limit
     const recent = await db.collection('otp_codes').findOne({
