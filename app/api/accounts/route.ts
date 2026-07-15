@@ -481,18 +481,25 @@ export async function GET(req: NextRequest) {
     const allDomains = accounts.map((a: Record<string, unknown>) => a.normalizedDomain as string);
     const { signalMap: realSignalMap, fundingMap: realFundingMap } = await fetchRealSignals(db, allDomains);
 
-    // Fetch real tech from tech_cache for domains that lack techStack in company_meta
+    // Fetch real tech from tech_cache for domains that lack techStack in company_meta,
+    // plus the real tech-migration diff (added/removed tech between the last two scans).
     const techCacheMap: Record<string, { names: string[]; count: number }> = {};
+    const techMigrationMap: Record<string, { added: string[]; removed: string[] }> = {};
     try {
       const techDocs = await db.collection('tech_cache').find(
         { domain: { $in: allDomains } }
-      ).project({ domain: 1, technologies: 1, count: 1, _id: 0 }).toArray();
+      ).project({ domain: 1, technologies: 1, count: 1, techChanges: 1, _id: 0 }).toArray();
       for (const td of techDocs) {
         const techs = (td.technologies || []) as { name: string }[];
-        techCacheMap[td.domain as string] = {
+        const domain = td.domain as string;
+        techCacheMap[domain] = {
           names: techs.map((t: { name: string }) => t.name).slice(0, 10),
           count: (td.count as number) || techs.length,
         };
+        const tc = td.techChanges as { added?: string[]; removed?: string[] } | null;
+        const added = Array.isArray(tc?.added) ? tc!.added.filter(Boolean).slice(0, 4) : [];
+        const removed = Array.isArray(tc?.removed) ? tc!.removed.filter(Boolean).slice(0, 4) : [];
+        if (added.length || removed.length) techMigrationMap[domain] = { added, removed };
       }
     } catch {}
 
@@ -552,6 +559,13 @@ export async function GET(req: NextRequest) {
       // Use DB-stored harvinScore for consistency across all pages
       const harvinScore = (a as Record<string, unknown>).harvinScore as number || 0;
 
+      // Real signals only: start from the signals/news collection, then add a
+      // genuine "Tech Migration" signal when the tech stack actually changed
+      // between scans (e.g. dropped CleverTap, added WooCommerce).
+      const techMigration = techMigrationMap[domain] || null;
+      const realSignals = [...(realSignalMap[domain] || ((dbSignals && dbSignals.length > 0) ? dbSignals : []))];
+      if (techMigration && !realSignals.includes('Tech Migration')) realSignals.push('Tech Migration');
+
       return {
         normalizedDomain: domain,
         category: knownBrand?.category || overrides.category || a.category,
@@ -571,8 +585,9 @@ export async function GET(req: NextRequest) {
         monthlyVisitsFormatted: hasTrafficData ? (a.monthlyVisitsFormatted as string) : null,
         scaleBand: hasTrafficData ? toScaleBand(a.monthlyVisits as number) : null,
         appPresence: app,
-        activeSignals: realSignalMap[domain] || ((dbSignals && dbSignals.length > 0) ? dbSignals : []),
-        fundingStage: realFundingMap[domain] || a.fundingStage || null,
+        activeSignals: realSignals,
+        techMigration,
+        fundingStage: realFundingMap[domain] || (a.fundingStage as string) || null,
         brandName: (typeof a.brandName === 'string' ? a.brandName : (a.brandName && typeof a.brandName === 'object' && 'name' in (a.brandName as Record<string, unknown>) ? String((a.brandName as Record<string, unknown>).name) : null)),
         updatedAt: a.updatedAt,
         harvinScore,

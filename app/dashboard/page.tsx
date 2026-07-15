@@ -50,6 +50,7 @@ type Account = {
   scaleBand: string | null;
   appPresence: string | null;
   activeSignals: string[];
+  techMigration: { added: string[]; removed: string[] } | null;
   fundingStage: string | null;
   brandName: string | null;
   updatedAt: string;
@@ -177,36 +178,12 @@ function faviconUrl(domain: string): string {
 
 
 /* Deterministic hash for demo fallbacks (consistent per domain) */
-function domainHash(d: string): number {
-  let h = 0;
-  for (let i = 0; i < d.length; i++) h = ((h << 5) - h + d.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
 
-const DEMO_TECH = ['Shopify', 'Klaviyo', 'CleverTap', 'Razorpay', 'Google Analytics', 'Meta Pixel', 'Segment', 'Freshdesk', 'Shiprocket', 'Magento', 'WooCommerce', 'Stripe', 'Hotjar', 'Zendesk', 'Mailchimp'];
-const DEMO_BIZ = ['Pure D2C', 'Omnichannel', 'D2C + Marketplace', 'D2C + B2B'];
-const DEMO_SCALE = ['<50K', '50K-200K', '200K-500K', '500K-1M', '1M-5M', '5M-20M', '20M+'];
-const DEMO_APP = ['No App', 'iOS Only', 'Android Only', 'Both iOS & Android'];
-const DEMO_SIGNALS = ['Recently Funded', 'Hiring Surge', 'New Product Launch', 'International Expansion', 'Tech Migration'];
-const DEMO_FUNDING = ['Bootstrapped', 'Seed / Angel', 'Series A+', 'Late Stage'];
-
+// Pass accounts through untouched — every field shown on a card must be REAL
+// data from the scan/signals pipeline. We do not fabricate signals, funding,
+// business model, scale or app presence. Missing values simply don't render.
 function demoFill(a: Account): Account {
-  const h = domainHash(a.normalizedDomain);
-  const pick = <T,>(arr: T[], seed: number): T => arr[seed % arr.length];
-  const pickN = <T,>(arr: T[], seed: number, n: number): T[] => {
-    const out: T[] = [];
-    for (let i = 0; i < n; i++) out.push(arr[(seed + i * 7) % arr.length]);
-    return [...new Set(out)];
-  };
-  return {
-    ...a,
-    techStack: a.techStack?.length ? a.techStack : [],
-    businessModel: a.businessModel || pick(DEMO_BIZ, h),
-    scaleBand: a.scaleBand || pick(DEMO_SCALE, h + 3),
-    appPresence: a.appPresence || pick(DEMO_APP, h + 5),
-    activeSignals: a.activeSignals?.length ? a.activeSignals : pickN(DEMO_SIGNALS, h + 2, 1 + (h % 2)),
-    fundingStage: a.fundingStage || pick(DEMO_FUNDING, h + 7),
-  };
+  return a;
 }
 
 function formatDate(dateStr: string): string {
@@ -2379,21 +2356,41 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                             </div>
                           </div>
 
-                          {/* Row 4: Funding & active signals */}
-                          {(a.fundingStage || signalCount > 0) && (
-                            <div className="px-4 pb-3 flex items-center gap-3">
-                              {a.fundingStage && (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600">
-                                  <DollarSign size={12} className="text-green-500" />{a.fundingStage}
-                                </span>
-                              )}
-                              {(a.activeSignals || []).map(s => (
-                                <span key={s} className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-neutral-400">
-                                  <Target size={10} className="text-amber-400" />{s}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                          {/* Row 4: Funding & real signals (incl. concrete tech migration) */}
+                          {(() => {
+                            const tm = a.techMigration;
+                            const hasTm = !!tm && ((tm.added?.length || 0) > 0 || (tm.removed?.length || 0) > 0);
+                            // Generic signal labels, minus the plain "Tech Migration"
+                            // chip (we render it concretely below when we have the diff).
+                            const otherSignals = (a.activeSignals || []).filter(s => !(hasTm && s === 'Tech Migration'));
+                            if (!a.fundingStage && !hasTm && otherSignals.length === 0) return null;
+                            return (
+                              <div className="px-4 pb-3 flex items-center flex-wrap gap-x-3 gap-y-1.5">
+                                {a.fundingStage && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600">
+                                    <DollarSign size={12} className="text-green-500" />{a.fundingStage}
+                                  </span>
+                                )}
+                                {hasTm && (
+                                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold"
+                                        title="Tech stack changed since the previous scan">
+                                    <Repeat size={11} className="text-sky-500" />
+                                    {(tm!.added?.length || 0) > 0 && (
+                                      <span className="text-emerald-600 dark:text-emerald-400">now {tm!.added.join(', ')}</span>
+                                    )}
+                                    {(tm!.removed?.length || 0) > 0 && (
+                                      <span className="text-slate-400 dark:text-neutral-500 line-through decoration-1">was {tm!.removed.join(', ')}</span>
+                                    )}
+                                  </span>
+                                )}
+                                {otherSignals.map(s => (
+                                  <span key={s} className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-neutral-400">
+                                    <Target size={10} className="text-amber-400" />{s}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         {/* Visit button */}
