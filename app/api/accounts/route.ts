@@ -143,6 +143,60 @@ function isNoiseTech(nameLower: string): boolean {
   return TECH_MIGRATION_NOISE.some(n => nameLower.includes(n));
 }
 
+/* ── Tech-derived buying signals ─────────────────────────────────────────
+ * Interpreted, sales-relevant intelligence read straight from the detected
+ * tech stack (presence-based, so high-confidence). Each is selective enough to
+ * be meaningful: what a brand invests in tells you how to sell to them. */
+type TechSignal = { label: string; detail: string; tone: 'ent' | 'ad' | 'sub' | 'sms' | 'cdp' | 'loyalty' };
+
+const AD_CHANNELS: [RegExp, string][] = [
+  [/facebook pixel|facebook ads|meta pixel|meta ads|pixelyoursite/i, 'Meta'],
+  [/google ads|doubleclick|floodlight/i, 'Google'],
+  [/tiktok/i, 'TikTok'],
+  [/pinterest/i, 'Pinterest'],
+  [/snapchat|snap pixel/i, 'Snapchat'],
+  [/twitter pixel|reddit pixel/i, 'Social'],
+  [/criteo/i, 'Criteo'],
+  [/taboola/i, 'Taboola'],
+  [/outbrain/i, 'Outbrain'],
+  [/linkedin insight/i, 'LinkedIn'],
+];
+
+function deriveTechSignals(stack: unknown): TechSignal[] {
+  const names = (Array.isArray(stack) ? stack : []).filter((s): s is string => typeof s === 'string');
+  if (names.length === 0) return [];
+  const has = (re: RegExp) => names.some(n => re.test(n));
+  const out: TechSignal[] = [];
+
+  // Enterprise-grade martech → big budget (rare, high-value account).
+  if (has(/adobe experience|adobe target|adobe launch|salesforce (commerce|marketing|live agent)|sap commerce|oracle commerce|commercetools|magento|demandware/i)) {
+    out.push({ label: 'Enterprise martech', detail: 'Adobe / Salesforce-class', tone: 'ent' });
+  }
+  // Active multi-channel paid acquisition → spending on growth right now.
+  const channels: string[] = [];
+  for (const [re, label] of AD_CHANNELS) if (has(re) && !channels.includes(label)) channels.push(label);
+  if (channels.length >= 2) out.push({ label: 'Runs paid ads', detail: channels.slice(0, 4).join(', '), tone: 'ad' });
+  // Subscription commerce → recurring revenue, higher LTV (rare).
+  if (has(/recharge|ordergroove|\bskio\b|smartrr|bold subscriptions|appstle|seal subscriptions|stay ai|paywhirl/i)) {
+    out.push({ label: 'Subscription revenue', detail: 'recurring D2C', tone: 'sub' });
+  }
+  // SMS marketing → invests beyond email (retention sophistication).
+  if (has(/attentive|postscript|smsbump|yotpo sms|klaviyo sms/i)) {
+    out.push({ label: 'SMS marketing', detail: '', tone: 'sms' });
+  }
+  // Customer Data Platform → data-mature, integration-hungry. (Bare "Segment"
+  // is over-detected and near-ubiquitous, so we require an enterprise CDP whose
+  // presence is both reliable and rare.)
+  if (has(/mparticle|rudderstack|tealium|blueconic|\blytics\b/i)) {
+    out.push({ label: 'Has a CDP', detail: '', tone: 'cdp' });
+  }
+  // Loyalty program → mature retention motion.
+  if (has(/yotpo loyalty|okendo|loyaltylion|smile\.io|swell rewards|\bstamped\b/i)) {
+    out.push({ label: 'Loyalty program', detail: '', tone: 'loyalty' });
+  }
+  return out;
+}
+
 /* Signal type → display label mapping */
 const SIGNAL_LABEL_MAP: Record<string, string> = {
   funding: 'Recently Funded',
@@ -503,6 +557,7 @@ export async function GET(req: NextRequest) {
     // plus the real tech-migration diff (added/removed tech between the last two scans).
     const techCacheMap: Record<string, { names: string[]; count: number }> = {};
     const techMigrationMap: Record<string, { added: string[]; removed: string[] }> = {};
+    const techSignalsMap: Record<string, TechSignal[]> = {};
     try {
       const techDocs = await db.collection('tech_cache').find(
         { domain: { $in: allDomains } }
@@ -510,10 +565,14 @@ export async function GET(req: NextRequest) {
       for (const td of techDocs) {
         const techs = (td.technologies || []) as { name: string }[];
         const domain = td.domain as string;
+        const allTechNames = techs.map((t: { name: string }) => t.name);
         techCacheMap[domain] = {
-          names: techs.map((t: { name: string }) => t.name).slice(0, 10),
+          names: allTechNames.slice(0, 10),
           count: (td.count as number) || techs.length,
         };
+        // Derive buying signals from the FULL detected stack (best coverage).
+        const sigs = deriveTechSignals(allTechNames);
+        if (sigs.length) techSignalsMap[domain] = sigs;
         const tc = td.techChanges as { added?: string[]; removed?: string[] } | null;
         // Dedupe, drop fragments, ignore non-sales-relevant infra/UI churn, and
         // remove anything that appears on both sides.
@@ -600,6 +659,9 @@ export async function GET(req: NextRequest) {
       const techMigration = techMigrationMap[domain] || null;
       const realSignals = [...(realSignalMap[domain] || ((dbSignals && dbSignals.length > 0) ? dbSignals : []))];
       if (techMigration && !realSignals.includes('Tech Migration')) realSignals.push('Tech Migration');
+      // Tech-derived buying signals (from tech_cache full stack; fall back to
+      // the company_meta techStack summary so it shows even without a cache doc).
+      const techSignals = techSignalsMap[domain] || deriveTechSignals(a.techStack);
 
       return {
         normalizedDomain: domain,
@@ -622,6 +684,7 @@ export async function GET(req: NextRequest) {
         appPresence: app,
         activeSignals: realSignals,
         techMigration,
+        techSignals,
         fundingStage: realFundingMap[domain] || (a.fundingStage as string) || null,
         brandName: (typeof a.brandName === 'string' ? a.brandName : (a.brandName && typeof a.brandName === 'object' && 'name' in (a.brandName as Record<string, unknown>) ? String((a.brandName as Record<string, unknown>).name) : null)),
         updatedAt: a.updatedAt,

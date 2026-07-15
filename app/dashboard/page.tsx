@@ -20,7 +20,7 @@ import {
   FlaskConical, Sparkles, Bell, Mail, Gift, Eye, Server, Type, Play,
   ClipboardList, MessageCircle, Package, Truck, RotateCcw, Calendar,
   Database, KeyRound, Repeat, CreditCard, MousePointerClick, Hash,
-  Upload, FileSpreadsheet, AlertCircle,
+  Upload, FileSpreadsheet, AlertCircle, Building2,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -51,6 +51,7 @@ type Account = {
   appPresence: string | null;
   activeSignals: string[];
   techMigration: { added: string[]; removed: string[] } | null;
+  techSignals: { label: string; detail: string; tone: 'ent' | 'ad' | 'sub' | 'sms' | 'cdp' | 'loyalty' }[];
   fundingStage: string | null;
   brandName: string | null;
   updatedAt: string;
@@ -2244,7 +2245,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                   const a = demoFill(raw);
                   const isSelected = selectedAccounts.has(a.normalizedDomain);
                   const name = safeBrandName(a.brandName) || domainToName(a.normalizedDomain);
-                  const signalCount = (a.activeSignals || []).length;
+                  const signalCount = (a.activeSignals || []).length + (a.techSignals || []).length;
                   const topTech = [...new Set((a.techStack || []) as string[])].slice(0, 3);
                   return (
                     <div key={a.normalizedDomain}
@@ -2358,21 +2359,34 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                             </div>
                           </div>
 
-                          {/* Row 4: Funding & real signals (incl. concrete tech migration) */}
+                          {/* Row 4: Buying signals — tech-derived intelligence, tech migration, funding */}
                           {(() => {
                             const tm = a.techMigration;
                             const hasTm = !!tm && ((tm.added?.length || 0) > 0 || (tm.removed?.length || 0) > 0);
-                            // Generic signal labels, minus the plain "Tech Migration"
-                            // chip (we render it concretely below when we have the diff).
+                            const techSignals = (a.techSignals || []).slice(0, 3);
                             const otherSignals = (a.activeSignals || []).filter(s => !(hasTm && s === 'Tech Migration'));
-                            if (!a.fundingStage && !hasTm && otherSignals.length === 0) return null;
+                            if (!a.fundingStage && !hasTm && techSignals.length === 0 && otherSignals.length === 0) return null;
+                            const SIG_STYLE: Record<string, { cls: string; Icon: typeof Megaphone }> = {
+                              ent:     { cls: 'text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-500/15 border-amber-200 dark:border-amber-500/25', Icon: Building2 },
+                              ad:      { cls: 'text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/25', Icon: Megaphone },
+                              sub:     { cls: 'text-violet-700 dark:text-violet-300 bg-violet-100/70 dark:bg-violet-500/15 border-violet-200 dark:border-violet-500/25', Icon: Repeat },
+                              sms:     { cls: 'text-sky-700 dark:text-sky-300 bg-sky-100/70 dark:bg-sky-500/15 border-sky-200 dark:border-sky-500/25', Icon: MessageCircle },
+                              cdp:     { cls: 'text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-500/15 border-blue-200 dark:border-blue-500/25', Icon: Database },
+                              loyalty: { cls: 'text-rose-700 dark:text-rose-300 bg-rose-100/70 dark:bg-rose-500/15 border-rose-200 dark:border-rose-500/25', Icon: Gift },
+                            };
                             return (
-                              <div className="px-4 pb-3 flex items-center flex-wrap gap-x-3 gap-y-1.5">
-                                {a.fundingStage && (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600">
-                                    <DollarSign size={12} className="text-green-500" />{a.fundingStage}
-                                  </span>
-                                )}
+                              <div className="px-4 pb-3 flex items-center flex-wrap gap-x-2.5 gap-y-1.5">
+                                {techSignals.map((sig, i) => {
+                                  const st = SIG_STYLE[sig.tone] || SIG_STYLE.cdp;
+                                  const Ic = st.Icon;
+                                  return (
+                                    <span key={`ts-${i}`}
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10.5px] font-bold ${st.cls}`}
+                                      title={sig.detail ? `${sig.label} — ${sig.detail}` : sig.label}>
+                                      <Ic size={11} />{sig.label}{sig.detail ? <span className="font-semibold opacity-70">· {sig.detail}</span> : null}
+                                    </span>
+                                  );
+                                })}
                                 {hasTm && (
                                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold"
                                         title="Tech stack changed since the previous scan">
@@ -2383,6 +2397,11 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                     {(tm!.removed?.length || 0) > 0 && (
                                       <span className="text-slate-400 dark:text-neutral-500 line-through decoration-1">was {tm!.removed.join(', ')}</span>
                                     )}
+                                  </span>
+                                )}
+                                {a.fundingStage && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600">
+                                    <DollarSign size={12} className="text-green-500" />{a.fundingStage}
                                   </span>
                                 )}
                                 {otherSignals.map(s => (
