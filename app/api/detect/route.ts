@@ -119,110 +119,47 @@ async function handleScan(req: NextRequest, pageData?: Record<string, unknown>) 
     const result = await scanSingleUrl(url, { forceRefresh, pageData, metaOnly });
     logScan(req, domain, source, result, null);
 
-    // Persist tech scan results to DB (tech_cache + company_meta)
-    // Also compute tech diff (added/removed) by comparing with previous scan
+    // scanSingleUrl (lib/scan/scan.js) already persisted tech_cache, the real
+    // tech diff, and the tech_changes feed. We must NOT re-diff and re-write
+    // tech_cache here — doing so compared against the just-written stack and
+    // clobbered techChanges back to empty. Surface scan.js's diff on the
+    // response and keep company_meta's tech summary in sync.
     if (result.count > 0) {
       try {
         const db = await getDb();
-        const techs = result.technologies || [];
-        const techNames = techs.map((t: { name: string }) => t.name);
+        const techNames = (result.technologies || []).map((t: { name: string }) => t.name);
         const now = new Date();
 
-        // Fetch previous scan to compute diff
-        const prevCache = await db.collection('tech_cache').findOne(
-          { domain },
-          { projection: { technologies: 1, updatedAt: 1, techChanges: 1 } },
+        // Prefer the fresh diff scan.js just computed; else fall back to the last
+        // known migration stored in tech_cache (so the response still shows it).
+        let techChanges = (result as Record<string, unknown>).techChanges as
+          | { added?: string[]; removed?: string[] } | undefined;
+        if (!techChanges) {
+          const tcDoc = await db.collection('tech_cache').findOne(
+            { domain }, { projection: { techChanges: 1 } },
+          );
+          const known = tcDoc?.techChanges as { added?: string[]; removed?: string[] } | undefined;
+          if (known && ((known.added?.length || 0) > 0 || (known.removed?.length || 0) > 0)) {
+            (result as Record<string, unknown>).techChanges = known;
+          }
+        }
+
+        await db.collection('company_meta').updateOne(
+          { normalizedDomain: domain },
+          {
+            $set: {
+              techStack: techNames.slice(0, 20),
+              techCount: result.count,
+              lastTechScan: now,
+              updatedAt: now,
+              ...(result.companyMeta?.appPresence && result.companyMeta.appPresence !== 'No App'
+                ? { appPresence: result.companyMeta.appPresence }
+                : {}),
+            },
+            $setOnInsert: { normalizedDomain: domain, createdAt: now },
+          },
+          { upsert: true },
         );
-        const prevNamesList: string[] = (prevCache?.technologies || []).map((t: { name: string }) => t.name);
-        const prevNames = new Set(prevNamesList);
-        const currNames = new Set(techNames as string[]);
-        const addedTechs = (techNames as string[]).filter(n => !prevNames.has(n));
-        const removedTechs = prevNamesList.filter(n => !currNames.has(n));
-
-        // Attach diff to result so the frontend can display badges
-        if (prevCache && (addedTechs.length > 0 || removedTechs.length > 0)) {
-          // Fresh changes detected in this scan
-          (result as Record<string, unknown>).techChanges = {
-            added: addedTechs,
-            removed: removedTechs,
-            previousScanAt: prevCache.updatedAt || null,
-          };
-        } else if (prevCache?.techChanges && ((prevCache.techChanges as Record<string, unknown[]>).added?.length > 0 || (prevCache.techChanges as Record<string, unknown[]>).removed?.length > 0)) {
-          // No new changes, but return the last known changes from DB
-          (result as Record<string, unknown>).techChanges = prevCache.techChanges;
-        }
-
-        // Build category lookup for changed techs
-        const techCategoryMap: Record<string, string> = {};
-        const techColorMap: Record<string, string> = {};
-        for (const t of techs as { name: string; category: string; color: string }[]) {
-          techCategoryMap[t.name] = t.category;
-          techColorMap[t.name] = t.color;
-        }
-        // Also include removed techs from previous cache
-        if (prevCache?.technologies) {
-          for (const t of prevCache.technologies as { name: string; category: string; color: string }[]) {
-            if (!techCategoryMap[t.name]) techCategoryMap[t.name] = t.category;
-            if (!techColorMap[t.name]) techColorMap[t.name] = t.color;
-          }
-        }
-
-        const writes: Promise<unknown>[] = [
-          // Full tech objects + diff in tech_cache
-          db.collection('tech_cache').updateOne(
-            { domain },
-            {
-              $set: {
-                domain, technologies: techs, count: result.count, updatedAt: now,
-                ...(prevCache ? { techChanges: { added: addedTechs, removed: removedTechs, previousScanAt: prevCache.updatedAt } } : {}),
-              },
-            },
-            { upsert: true },
-          ),
-          // Tech names + count + app presence in company_meta
-          db.collection('company_meta').updateOne(
-            { normalizedDomain: domain },
-            {
-              $set: {
-                techStack: techNames.slice(0, 20),
-                techCount: result.count,
-                lastTechScan: now,
-                updatedAt: now,
-                ...(result.companyMeta?.appPresence && result.companyMeta.appPresence !== 'No App'
-                  ? { appPresence: result.companyMeta.appPresence }
-                  : {}),
-              },
-              $setOnInsert: { normalizedDomain: domain, createdAt: now },
-            },
-            { upsert: true },
-          ),
-        ];
-
-        // Log individual tech changes to tech_changes collection (feed)
-        if (prevCache && (addedTechs.length > 0 || removedTechs.length > 0)) {
-          const changeDocs: Record<string, unknown>[] = [];
-          for (const name of addedTechs) {
-            changeDocs.push({
-              domain, techName: name, changeType: 'installed',
-              category: techCategoryMap[name] || 'Other',
-              color: techColorMap[name] || '#6B7280',
-              detectedAt: now,
-            });
-          }
-          for (const name of removedTechs) {
-            changeDocs.push({
-              domain, techName: name, changeType: 'uninstalled',
-              category: techCategoryMap[name] || 'Other',
-              color: techColorMap[name] || '#6B7280',
-              detectedAt: now,
-            });
-          }
-          if (changeDocs.length > 0) {
-            writes.push(db.collection('tech_changes').insertMany(changeDocs));
-          }
-        }
-
-        await Promise.all(writes);
       } catch {}
     }
 
