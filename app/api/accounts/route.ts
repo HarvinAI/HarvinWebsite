@@ -125,6 +125,24 @@ function inferBusinessModel(offlineStores: string | null | undefined): string {
   return hasPhysicalStores ? 'Omnichannel' : 'Pure D2C';
 }
 
+/* Non-sales-relevant tech: front-end libraries, frameworks, hosting/CDN, error
+ * monitoring, schema/markup, build tooling. Changes to these are detection
+ * variance between page loads, not a meaningful stack migration, so we exclude
+ * them from the "Tech Migration" signal. (Ecommerce platforms, analytics,
+ * marketing/ads, CDP/engagement and CRM tools are all kept.) */
+const TECH_MIGRATION_NOISE = [
+  'material ui', 'material-ui', 'json-ld', 'schema', 'lazysizes', 'three.js', 'jquery',
+  'modernizr', 'core-js', 'requirejs', 'webpack', 'vite', 'babel', 'bootstrap',
+  'font awesome', 'google font', 'react', 'vue', 'angular', 'svelte', 'next.js', 'nuxt',
+  'rollbar', 'sentry', 'new relic', 'datadog', 'bugsnag', 'raygun',
+  'google cloud', 'amazon web services', 'aws', 'cloudflare', 'fastly', 'akamai',
+  'nginx', 'apache', 'litespeed', 'openssl', 'hsts', 'http/', 'gzip', 'brotli',
+  'php', 'node.js', 'polyfill', 'gsap', 'lodash', 'moment', 'axios',
+];
+function isNoiseTech(nameLower: string): boolean {
+  return TECH_MIGRATION_NOISE.some(n => nameLower.includes(n));
+}
+
 /* Signal type → display label mapping */
 const SIGNAL_LABEL_MAP: Record<string, string> = {
   funding: 'Recently Funded',
@@ -497,14 +515,15 @@ export async function GET(req: NextRequest) {
           count: (td.count as number) || techs.length,
         };
         const tc = td.techChanges as { added?: string[]; removed?: string[] } | null;
-        // Dedupe, drop fragments, and remove anything that appears on both sides.
+        // Dedupe, drop fragments, ignore non-sales-relevant infra/UI churn, and
+        // remove anything that appears on both sides.
         const clean = (arr: unknown): string[] => {
           const seen = new Set<string>();
           const out: string[] = [];
           for (const v of Array.isArray(arr) ? arr : []) {
             const s = typeof v === 'string' ? v.trim() : '';
             const key = s.toLowerCase();
-            if (s.length < 3 || key === 'manager' || seen.has(key)) continue;
+            if (s.length < 3 || key === 'manager' || seen.has(key) || isNoiseTech(key)) continue;
             seen.add(key); out.push(s);
           }
           return out;
@@ -513,8 +532,8 @@ export async function GET(req: NextRequest) {
         const removed = clean(tc?.removed);
         const removedSet = new Set(removed.map(r => r.toLowerCase()));
         added = added.filter(a => !removedSet.has(a.toLowerCase()));
-        // Only a genuine migration (something was actually dropped) is worth
-        // flagging — pure additions are usually detection variance, not a switch.
+        // Only a genuine migration (a sales-relevant tool was actually dropped) is
+        // worth flagging — pure additions/infra churn are just detection variance.
         if (removed.length > 0) techMigrationMap[domain] = { added: added.slice(0, 4), removed: removed.slice(0, 4) };
       }
     } catch {}
