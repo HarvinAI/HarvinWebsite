@@ -3606,12 +3606,29 @@ function CategoryFinderView() {
           // metaOnly=1 → classify only (skips the slow store/app/traffic enrichment),
           // so bulk scans are fast. AbortSignal.timeout is a clean per-request cap so
           // one pathologically slow domain can't stall the batch.
-          const res = await fetch(
-            `/api/detect?url=${encodeURIComponent(domains[i])}&metaOnly=1`,
-            { signal: AbortSignal.timeout(60000) },
-          );
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Detection failed');
+          // Cloud Run can return a plain-text 502/503/504 ("Service Unavailable")
+          // while an instance is scaling under the concurrent bulk load, so we
+          // read the body as text, parse JSON defensively, and transparently
+          // retry those transient infra errors instead of surfacing a cryptic
+          // "Unexpected token 'S'" JSON error.
+          const data = await (async () => {
+            const url = `/api/detect?url=${encodeURIComponent(domains[i])}&metaOnly=1`;
+            for (let attempt = 0; ; attempt++) {
+              const res = await fetch(url, { signal: AbortSignal.timeout(60000) });
+              const text = await res.text();
+              if (res.ok) {
+                try { return JSON.parse(text); }
+                catch { throw new Error('Bad response from server'); }
+              }
+              if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < 2) {
+                await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+                continue;
+              }
+              let serverMsg = '';
+              try { serverMsg = (JSON.parse(text) as { error?: string })?.error || ''; } catch { /* non-JSON body */ }
+              throw new Error(serverMsg || (res.status === 503 ? 'Server busy — please retry' : `Server error (${res.status})`));
+            }
+          })();
           const m = data.companyMeta || {};
           setRows(prev => { const n = [...prev]; n[i] = {
             domain: domains[i], status: 'done',
