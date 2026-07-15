@@ -126,6 +126,8 @@ function safeBrandName(raw: unknown): string | null {
   else if (typeof raw === 'object' && raw !== null && 'name' in raw) name = String((raw as Record<string, unknown>).name);
   if (!name) return null;
   name = name.replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').trim();
+  // Strip leading/trailing separator junk that leaked from og:title (e.g. "3i Infotech |").
+  name = name.replace(/^[\s|\-–—·:»«/]+/, '').replace(/[\s|\-–—·:»«/]+$/, '').trim();
   // Reject stored names that leaked the domain (e.g. "zoak.co.in") → caller
   // falls back to domainToName(), which prettifies the domain instead.
   if (!name || (!/\s/.test(name) && /\.[a-z]{2,4}(\.[a-z]{2,4})?$/i.test(name))) return null;

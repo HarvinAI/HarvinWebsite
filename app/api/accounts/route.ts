@@ -497,9 +497,25 @@ export async function GET(req: NextRequest) {
           count: (td.count as number) || techs.length,
         };
         const tc = td.techChanges as { added?: string[]; removed?: string[] } | null;
-        const added = Array.isArray(tc?.added) ? tc!.added.filter(Boolean).slice(0, 4) : [];
-        const removed = Array.isArray(tc?.removed) ? tc!.removed.filter(Boolean).slice(0, 4) : [];
-        if (added.length || removed.length) techMigrationMap[domain] = { added, removed };
+        // Dedupe, drop fragments, and remove anything that appears on both sides.
+        const clean = (arr: unknown): string[] => {
+          const seen = new Set<string>();
+          const out: string[] = [];
+          for (const v of Array.isArray(arr) ? arr : []) {
+            const s = typeof v === 'string' ? v.trim() : '';
+            const key = s.toLowerCase();
+            if (s.length < 3 || key === 'manager' || seen.has(key)) continue;
+            seen.add(key); out.push(s);
+          }
+          return out;
+        };
+        let added = clean(tc?.added);
+        const removed = clean(tc?.removed);
+        const removedSet = new Set(removed.map(r => r.toLowerCase()));
+        added = added.filter(a => !removedSet.has(a.toLowerCase()));
+        // Only a genuine migration (something was actually dropped) is worth
+        // flagging — pure additions are usually detection variance, not a switch.
+        if (removed.length > 0) techMigrationMap[domain] = { added: added.slice(0, 4), removed: removed.slice(0, 4) };
       }
     } catch {}
 
