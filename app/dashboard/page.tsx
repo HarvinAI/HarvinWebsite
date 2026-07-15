@@ -120,9 +120,15 @@ function pickPriorityTech(techStack: string[], categoryLookup: Record<string, st
 
 function safeBrandName(raw: unknown): string | null {
   if (!raw) return null;
-  if (typeof raw === 'string') return raw;
-  if (typeof raw === 'object' && raw !== null && 'name' in raw) return String((raw as Record<string, unknown>).name);
-  return null;
+  let name: string | null = null;
+  if (typeof raw === 'string') name = raw;
+  else if (typeof raw === 'object' && raw !== null && 'name' in raw) name = String((raw as Record<string, unknown>).name);
+  if (!name) return null;
+  name = name.replace(/^https?:\/\//i, '').replace(/^www\d*\./i, '').trim();
+  // Reject stored names that leaked the domain (e.g. "zoak.co.in") → caller
+  // falls back to domainToName(), which prettifies the domain instead.
+  if (!name || (!/\s/.test(name) && /\.[a-z]{2,4}(\.[a-z]{2,4})?$/i.test(name))) return null;
+  return name;
 }
 
 function domainToName(domain: string): string {
