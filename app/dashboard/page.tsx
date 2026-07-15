@@ -3539,7 +3539,6 @@ type FinderRow = {
   businessModel?: string; categoryConfidence?: string; isNonD2C?: boolean; error?: string;
 };
 
-const MAX_BULK_DOMAINS = 200;
 const BULK_CONCURRENCY = 2;
 
 function parseBulkDomains(text: string): string[] {
@@ -3614,10 +3613,9 @@ function CategoryFinderView() {
   const start = () => {
     const domains = parseBulkDomains(input);
     if (!domains.length) { setNote('Paste at least one valid domain (one per line).'); return; }
-    const capped = domains.slice(0, MAX_BULK_DOMAINS);
-    setNote(domains.length > MAX_BULK_DOMAINS ? `Processing the first ${MAX_BULK_DOMAINS} of ${domains.length} domains.` : '');
-    setRows(capped.map(d => ({ domain: d, status: 'pending' as const })));
-    runBulk(capped);
+    setNote('');
+    setRows(domains.map(d => ({ domain: d, status: 'pending' as const })));
+    runBulk(domains);
   };
 
   const stop = () => { cancelRef.current = true; setRunning(false); };
@@ -3679,7 +3677,7 @@ function CategoryFinderView() {
             {total > 0 && (
               <button onClick={reset} className="px-3 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">Clear</button>
             )}
-            <span className="text-[11.5px] text-slate-400 dark:text-neutral-500">Up to {MAX_BULK_DOMAINS} at a time · duplicates removed</span>
+            <span className="text-[11.5px] text-slate-400 dark:text-neutral-500">No limit · duplicates removed</span>
           </div>
         </div>
       ) : null}
