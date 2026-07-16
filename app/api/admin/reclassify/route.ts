@@ -15,13 +15,18 @@ const { CLASSIFIER_VERSION } = require('@/lib/scan/companyMeta');
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
-// Accounts still on an old classifier version (or never versioned). Known brands
-// are excluded — their category comes from the curated KNOWN_BRANDS table.
+// Target the accounts actually likely to be WRONG: those on an old classifier
+// version AND either low/unknown confidence or an empty/Unknown category. This
+// deliberately skips medium/high-confidence accounts (mostly already correct) so
+// we fix the low-confidence mistakes without churning good classifications.
+// ($ne / $in:[null] also match missing fields, so this covers un-versioned and
+// un-scored docs too.)
 const staleFilter = {
   normalizedDomain: { $exists: true, $nin: [null, '', 'harvin.ai'] },
+  classifierVersion: { $ne: CLASSIFIER_VERSION },
   $or: [
-    { classifierVersion: { $ne: CLASSIFIER_VERSION } },
-    { classifierVersion: { $exists: false } },
+    { categoryConfidence: { $in: ['low', null] } },
+    { category: { $in: [null, '', 'Unknown'] } },
   ],
 };
 
