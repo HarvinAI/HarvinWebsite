@@ -32,12 +32,17 @@ const staleFilter = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Read from the primary so the count/find reflect writes we just made — otherwise
+// a lagged secondary can report 0 stale while accounts still need healing, stalling
+// the loop.
+const primary = { readPreference: 'primary' as const };
+
 export async function GET(req: NextRequest) {
   const denied = await requireAdmin(req);
   if (denied) return denied;
   const db = await getDb();
-  const remaining = await db.collection('company_meta').countDocuments(staleFilter);
-  const total = await db.collection('company_meta').countDocuments({});
+  const remaining = await db.collection('company_meta').countDocuments(staleFilter, primary);
+  const total = await db.collection('company_meta').countDocuments({}, primary);
   return NextResponse.json({ classifierVersion: CLASSIFIER_VERSION, remaining, total });
 }
 
@@ -52,7 +57,7 @@ export async function POST(req: NextRequest) {
 
   const db = await getDb();
   const docs = await db.collection('company_meta')
-    .find(staleFilter)
+    .find(staleFilter, primary)
     .project({ normalizedDomain: 1, category: 1, subCategory: 1, categoryConfidence: 1 })
     // Lowest-confidence (most likely wrong) first, so the worst offenders heal first.
     .sort({ categoryConfidence: 1, updatedAt: 1 })
@@ -101,11 +106,18 @@ export async function POST(req: NextRequest) {
       if (guarded) kept++;
       results.push({ domain: doc.normalizedDomain, before, after, changed: didChange, guarded });
     } catch (e) {
+      // The scan failed hard (unreachable/blocked domain). Stamp the current
+      // version so this domain isn't retried forever — it keeps whatever category
+      // it already had and simply exits the heal queue.
+      await db.collection('company_meta').updateOne(
+        { normalizedDomain: doc.normalizedDomain },
+        { $set: { classifierVersion: CLASSIFIER_VERSION } },
+      ).catch(() => {});
       results.push({ domain: doc.normalizedDomain, before, error: (e as Error).message });
     }
     if (i < docs.length - 1) await sleep(spacingMs);
   }
 
-  const remaining = await db.collection('company_meta').countDocuments(staleFilter);
+  const remaining = await db.collection('company_meta').countDocuments(staleFilter, primary);
   return NextResponse.json({ processed: results.length, changed, remaining, results });
 }
