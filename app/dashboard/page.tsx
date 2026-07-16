@@ -202,6 +202,33 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+/* Ecommerce/CMS platform a brand runs on — universal at-a-glance context,
+ * derived from the detected tech stack (first match wins, most specific first). */
+const PLATFORM_MATCHERS: [RegExp, string][] = [
+  [/shopify plus/i, 'Shopify Plus'],
+  [/shopify/i, 'Shopify'],
+  [/woocommerce/i, 'WooCommerce'],
+  [/adobe commerce|magento/i, 'Magento'],
+  [/bigcommerce/i, 'BigCommerce'],
+  [/salesforce commerce|demandware/i, 'Salesforce'],
+  [/commercetools/i, 'commercetools'],
+  [/prestashop/i, 'PrestaShop'],
+  [/opencart/i, 'OpenCart'],
+  [/wix stores|\bwix\b/i, 'Wix'],
+  [/squarespace/i, 'Squarespace'],
+  [/webflow/i, 'Webflow'],
+  [/\bshopware\b/i, 'Shopware'],
+  [/wordpress/i, 'WordPress'],
+  [/drupal/i, 'Drupal'],
+];
+function detectPlatform(techStack: string[] | undefined): string | null {
+  const names = techStack || [];
+  for (const [re, label] of PLATFORM_MATCHERS) {
+    if (names.some(n => typeof n === 'string' && re.test(n))) return label;
+  }
+  return null;
+}
+
 /* Onboarding label → DB value mappings (mirrors API CATEGORY_MAP / REGION_MAP) */
 const ONBOARD_CAT_MAP: Record<string, string> = {
   'Beauty & Skincare': 'Beauty & Personal Care',
@@ -2365,7 +2392,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                             const hasTm = !!tm && ((tm.added?.length || 0) > 0 || (tm.removed?.length || 0) > 0);
                             const techSignals = (a.techSignals || []).slice(0, 3);
                             const otherSignals = (a.activeSignals || []).filter(s => !(hasTm && s === 'Tech Migration'));
-                            if (!a.fundingStage && !hasTm && techSignals.length === 0 && otherSignals.length === 0) return null;
+                            const platform = detectPlatform(a.techStack);
                             const SIG_STYLE: Record<string, { cls: string; Icon: typeof Megaphone }> = {
                               ent:     { cls: 'text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-500/15 border-amber-200 dark:border-amber-500/25', Icon: Building2 },
                               ad:      { cls: 'text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/25', Icon: Megaphone },
@@ -2409,6 +2436,18 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                     <Target size={10} className="text-amber-400" />{s}
                                   </span>
                                 ))}
+                                {/* Universal meta — present on every card so the row (and card
+                                    height) is consistent whether or not the account has signals. */}
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-neutral-500 ml-auto pl-2">
+                                  {platform && (
+                                    <>
+                                      <ShoppingCart size={11} className="opacity-70" />
+                                      <span className="font-semibold text-slate-500 dark:text-neutral-400">{platform}</span>
+                                      <span className="opacity-40">·</span>
+                                    </>
+                                  )}
+                                  <span>Updated {formatDate(a.updatedAt)}</span>
+                                </span>
                               </div>
                             );
                           })()}
