@@ -2436,9 +2436,10 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                                     <Target size={10} className="text-amber-400" />{s}
                                   </span>
                                 ))}
-                                {/* Universal meta — present on every card so the row (and card
-                                    height) is consistent whether or not the account has signals. */}
-                                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-neutral-500 ml-auto pl-2">
+                                {/* Universal meta — present on every card so Row 4 is always
+                                    populated and left-aligned, keeping every card consistent
+                                    whether or not the account has buying signals. */}
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-neutral-500">
                                   {platform && (
                                     <>
                                       <ShoppingCart size={11} className="opacity-70" />
