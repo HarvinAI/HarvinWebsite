@@ -2250,7 +2250,7 @@ const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
                   return (
                     <div key={a.normalizedDomain}
                       className={`bg-white dark:bg-[#141414]/60 border rounded-xl overflow-hidden transition-all group ${isSelected ? 'border-[#C94C1E]/40 ring-2 ring-[#C94C1E]/10' : 'border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.12] hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)]'}`}>
-                      <div className="flex gap-0">
+                      <div className="flex gap-0 min-h-[152px]">
                         {/* Checkbox */}
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleSelect(a.normalizedDomain); }}
