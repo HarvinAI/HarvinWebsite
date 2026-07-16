@@ -54,18 +54,47 @@ export async function POST(req: NextRequest) {
     .limit(limit)
     .toArray();
 
+  const isVagueSub = (s: unknown) => !s || /^(general|unknown|other|n\/?a)$/i.test(String(s));
+  const isRealCat = (c: unknown) => !!c && c !== 'Unknown' && c !== 'Not Required';
+
   const results: Array<Record<string, unknown>> = [];
   let changed = 0;
+  let kept = 0;
   for (let i = 0; i < docs.length; i++) {
     const doc = docs[i];
-    const before = `${doc.category ?? '—'} / ${doc.subCategory ?? '—'}`;
+    const oldCat = doc.category, oldSub = doc.subCategory;
+    const before = `${oldCat ?? '—'} / ${oldSub ?? '—'}`;
     try {
       const r = await scanSingleUrl(doc.normalizedDomain, { forceRefresh: true, metaOnly: true });
       const m = r?.companyMeta || {};
-      const after = `${m.category ?? '—'} / ${m.subCategory ?? '—'}`;
+
+      // Degradation guard: a re-scan (fetch can be flaky/blocked) must never make
+      // a previously-good classification WORSE. If the new result lost the
+      // category or turned a specific sub-category into a vague one, restore the
+      // old values — while keeping the freshly-stamped classifierVersion so the
+      // account is considered healed and won't re-loop.
+      let after = `${m.category ?? '—'} / ${m.subCategory ?? '—'}`;
+      let guarded = false;
+      if (isRealCat(oldCat) && !isRealCat(m.category)) {
+        // Lost the category entirely → full revert.
+        await db.collection('company_meta').updateOne(
+          { normalizedDomain: doc.normalizedDomain },
+          { $set: { category: oldCat, subCategory: oldSub } },
+        );
+        after = before; guarded = true;
+      } else if (oldCat === m.category && !isVagueSub(oldSub) && isVagueSub(m.subCategory)) {
+        // Same category but the sub-category got vaguer → keep the specific sub.
+        await db.collection('company_meta').updateOne(
+          { normalizedDomain: doc.normalizedDomain },
+          { $set: { subCategory: oldSub } },
+        );
+        after = `${m.category} / ${oldSub}`; guarded = true;
+      }
+
       const didChange = after !== before;
       if (didChange) changed++;
-      results.push({ domain: doc.normalizedDomain, before, after, changed: didChange });
+      if (guarded) kept++;
+      results.push({ domain: doc.normalizedDomain, before, after, changed: didChange, guarded });
     } catch (e) {
       results.push({ domain: doc.normalizedDomain, before, error: (e as Error).message });
     }
